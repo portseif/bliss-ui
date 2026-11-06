@@ -294,7 +294,7 @@ public struct BlissTableHeader<Row>: View {
                 .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium, outset: -2))
                 .frame(width: BlissTableMetrics.checkboxWidth, alignment: .leading)
                 .disabled(selectionState == .empty)
-                .accessibilityLabel(Text("Select all"))
+                .accessibilityLabel(Text("Select all", bundle: .module))
                 .accessibilityAddTraits(selectionState == .allSelected ? [.isSelected] : [])
             }
             BlissTableRowLayout(columns: columns.map(\.width)) {
@@ -339,7 +339,7 @@ public struct BlissTableHeader<Row>: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 3))
-            .accessibilityHint(Text("Sorts by this column"))
+            .accessibilityHint(Text("Sorts by this column", bundle: .module))
         } else {
             Text(LocalizedStringKey(column.title))
                 .lineLimit(1)
@@ -373,7 +373,7 @@ private struct BlissTableRow<Row, Cells: View>: View {
                 }
                 .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium, outset: -2))
                 .frame(width: BlissTableMetrics.checkboxWidth, alignment: .leading)
-                .accessibilityLabel(Text("Select row"))
+                .accessibilityLabel(Text("Select row", bundle: .module))
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
             cellArea

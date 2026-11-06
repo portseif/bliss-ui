@@ -60,6 +60,9 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
     /// The trigger's side padding. Pass a tighter value where the picker sits
     /// inline, e.g. in a title-bar breadcrumb.
     let horizontalPadding: CGFloat
+    /// Draws the title beside the trigger. Pass false where a row already shows
+    /// it (a `SettingsRow`); the title still labels the trigger for VoiceOver.
+    let showsTitle: Bool
 
     @State private var showingMenu = false
     @State private var focusedIndex: Int? = nil
@@ -76,9 +79,11 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
         optionColor: ((T) -> Color?)? = nil,
         optionDetail: ((T) -> PickerOptionDetail)? = nil,
         compactLabel: String? = nil,
-        horizontalPadding: CGFloat = Spacing.buttonPaddingH
+        horizontalPadding: CGFloat = Spacing.buttonPaddingH,
+        showsTitle: Bool = true
     ) where IconContent == EmptyView {
         self.title = title
+        self.showsTitle = showsTitle
         self.compactLabel = compactLabel
         self._selection = selection
         self.options = options
@@ -97,9 +102,11 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
         optionTitle: @escaping (T) -> String,
         optionIconView: @escaping (T, CGFloat) -> IconContent,
         compactLabel: String? = nil,
-        horizontalPadding: CGFloat = Spacing.buttonPaddingH
+        horizontalPadding: CGFloat = Spacing.buttonPaddingH,
+        showsTitle: Bool = true
     ) {
         self.title = title
+        self.showsTitle = showsTitle
         self.compactLabel = compactLabel
         self._selection = selection
         self.options = options
@@ -126,7 +133,7 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
 
     public var body: some View {
         HStack {
-            if !title.isEmpty {
+            if showsTitle && !title.isEmpty {
                 Text(title)
                 Spacer()
             }
@@ -160,6 +167,8 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
                 }
             }
             .buttonStyle(FloatingMenuPickerButtonStyle(isActive: showingMenu, horizontalPadding: horizontalPadding))
+            .accessibilityLabel(Text(verbatim: title.isEmpty ? selection : title))
+            .accessibilityValue(Text(verbatim: title.isEmpty ? "" : selection))
             .floatingMenu(
                 isPresented: $showingMenu,
                 itemCount: visibleOptions.count,
@@ -367,7 +376,7 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
             .padding(.vertical, Spacing.xs - 1)
 
             if visibleOptions.isEmpty {
-                Text("No matches")
+                Text("No matches", bundle: .module)
                     .font(Typography.captionSmall)
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, Spacing.sm + 2)

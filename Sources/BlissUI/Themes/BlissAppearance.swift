@@ -20,7 +20,14 @@ public nonisolated enum ColorSchemeOption: String, CaseIterable, Identifiable, S
 
     public var id: String { rawValue }
 
-    public var title: String { rawValue }
+    /// The option's name, translated. `rawValue` is the persisted value.
+    public var title: String {
+        switch self {
+        case .system: return String(localized: "System", bundle: .module)
+        case .light: return String(localized: "Light", bundle: .module)
+        case .dark: return String(localized: "Dark", bundle: .module)
+        }
+    }
 
     public var icon: String {
         switch self {

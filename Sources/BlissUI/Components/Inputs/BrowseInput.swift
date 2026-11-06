@@ -26,7 +26,7 @@ public struct BrowseInput: View {
 
     public init(
         path: String,
-        placeholder: String = String(localized: "No folder selected"),
+        placeholder: String = String(localized: "No folder selected", bundle: .blissUI),
         icon: String = "folder",
         onBrowse: @escaping () -> Void
     ) {
@@ -41,7 +41,7 @@ public struct BrowseInput: View {
     /// `canChooseFiles` (and optionally `allowedContentTypes`) to pick files.
     public init(
         path: Binding<String>,
-        placeholder: String = String(localized: "No folder selected"),
+        placeholder: String = String(localized: "No folder selected", bundle: .blissUI),
         icon: String = "folder",
         canChooseFiles: Bool = false,
         canChooseDirectories: Bool = true,
@@ -79,7 +79,7 @@ public struct BrowseInput: View {
             Spacer(minLength: Spacing.sm)
 
             // Browse — text button on the trailing end of the underline.
-            Button("Browse") {
+            Button(String(localized: "Browse", bundle: .module)) {
                 onBrowse()
             }
             .buttonStyle(SecondaryButtonStyle(compact: true, accent: true))

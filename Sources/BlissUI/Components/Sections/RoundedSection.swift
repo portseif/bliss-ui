@@ -48,7 +48,9 @@ public struct RoundedSection<Content: View, Header: View>: View {
     @Environment(\.roundedSectionPlain) private var isPlain
 
     private var backgroundColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.04) : .white
+        // Light: the theme's raised surface (cream under Low Glare), white for
+        // System. Dark: a faint lift over whatever pane it sits on.
+        colorScheme == .dark ? Color.white.opacity(0.04) : (ThemeColors.activePalette?.elevatedBackground.color ?? .white)
     }
 
     private var borderColor: Color {

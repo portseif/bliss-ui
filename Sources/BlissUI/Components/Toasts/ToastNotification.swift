@@ -98,7 +98,7 @@ private struct ToastDismissButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
-        .accessibilityLabel(Text("Dismiss"))
+        .accessibilityLabel(Text("Dismiss", bundle: .module))
         .onHover { hovering in
             withAnimation(Animations.hover) { isHovering = hovering }
         }
@@ -290,14 +290,14 @@ public struct ToastNotification: View {
         // A NEW operation (different toast id) shouldn't inherit the old card state.
         .onChange(of: toast.id) { _, _ in expanded = false }
         .confirmationDialog(
-            "Stop this task?",
+            Text("Stop this task?", bundle: .module),
             isPresented: $showingCancelConfirm,
             titleVisibility: .visible
         ) {
-            Button("Stop", role: .destructive) { onCancel?() }
-            Button("Keep Running", role: .cancel) {}
+            Button(String(localized: "Stop", bundle: .module), role: .destructive) { onCancel?() }
+            Button(String(localized: "Keep Running", bundle: .module), role: .cancel) {}
         } message: {
-            Text("It stops at the next safe step. Anything already done stays in place.")
+            Text("It stops at the next safe step. Anything already done stays in place.", bundle: .module)
         }
     }
 
@@ -368,7 +368,7 @@ public struct ToastNotification: View {
             HStack(spacing: Spacing.sm) {
                 if let startedAt = toast.startedAt {
                     HStack(spacing: 4) {
-                        Text("Elapsed")
+                        Text("Elapsed", bundle: .module)
                         Text(timerInterval: startedAt...Date.distantFuture, countsDown: false, showsHours: false)
                             .monospacedDigit()
                     }
@@ -382,7 +382,7 @@ public struct ToastNotification: View {
                     } label: {
                         HStack(spacing: Spacing.xs) {
                             Image(systemName: "stop.fill")
-                            Text("Stop")
+                            Text("Stop", bundle: .module)
                         }
                     }
                     .buttonStyle(SecondaryButtonStyle(compact: true))
@@ -556,7 +556,7 @@ public struct ToastNotification: View {
             // blur-fades in (see `.transition` below) so it never pops from nothing.
             .onTapGesture { withAnimation(Animations.accordion) { expanded.toggle(); copied = false } }
             // The tap-to-expand is a gesture; give VoiceOver the same press.
-            .accessibilityAction(named: expanded ? Text("Hide Details") : Text("Show Details")) {
+            .accessibilityAction(named: expanded ? Text("Hide Details", bundle: .module) : Text("Show Details", bundle: .module)) {
                 withAnimation(Animations.accordion) { expanded.toggle(); copied = false }
             }
 
@@ -599,7 +599,7 @@ public struct ToastNotification: View {
                             HStack(spacing: Spacing.xxs) {
                                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
                                     .font(Typography.labelTiny)
-                                Text(copied ? "Copied" : (toast.failures.isEmpty ? "Copy error" : "Copy log"))
+                                Text(copied ? "Copied" : (toast.failures.isEmpty ? "Copy error" : "Copy log"), bundle: .module)
                                     .font(Typography.labelMedium)
                             }
                             .foregroundStyle(copied ? Success.success500 : Color.accent)
@@ -641,10 +641,10 @@ public struct ToastNotification: View {
     private var failureSummary: String? {
         guard !toast.failures.isEmpty else { return nil }
         if let total = toast.totalItems {
-            return String(localized: "\(max(0, total - toast.failures.count)) / \(total) OK")
+            return String(localized: "\(max(0, total - toast.failures.count)) / \(total) OK", bundle: .module)
         }
         let n = toast.failures.count
-        return n == 1 ? String(localized: "1 item skipped") : String(localized: "\(n) items skipped")
+        return n == 1 ? String(localized: "1 item skipped", bundle: .module) : String(localized: "\(n) items skipped", bundle: .module)
     }
 
     private func copyError() {
@@ -663,7 +663,7 @@ public struct ToastNotification: View {
     private var displaySegments: [ToastSegment] {
         if !toast.segments.isEmpty { return toast.segments }
         if !toast.failures.isEmpty, let total = toast.totalItems {
-            return [ToastSegment(String(localized: "\(toast.failures.count) of \(total) items"))]
+            return [ToastSegment(String(localized: "\(toast.failures.count) of \(total) items", bundle: .module))]
         }
         let trimmed = toast.message.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty ? [] : [ToastSegment(trimmed)]

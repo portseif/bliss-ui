@@ -29,12 +29,19 @@ Sources/BlissUI/
 ├── Effects/         Glass border, dimmed overlay, shimmer
 ├── Window/          Traffic-light offset, shell backdrop, drag exclusion, frame persistence, borderless card
 ├── Services/        Focus visibility, shortcut hints, popup menus, secret clipboard
-├── Extensions/      Date formatting, LocalizedStringKey(verbatim:)
+├── Extensions/      Date formatting, LocalizedStringKey(verbatim:), Bundle.blissUI
+├── Resources/       Localizable.xcstrings — the library's own strings, 10 languages
 └── Components/
     ├── Actions/     ActionBar, HoverIconButton, quick-action menu rows
-    ├── Display/     Badge, EmptyState, ThinkingSpinner, InfoButton, PathHoverChip, SlidingNumber, …
-    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, secondary click
-    ├── Navigation/  UnderlineTabBar, StepIndicator
+    ├── Calendar/    MonthCalendar, DatePickerField, DateRangePickerField, DateRangeCalendar
+    ├── Data/        ProgressBar, ProgressRing, UsageBar, TickStrip, ChangeBlocks, Sparkline
+    ├── Display/     Badge, EmptyState, ThinkingSpinner, InfoButton, PathHoverChip, SlidingNumber, StatusPill, KeyHintPill, …
+    ├── Feedback/    Banner, DisclosureSection, ConfirmationSheet, skeleton loading
+    ├── Filters/     FilterBar + FilterCondition matching, filter menu rows, FilterMenuButton
+    ├── Forms/       SettingsRow family, settings table of contents, OptionCard, RadioGlyph, wizard rows
+    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, NumberField, BlissSlider, TextArea, TokenField, ComboBox, ShortcutRecorder
+    ├── Layout/      Avatar, AvatarStack, Breadcrumbs, InspectorSplit, CodeField + highlighters
+    ├── Navigation/  UnderlineTabBar, StepIndicator, CommandPalette, Sidebar, SlideoutPanel
     ├── Overlays/    FloatingMenu, Tooltip, ScrollViewWithThinIndicator, ProgressOverlay
     ├── Sections/    RoundedSection, SectionHeader, DetailRow, InfoList
     ├── Sheets/      AppSheet, SheetHeader, SheetCloseButton
@@ -51,6 +58,7 @@ scripts/screenshots.sh  Regenerates docs/images
 - Descriptive names, no abbreviations; views organized by `// MARK: -`; services are `static let shared` singletons.
 - **Public API:** a public struct needs an explicit `public init` (memberwise inits are internal), `public var body`, and public defaults may only reference public symbols. Keep plumbing (NSViewRepresentables, preference keys, panel controllers) internal. Add the construction test in `BlissUIPublicAPITests`.
 - No per-struct `private let fooFont = .system(...)` constants; inline `Typography.*`.
+- **Localization:** the library's own strings resolve in `Bundle.module`, never the app's catalog — `Text("Copy", bundle: .module)`, `String(localized: "Copy", bundle: .module)`, `Button(String(localized: …, bundle: .module))`, and `.verbatim(String(localized: …, bundle: .module))` into a `LocalizedStringKey` parameter. A public default argument can't see the internal `.module`, so it uses `.blissUI`. Add every new key to `Resources/Localizable.xcstrings` with its translations. Strings a caller passes in (`Badge`, `BlissTableColumn`, `SheetHeader` titles) stay in the app's bundle. To check a translation in a test use `LocalizedStringResource(_:locale:bundle:)` — `String(localized:bundle:locale:)` only formats with `locale`, it doesn't pick the language.
 - **Accessibility:** an icon-only button gets `.accessibilityLabel(Text("…"))` (its tooltip text — `.tooltip` is a hover panel VoiceOver never sees). A `Toggle` gets its real title even with `.labelsHidden()`. Drawn-only selection gets `.accessibilityAddTraits(isSelected ? [.isSelected] : [])`. A row opened by a tap uses `.rowTapAction { … }`, not a bare `.onTapGesture`. **Every clickable control is a Tab stop with the one ring**: a bare `.plain` button outside a menu panel uses `FocusablePlainButtonStyle(cornerRadius:outset:bleed:)` instead. A hover-only control (opacity 0 + `allowsHitTesting`) is also `.disabled` while hidden, or Tab lands on it and Space fires it unseen.
 
 ---
@@ -110,10 +118,31 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 - Toggles are `.toggleStyle(.flatSwitch)`, never the native `.switch` (a Tab stop with the shared ring that Space flips, real switch semantics for VoiceOver).
 - `FloatingMenuPicker` for dropdowns, `FloatingMenu` for action menus, `SegmentedPills` for segmented controls, `InfoButton(text:)` / `InfoHint { … }` instead of `.help()`.
 - `ColorPickerButton` and the icon pickers stay native `.popover`s on purpose: a floating panel can't become key, so search fields and Return/Esc wouldn't work.
+- `DatePickerField` / `DateRangePickerField` open native `.popover`s for the same reason: the calendar grid needs arrow keys, Return and Esc. `MonthCalendar` on its own is one Tab stop with a roving focused day (arrows, Page Up/Down for months, ⇧ for years, Space picks). Dates follow `Calendar.current` and the locale — never hardcode month or weekday names.
+- `NumberField` (− / + steppers, ↑/↓ step, Shift ×10, typing applies live and reverts on commit) and `BlissSlider` (accent track, ←/→, Home/End, adjustable for VoiceOver). `TextArea` grows between a `lineLimit` range then scrolls with the thin indicator; its `title` is a `LocalizedStringResource` because the hosted `NSTextView` needs a resolved string for its accessibility label.
+- `TokenField` (Return/comma/paste add, Backspace selects then removes, ←/→ move between tokens), `ComboBox` (free text or restricted to its options) and `ShortcutRecorder` (`KeyboardShortcutValue`) keep focus in the window's field and show suggestions in a floating panel driven by the field's own `onKeyPress`.
+- `FilterBar` edits `Binding<[FilterCondition]>` over app-supplied `FilterField`s (chips read field │ operator ▾ │ values ▾ │ ×); evaluate rows with `conditions.matches { field in row.value(for: field) }`. Filter and Display menus use `FilterCheckRow` / `DisplayRadioRow` / `FilterMenuRow` and a `FilterMenuButton` trigger; menus that stay open return `.keepOpen` from `onActivate`.
+- `FloatingMenuPicker(_, …, showsTitle: false)` where a row already shows the title (`SettingsRow`) — the title still labels the trigger for VoiceOver.
 
 ### Display
 
 `Badge` (one badge, many styles: `.badgeStyle(.success)`, `Badge(count:)`, `.dot(_:)`), `EmptyState` (fills its container; `.contained()` for a section-level empty), `ThinkingSpinner` (the one indeterminate spinner — `ProgressView` can't be tinted on macOS), `TextLink` (URLs only), `TimeAgoLabel`, `DividedForEach`, `DetailRow`, `ShortcutKey`, `SectionHeader`, `UnderlineTabBar`, `FlowLayout`, `ShimmerTextOverlay`, `SlidingNumber`, `RoundedSection` (settings/form card).
+
+- **Semantic badges** fill with a wash of their status tint in both schemes (`X.tint.opacity(0.1)` light / `0.2` dark, hairline `0.3` / `0.4`). The light ramp's `*50` / `*200` steps are near-full saturation; never fill a badge with them.
+- **Data views** are shape-based and dependency-free: `ProgressBar` / `ProgressRing` (determinate; `nil` value is the indeterminate sweep, still under Reduce Motion — `ThinkingSpinner` stays the one indeterminate spinner), `UsageBar` (stacked segments in whole points, largest-remainder split, or a meter that turns amber past 75% and red past 90%), `TickStrip`, `ChangeBlocks`, `Sparkline` (gaps draw dashed, never interpolated). Strokes and text use the status marks; washes use `.statusTint`.
+- **People & layout:** `Avatar` (initials on a name-hashed color held to the theme's contrast, optional status with a shape per state), `AvatarStack`, `Breadcrumbs` (middle segments fold into a "…" floating menu), `InspectorSplit` (pinned shrinks the content, unpinned is a drawer with a dim; drag grip, width clamped and optionally persisted), `CodeField` (clear editor under a colored overlay; `.shell` / `.yaml` / your own `CodeHighlighter`).
+
+### Navigation
+
+- `CommandPalette` / `.commandPalette(isPresented:commands:)` — app-supplied sections of `CommandPaletteCommand`s, ranked fuzzy matching, recents, ↑↓/Tab move, Return runs, Esc clears then closes. Modal like `AppSheet` (content disabled + hidden from VoiceOver, scoped blur on `Animations.paletteBackdrop`); the card itself appears at once — ⌘K is a keyboard action. The selected row rings only after a keyboard move.
+- `Sidebar(selection:)` with `SidebarSection`, `SidebarRow` (icon, count badge, ⌘-number hint while ⌘ is held) and `SidebarFilterRow` (dot or custom icon).
+- `.slideoutPanel(isPresented:title:edge:width:)` — stays mounted, slides on `Animations.pane` in / `exit` out (fades under Reduce Motion), a click outside or Esc closes it. Not keyboard-modal.
+
+### Forms & feedback
+
+- `SettingsRow` / `SettingsToggleRow` / `SettingsActionRow` inside `RoundedSection(divided: true)`; `SettingsScrollView` adds the table-of-contents rail with scroll-spy (mark sections with `.settingsSection(id)`).
+- `OptionCard` / `OptionCardGrid` for pick-one or pick-many cards; `RadioGlyph` pairs with `CheckboxGlyph`; `WizardRadioRow` and `WizardStepRow` (pending / current / running / done / failed).
+- `Banner` (info / success / warning / danger: mark-colored icon, tint wash and edge), `DisclosureSection` (chevron on `Animations.accordion`, content only built while open), `.confirmationSheet(…)` (an `AppSheet` with `SheetHeader` + compact `ActionBar`; Return confirms, Esc cancels), and `.skeleton(isLoading:)` / `SkeletonBlock` (one window-aligned sweep, no mask, still under Reduce Motion).
 
 ### Tables
 
@@ -163,3 +192,7 @@ A value-keyed `.animation(_:value:)` on a big subtree retimes everything that ch
 | `Text` in a vertical `ScrollView` expands horizontally | `.lineLimit(nil).fixedSize(horizontal: false, vertical: true)` |
 | Singleton panel hide/show race | Clear stored window references synchronously at the start of `hide()`, animate a captured local |
 | Never `hasShadow` with a SwiftUI `.shadow()` on a panel | Stippled double halo |
+| `onKeyPress(.delete)` never fires for Backspace | Backspace arrives as U+007F, SwiftUI's `.delete` is U+0008 — match the internal `KeyEquivalent.backspace` too |
+| A focused Button loses focus to the first text field | Its label switched between view types (`if` / `else`); keep one structure and change its contents |
+| `.accessibilityLabel` on a hosted `NSTextView` does nothing | Set the AppKit view's label from a resolved string (`TextArea` takes a `LocalizedStringResource`) |
+| `ForEach(weekdaySymbols, id: \.self)` drops or duplicates days | Initials repeat ("S", "T"); identify by position |

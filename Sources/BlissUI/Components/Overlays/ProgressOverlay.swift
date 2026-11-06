@@ -169,7 +169,7 @@ public struct ProgressOverlay: View {
                     }
 
                     if activeItems.count > 3 {
-                        Text("+ \(activeItems.count - 3) more...")
+                        Text("+ \(activeItems.count - 3) more...", bundle: .module)
                             .font(Typography.captionTiny)
                             .foregroundStyle(.tertiary)
                     }

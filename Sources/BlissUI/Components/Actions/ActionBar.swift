@@ -28,8 +28,8 @@ public struct ActionBar: View {
     var leadingContent: AnyView? = nil
 
     public init(
-        cancelTitle: String? = String(localized: "Cancel"),
-        confirmTitle: String = String(localized: "Save"),
+        cancelTitle: String? = String(localized: "Cancel", bundle: .blissUI),
+        confirmTitle: String = String(localized: "Save", bundle: .blissUI),
         isConfirmDisabled: Bool = false,
         isDestructive: Bool = false,
         material: Material = .ultraThinMaterial,
@@ -115,7 +115,7 @@ public struct ActionBar: View {
 extension ActionBar {
         /// Simple cancel/confirm action bar
     public static func cancelConfirm(
-        confirmTitle: String = String(localized: "Save"),
+        confirmTitle: String = String(localized: "Save", bundle: .blissUI),
         isConfirmDisabled: Bool = false,
         onCancel: @escaping () -> Void,
         onConfirm: @escaping () -> Void

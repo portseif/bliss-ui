@@ -17,8 +17,8 @@ public enum DateFormatting {
 
     /// Day-bucket label for timeline grouping: "Today", "Yesterday", or "MMM d".
     public static func formatDayLabel(for date: Date, calendar: Calendar = .current) -> String {
-        if calendar.isDateInToday(date) { return String(localized: "Today") }
-        if calendar.isDateInYesterday(date) { return String(localized: "Yesterday") }
+        if calendar.isDateInToday(date) { return String(localized: "Today", bundle: .module) }
+        if calendar.isDateInYesterday(date) { return String(localized: "Yesterday", bundle: .module) }
         let formatter = DateFormatter()
         // A template, not a fixed format, so the month/day order follows the locale.
         formatter.setLocalizedDateFormatFromTemplate("MMMd")
@@ -84,10 +84,10 @@ public enum DateFormatting {
     public static func formatTimeUntil(_ date: Date) -> String {
         let interval = date.timeIntervalSince(Date())
         switch interval {
-        case ..<60: return String(localized: "now")
-        case ..<3600: return String(localized: "in \(Int(interval / 60))m")
-        case ..<86_400: return String(localized: "in \(Int(interval / 3600))h")
-        default: return String(localized: "in \(Int(interval / 86_400))d")
+        case ..<60: return String(localized: "now", bundle: .module)
+        case ..<3600: return String(localized: "in \(Int(interval / 60))m", bundle: .module)
+        case ..<86_400: return String(localized: "in \(Int(interval / 3600))h", bundle: .module)
+        default: return String(localized: "in \(Int(interval / 86_400))d", bundle: .module)
         }
     }
 
@@ -95,19 +95,19 @@ public enum DateFormatting {
         let interval = Date().timeIntervalSince(date)
         // Whole phrases per unit (not a spliced " ago"): word order differs by language.
         switch interval {
-        case ..<60: return String(localized: "now")
+        case ..<60: return String(localized: "now", bundle: .module)
         case ..<3600:
             let minutes = Int(interval / 60)
-            return withSuffix ? String(localized: "\(minutes)m ago") : String(localized: "\(minutes)m")
+            return withSuffix ? String(localized: "\(minutes)m ago", bundle: .module) : String(localized: "\(minutes)m", bundle: .module)
         case ..<86_400:
             let hours = Int(interval / 3600)
-            return withSuffix ? String(localized: "\(hours)h ago") : String(localized: "\(hours)h")
+            return withSuffix ? String(localized: "\(hours)h ago", bundle: .module) : String(localized: "\(hours)h", bundle: .module)
         case ..<604_800:
             let days = Int(interval / 86_400)
-            return withSuffix ? String(localized: "\(days)d ago") : String(localized: "\(days)d")
+            return withSuffix ? String(localized: "\(days)d ago", bundle: .module) : String(localized: "\(days)d", bundle: .module)
         case ..<2_592_000:
             let weeks = Int(interval / 604_800)
-            return withSuffix ? String(localized: "\(weeks)w ago") : String(localized: "\(weeks)w")
+            return withSuffix ? String(localized: "\(weeks)w ago", bundle: .module) : String(localized: "\(weeks)w", bundle: .module)
         default:
             let formatter = DateFormatter()
             formatter.setLocalizedDateFormatFromTemplate("MMMd")

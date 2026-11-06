@@ -40,7 +40,7 @@ public struct AppearanceSettings: View {
         SettingsForm {
             RoundedSection(divided: true) {
                 FloatingMenuPicker(
-                    String(localized: "Color scheme"),
+                    String(localized: "Color scheme", bundle: .module),
                     selection: colorSchemeTitle,
                     options: ColorSchemeOption.allCases,
                     optionTitle: { $0.title },
@@ -48,14 +48,14 @@ public struct AppearanceSettings: View {
                 )
 
                 HStack {
-                    Text("Accent color")
+                    Text("Accent color", bundle: .module)
                     Spacer()
                     accentPicker
                 }
             } header: {
                 HStack(spacing: Spacing.xs) {
-                    Text("Appearance")
-                    InfoButton(text: "Choose light or dark and the accent color. System follows your macOS settings.")
+                    Text("Appearance", bundle: .module)
+                    InfoButton(text: .verbatim(String(localized: "Choose light or dark and the accent color. System follows your macOS settings.", bundle: .module)))
                 }
             }
 
@@ -72,8 +72,8 @@ public struct AppearanceSettings: View {
                 }
             } header: {
                 HStack(spacing: Spacing.xs) {
-                    Text("Theme")
-                    InfoButton(text: "Themes recolor the window, panes, accent and — where the theme defines them — the success, warning, error and info colors. Each follows your light or dark choice. High Contrast holds every status color to 7:1; Color Blind Safe stays distinct with red-green and blue-yellow color blindness; Low Glare is dim and warm for light sensitivity.")
+                    Text("Theme", bundle: .module)
+                    InfoButton(text: .verbatim(String(localized: "Themes recolor the window, panes, accent and — where the theme defines them — the success, warning, error and info colors. Each follows your light or dark choice. High Contrast holds every status color to 7:1; Color Blind Safe stays distinct with red-green and blue-yellow color blindness; Low Glare is dim and warm for light sensitivity.", bundle: .module)))
                 }
             }
         }

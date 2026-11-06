@@ -85,7 +85,7 @@ public struct InfoHint<Content: View>: View {
             InfoGlyph()
         }
         .buttonStyle(InlineIconButtonStyle(chipRadius: Sizing.radiusSmall))
-        .accessibilityLabel(Text("More info"))
+        .accessibilityLabel(Text("More info", bundle: .module))
         .floatingMenu(isPresented: $isPresented, xPosition: xPosition, yPosition: yPosition) {
             // The panel supplies the surface, border and shadow; content brings
             // its own padding, like every other menu.

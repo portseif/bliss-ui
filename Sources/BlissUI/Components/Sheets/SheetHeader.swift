@@ -143,7 +143,7 @@ public struct SheetCloseButton: View {
         .offset(y: verticalOffset)
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
         .onHover { isHovered = $0 }
-        .accessibilityLabel(Text("Close"))
+        .accessibilityLabel(Text("Close", bundle: .module))
     }
 }
 

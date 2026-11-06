@@ -48,17 +48,12 @@ public enum AccentHue {
             return (Double(hue), Double(saturation), Double(brightness))
         }
 
-        let accentOverride = UserDefaults.standard.string(forKey: "accentColorOverride") ?? "System"
-
-        guard accentOverride == "Custom" else {
+        guard BlissAppearance.accentOption == .custom else {
             return (defaultHue, defaultSaturation, 1.0)
         }
 
-        let red = UserDefaults.standard.double(forKey: "customAccentColorRed")
-        let green = UserDefaults.standard.double(forKey: "customAccentColorGreen")
-        let blue = UserDefaults.standard.double(forKey: "customAccentColorBlue")
-
-        let nsColor = NSColor(red: red, green: green, blue: blue, alpha: 1.0)
+        let customAccent = BlissAppearance.customAccent
+        let nsColor = NSColor(red: customAccent.red, green: customAccent.green, blue: customAccent.blue, alpha: 1.0)
         var hue: CGFloat = 0
         var saturation: CGFloat = 0
         var brightness: CGFloat = 0
@@ -87,17 +82,13 @@ public enum AccentHue {
             return themeAccent.color
         }
 
-        let accentOverride = UserDefaults.standard.string(forKey: "accentColorOverride") ?? "System"
-
-        guard accentOverride == "Custom" else {
+        guard BlissAppearance.accentOption == .custom else {
             // System default — use standard blue
             return Color(hue: defaultHue, saturation: 0.70, brightness: 0.54)
         }
 
-        let red = UserDefaults.standard.double(forKey: "customAccentColorRed")
-        let green = UserDefaults.standard.double(forKey: "customAccentColorGreen")
-        let blue = UserDefaults.standard.double(forKey: "customAccentColorBlue")
-        return Color(red: red, green: green, blue: blue)
+        let customAccent = BlissAppearance.customAccent
+        return Color(red: customAccent.red, green: customAccent.green, blue: customAccent.blue)
     }
 
     /// The effective accent as an NSColor — the macOS system accent, or the
@@ -105,12 +96,8 @@ public enum AccentHue {
     public static var effectiveAccentNSColor: NSColor {
         // An active color theme owns the accent.
         if let themeAccent = ThemeColors.activeAccentNSColor { return themeAccent }
-        let accentOverride = UserDefaults.standard.string(forKey: "accentColorOverride") ?? "System"
-        guard accentOverride == "Custom" else { return .controlAccentColor }
-        let red = UserDefaults.standard.double(forKey: "customAccentColorRed")
-        let green = UserDefaults.standard.double(forKey: "customAccentColorGreen")
-        let blue = UserDefaults.standard.double(forKey: "customAccentColorBlue")
-        return NSColor(srgbRed: red, green: green, blue: blue, alpha: 1)
+        guard BlissAppearance.accentOption == .custom else { return .controlAccentColor }
+        return BlissAppearance.customAccent.nsColor
     }
 
     /// Whether the accent is light enough to need dark text on top. Computed from
@@ -343,8 +330,7 @@ extension Color {
             }
             return themeAccent.color
         }
-        let accentOverride = UserDefaults.standard.string(forKey: "accentColorOverride") ?? "System"
-        if accentOverride == "Custom" {
+        if BlissAppearance.accentOption == .custom {
             if AccentHue.currentSaturation < 0.08 {
                 return isLightMode ? Grey.grey400 : AccentHue.resolvedColor
             }

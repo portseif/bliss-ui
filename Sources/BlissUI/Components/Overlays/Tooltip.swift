@@ -837,8 +837,8 @@ public struct TooltipAction: Identifiable {
     }
 
     /// Convenience for the common "copy this string" action.
-    public static func copy(_ string: String, label: String = String(localized: "Copy")) -> TooltipAction {
-        TooltipAction(icon: "doc.on.doc", label: label, confirmation: String(localized: "Copied")) {
+    public static func copy(_ string: String, label: String = String(localized: "Copy", bundle: .blissUI)) -> TooltipAction {
+        TooltipAction(icon: "doc.on.doc", label: label, confirmation: String(localized: "Copied", bundle: .module)) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(string, forType: .string)
         }

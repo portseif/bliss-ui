@@ -13,7 +13,7 @@ A SwiftUI component library for macOS — premium components, fluid motion, care
 
 - **Themes** — System, High Contrast, Color Blind Safe and Low Glare built in, plus your own. Light, Dark or System on top of any of them, and a per-theme accent.
 - **Tokens** — colors, typography, spacing, sizing and motion, so nothing is hardcoded.
-- **Components** — buttons, inputs, pickers, menus, tooltips, toasts, sheets, tables, sections, badges, empty states and more.
+- **Components** — 76 of them: buttons, fields, pickers, calendars, filters, a command palette, sidebars, menus, tooltips, toasts, sheets, tables, progress and data views, forms, avatars and more.
 - **Window chrome** — a hidden-title-bar shell with an opaque backdrop, offset traffic lights, drag exclusion for title-bar controls, frame persistence.
 - **Accessible** — every control is a Tab stop with one shared ring, VoiceOver labels on icon buttons, Reduce Motion fallbacks, Increase Contrast support.
 
@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-Every component, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 76 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -177,6 +177,54 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/browse-input-dark.webp"><img src="docs/images/components/browse-input-light.webp" alt="Browse input" width="420"></picture><br><b>Browse input</b><br><code>BrowseInput</code><br><sub>A path field with a Browse button that runs an open panel.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/number-field-dark.webp"><img src="docs/images/components/number-field-light.webp" alt="Number field" width="315"></picture><br><b>Number field</b><br><code>NumberField</code><br><sub>− / + steppers, ↑/↓ step (Shift ×10), typing applies as you go and reverts if it isn't a number.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/bliss-slider-dark.webp"><img src="docs/images/components/bliss-slider-light.webp" alt="Slider" width="315"></picture><br><b>Slider</b><br><code>BlissSlider</code><br><sub>An accent track with optional ticks and value label; ←/→ step, Home/End jump.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/text-area-dark.webp"><img src="docs/images/components/text-area-light.webp" alt="Text area" width="345"></picture><br><b>Text area</b><br><code>TextArea</code><br><sub>Grows with its text between a line range, then scrolls; optional character limit and count.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/token-field-dark.webp"><img src="docs/images/components/token-field-light.webp" alt="Token field" width="420"></picture><br><b>Token field</b><br><code>TokenField</code><br><sub>Labels or addresses as chips: Return, comma or paste adds, Backspace removes, invalid ones tint red.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/combo-box-dark.webp"><img src="docs/images/components/combo-box-light.webp" alt="Combo box" width="300"></picture><br><b>Combo box</b><br><code>ComboBox</code><br><sub>A field with ranked suggestions under it; free text or restricted to its options.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/shortcut-recorder-dark.webp"><img src="docs/images/components/shortcut-recorder-light.webp" alt="Shortcut recorder" width="300"></picture><br><b>Shortcut recorder</b><br><code>ShortcutRecorder</code> · <code>KeyboardShortcutValue</code><br><sub>Click and press a combo; Esc cancels, Delete clears.</sub></td>
+    <td width="50%"></td>
+  </tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>Calendar & dates</b></summary>
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/month-calendar-dark.webp"><img src="docs/images/components/month-calendar-light.webp" alt="Month calendar" width="420"></picture><br><b>Month calendar</b><br><code>MonthCalendar</code> · <code>CalendarDayMarker</code><br><sub>Day markers, a legend and a day-detail slot; arrow keys move the day.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/date-picker-field-dark.webp"><img src="docs/images/components/date-picker-field-light.webp" alt="Date picker" width="420"></picture><br><b>Date picker</b><br><code>DatePickerField</code><br><sub>A closed field that opens a compact calendar, with optional time and bounds.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/date-range-picker-field-dark.webp"><img src="docs/images/components/date-range-picker-field-light.webp" alt="Date range picker" width="420"></picture><br><b>Date range picker</b><br><code>DateRangePickerField</code> · <code>DateRangePreset</code><br><sub>Start to end on one calendar, with presets like Last 7 days.</sub></td>
+    <td width="50%"></td>
+  </tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>Filters</b></summary>
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/filter-bar-dark.webp"><img src="docs/images/components/filter-bar-light.webp" alt="Filter bar" width="420"></picture><br><b>Filter bar</b><br><code>FilterBar</code> · <code>FilterField</code> · <code>FilterCondition</code><br><sub>Linear-style chips: field │ operator │ values │ ×, with a matcher for your rows.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/filter-menu-button-dark.webp"><img src="docs/images/components/filter-menu-button-light.webp" alt="Filter button" width="285"></picture><br><b>Filter button</b><br><code>FilterMenuButton</code><br><sub>The Filter / Display trigger with an active-count badge.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/filter-check-rows-dark.webp"><img src="docs/images/components/filter-check-rows-light.webp" alt="Filter rows" width="210"></picture><br><b>Filter rows</b><br><code>FilterCheckRow</code> · <code>FilterMenuSectionHeader</code><br><sub>Checkbox facets with counts for a Filter menu that stays open.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/display-radio-rows-dark.webp"><img src="docs/images/components/display-radio-rows-light.webp" alt="Display rows" width="195"></picture><br><b>Display rows</b><br><code>DisplayRadioRow</code><br><sub>Sort and column options; radio and checkbox rows line up.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/filter-menu-rows-dark.webp"><img src="docs/images/components/filter-menu-rows-light.webp" alt="Searchable menu rows" width="210"></picture><br><b>Searchable menu rows</b><br><code>FilterMenuSearchHeader</code> · <code>FilterMenuRow</code><br><sub>Type to filter a long menu; ↑/↓ and Return pick.</sub></td>
     <td width="50%"></td>
   </tr>
 </table>
@@ -190,6 +238,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/badges-dark.webp"><img src="docs/images/components/badges-light.webp" alt="Badges" width="420"></picture><br><b>Badges</b><br><code>Badge</code> · <code>.badgeStyle(_:)</code> · <code>Badge(count:)</code> · <code>Badge.status</code><br><sub>One badge with semantic, count, status, solid and gradient styles.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/status-dot-pill-dark.webp"><img src="docs/images/components/status-dot-pill-light.webp" alt="Status pill" width="420"></picture><br><b>Status pill</b><br><code>StatusDotPill</code><br><sub>A dot and a label, lifted for contrast on dark.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/status-pill-dark.webp"><img src="docs/images/components/status-pill-light.webp" alt="Status pill (on/off)" width="255"></picture><br><b>Status pill (on/off)</b><br><code>StatusPill</code><br><sub>A bordered pill whose off state goes neutral with a hollow ring.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/key-hint-pill-dark.webp"><img src="docs/images/components/key-hint-pill-light.webp" alt="Key hint" width="225"></picture><br><b>Key hint</b><br><code>KeyHintPill</code><br><sub>Outlined key caps for footer hints like esc to cancel.</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/spinner-shimmer-dark.webp"><img src="docs/images/components/spinner-shimmer-light.webp" alt="Spinner and shimmer" width="420"></picture><br><b>Spinner and shimmer</b><br><code>ThinkingSpinner</code> · <code>ShimmerTextOverlay</code><br><sub>A tintable indeterminate spinner, and a shimmer for "working" text.</sub></td>
@@ -208,7 +260,27 @@ Not pictured, because they're separate panels rather than part of the window: `.
 </details>
 
 <details open>
-<summary><b>Sections</b></summary>
+<summary><b>Data & progress</b></summary>
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/progress-bar-dark.webp"><img src="docs/images/components/progress-bar-light.webp" alt="Progress bar" width="420"></picture><br><b>Progress bar</b><br><code>ProgressBar</code><br><sub>Determinate with an optional label and percent, or an indeterminate sweep.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/progress-ring-dark.webp"><img src="docs/images/components/progress-ring-light.webp" alt="Progress ring" width="240"></picture><br><b>Progress ring</b><br><code>ProgressRing</code><br><sub>A determinate ring with a percentage or text in the middle.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/usage-bar-dark.webp"><img src="docs/images/components/usage-bar-light.webp" alt="Usage bar" width="420"></picture><br><b>Usage bar</b><br><code>UsageBar</code><br><sub>Stacked segments with a legend and total, or a meter that turns amber then red.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/tick-strip-dark.webp"><img src="docs/images/components/tick-strip-light.webp" alt="Tick strip" width="195"></picture><br><b>Tick strip</b><br><code>TickStrip</code><br><sub>One tick per period in its state's color, with a tooltip per tick.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/change-blocks-dark.webp"><img src="docs/images/components/change-blocks-light.webp" alt="Change blocks" width="165"></picture><br><b>Change blocks</b><br><code>ChangeBlocks</code><br><sub>Additions and deletions as blocks with compact counts.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/sparkline-dark.webp"><img src="docs/images/components/sparkline-light.webp" alt="Sparkline" width="300"></picture><br><b>Sparkline</b><br><code>Sparkline</code><br><sub>A tiny trend line with an optional area wash; gaps draw dashed.</sub></td>
+  </tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>Sections & forms</b></summary>
 
 <table>
   <tr>
@@ -217,7 +289,35 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/info-rows-dark.webp"><img src="docs/images/components/info-rows-light.webp" alt="Info rows" width="420"></picture><br><b>Info rows</b><br><code>InfoRow.labeled</code> · <code>.status</code> · <code>.branch</code> · <code>.hint</code><br><sub>Prebuilt rows for status cards; a passing check tints the border, never fills it.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/settings-rows-dark.webp"><img src="docs/images/components/settings-rows-light.webp" alt="Settings rows" width="420"></picture><br><b>Settings rows</b><br><code>SettingsRow</code> · <code>SettingsToggleRow</code> · <code>SettingsActionRow</code><br><sub>Title and detail on the left, any control on the right.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/settings-table-of-contents-dark.webp"><img src="docs/images/components/settings-table-of-contents-light.webp" alt="Settings with contents" width="420"></picture><br><b>Settings with contents</b><br><code>SettingsScrollView</code> · <code>.settingsSection(_:)</code><br><sub>A rail that follows the section in view and jumps on click.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/option-cards-dark.webp"><img src="docs/images/components/option-cards-light.webp" alt="Option cards" width="420"></picture><br><b>Option cards</b><br><code>OptionCard</code> · <code>OptionCardGrid</code><br><sub>Pick one, with an icon, detail and optional badge.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/option-cards-plans-dark.webp"><img src="docs/images/components/option-cards-plans-light.webp" alt="Plan cards" width="420"></picture><br><b>Plan cards</b><br><code>OptionCardGrid(axis: .vertical)</code><br><sub>Stacked cards of equal height, like a pricing picker.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/option-cards-multiple-dark.webp"><img src="docs/images/components/option-cards-multiple-light.webp" alt="Multi-select cards" width="420"></picture><br><b>Multi-select cards</b><br><code>OptionCardGrid(selection: Set)</code><br><sub>Pick many, with checkboxes.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/wizard-radio-rows-dark.webp"><img src="docs/images/components/wizard-radio-rows-light.webp" alt="Wizard choices" width="330"></picture><br><b>Wizard choices</b><br><code>WizardRadioRow</code> · <code>RadioGlyph</code><br><sub>Large radio rows for the first step of a flow.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/wizard-step-rows-dark.webp"><img src="docs/images/components/wizard-step-rows-light.webp" alt="Wizard steps" width="300"></picture><br><b>Wizard steps</b><br><code>WizardStepRow</code><br><sub>Pending, current, running, done and failed, with details.</sub></td>
+  </tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>Feedback</b></summary>
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/banners-dark.webp"><img src="docs/images/components/banners-light.webp" alt="Banners" width="420"></picture><br><b>Banners</b><br><code>Banner</code><br><sub>Inline info, success, warning and danger callouts with an action and dismiss.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/disclosure-section-dark.webp"><img src="docs/images/components/disclosure-section-light.webp" alt="Disclosure section" width="420"></picture><br><b>Disclosure section</b><br><code>DisclosureSection</code><br><sub>An accordion header; Space, Return, → and ← work on it.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/confirmation-sheet-dark.webp"><img src="docs/images/components/confirmation-sheet-light.webp" alt="Confirmation sheet" width="336"></picture><br><b>Confirmation sheet</b><br><code>.confirmationSheet(isPresented:…)</code><br><sub>An App Sheet for "are you sure": Return confirms, Esc cancels.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/skeleton-dark.webp"><img src="docs/images/components/skeleton-light.webp" alt="Skeleton loading" width="420"></picture><br><b>Skeleton loading</b><br><code>.skeleton(isLoading:)</code> · <code>SkeletonBlock</code><br><sub>Placeholder shapes under one shimmer band; still under Reduce Motion.</sub></td>
   </tr>
 </table>
 
@@ -227,6 +327,14 @@ Not pictured, because they're separate panels rather than part of the window: `.
 <summary><b>Navigation</b></summary>
 
 <table>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/command-palette-dark.webp"><img src="docs/images/components/command-palette-light.webp" alt="Command palette" width="420"></picture><br><b>Command palette</b><br><code>.commandPalette(isPresented:commands:)</code> · <code>CommandPaletteCommand</code><br><sub>⌘K search with ranked matches, recents and full keyboard control.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/sidebar-dark.webp"><img src="docs/images/components/sidebar-light.webp" alt="Sidebar" width="201"></picture><br><b>Sidebar</b><br><code>Sidebar</code> · <code>SidebarRow</code> · <code>SidebarFilterRow</code><br><sub>Destinations with counts, saved filters, ⌘-number hints.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/slideout-panel-dark.webp"><img src="docs/images/components/slideout-panel-light.webp" alt="Slide-out panel" width="420"></picture><br><b>Slide-out panel</b><br><code>.slideoutPanel(isPresented:title:)</code><br><sub>A panel that slides over the trailing edge; click outside or Esc closes it.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/breadcrumbs-dark.webp"><img src="docs/images/components/breadcrumbs-light.webp" alt="Breadcrumbs" width="420"></picture><br><b>Breadcrumbs</b><br><code>Breadcrumbs</code><br><sub>Clickable path segments; the middle folds into a … menu when space runs out.</sub></td>
+  </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/underline-tab-bar-dark.webp"><img src="docs/images/components/underline-tab-bar-light.webp" alt="Underline tabs" width="420"></picture><br><b>Underline tabs</b><br><code>UnderlineTabBar</code><br><sub>A sliding underline with optional count chips and icons.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/step-indicator-dark.webp"><img src="docs/images/components/step-indicator-light.webp" alt="Step indicator" width="420"></picture><br><b>Step indicator</b><br><code>StepIndicator</code><br><sub>Dots for a wizard.</sub></td>
@@ -240,12 +348,28 @@ Not pictured, because they're separate panels rather than part of the window: `.
 
 <table>
   <tr>
-    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/bliss-table-dark.webp"><img src="docs/images/components/bliss-table-light.webp" alt="Table" width="480"></picture><br><b>Table</b><br><code>BlissTable</code> · <code>BlissTableColumn</code><br><sub>Sortable columns, checkbox selection with shift-click ranges, row taps.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/bliss-table-dark.webp"><img src="docs/images/components/bliss-table-light.webp" alt="Table" width="420"></picture><br><b>Table</b><br><code>BlissTable</code> · <code>BlissTableColumn</code><br><sub>Sortable columns, checkbox selection with shift-click ranges, row taps.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/selection-bar-dark.webp"><img src="docs/images/components/selection-bar-light.webp" alt="Selection bar" width="390"></picture><br><b>Selection bar</b><br><code>.selectionBar(count:onClear:)</code> · <code>SelectionBarButton</code><br><sub>The floating bulk-action island; toasts lift to rest above it.</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/divided-list-dark.webp"><img src="docs/images/components/divided-list-light.webp" alt="Divided list" width="420"></picture><br><b>Divided list</b><br><code>DividedForEach</code> · <code>.rowHover()</code> · <code>.rowTapAction</code><br><sub>Flat rows with a divider between each pair and one shared hover fill.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/flow-layout-dark.webp"><img src="docs/images/components/flow-layout-light.webp" alt="Flow layout" width="420"></picture><br><b>Flow layout</b><br><code>FlowLayout</code><br><sub>Wraps chips and tags onto as many lines as they need.</sub></td>
+  </tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>Layout & people</b></summary>
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/avatars-dark.webp"><img src="docs/images/components/avatars-light.webp" alt="Avatars" width="390"></picture><br><b>Avatars</b><br><code>Avatar</code><br><sub>Image or initials on a name-hashed color, with presence states.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/avatar-stack-dark.webp"><img src="docs/images/components/avatar-stack-light.webp" alt="Avatar stack" width="315"></picture><br><b>Avatar stack</b><br><code>AvatarStack</code><br><sub>Overlapping avatars with +N and a tooltip of names.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/inspector-split-dark.webp"><img src="docs/images/components/inspector-split-light.webp" alt="Inspector split" width="420"></picture><br><b>Inspector split</b><br><code>InspectorSplit</code><br><sub>A resizable inspector, pinned beside the content or as a drawer.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/code-field-dark.webp"><img src="docs/images/components/code-field-light.webp" alt="Code field" width="420"></picture><br><b>Code field</b><br><code>CodeField</code> · <code>CodeHighlighter</code><br><sub>Syntax-highlighted input for shell and YAML, or your own rules.</sub></td>
   </tr>
 </table>
 

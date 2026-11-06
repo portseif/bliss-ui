@@ -323,20 +323,24 @@ public enum BadgeStyle {
         }
     }
 
+    /// Semantic styles fill with a wash of their tint in both schemes. The
+    /// light ramp steps (`*50` fills, `*200` hairlines) are near-full
+    /// saturation, so they read as solid fills and a red label on them all
+    /// but vanished; the wash keeps the `*700` labels and the red mark legible.
     func backgroundColor(for scheme: ColorScheme) -> AnyShapeStyle {
         switch self {
             case .primary:
-                return AnyShapeStyle(scheme == .dark ? Color.accent.opacity(0.2) : Primary.primary50)
+                return AnyShapeStyle(scheme == .dark ? Color.accent.opacity(0.2) : Color.accent.opacity(0.1))
             case .secondary:
                 return AnyShapeStyle(scheme == .dark ? Grey.grey500.opacity(0.15) : Grey.grey100)
             case .success:
-                return AnyShapeStyle(scheme == .dark ? Success.tint.opacity(0.2) : Self.lightFill(.success, tint: Success.tint, standard: Success.success50))
+                return AnyShapeStyle(scheme == .dark ? Success.tint.opacity(0.2) : Success.tint.opacity(0.1))
             case .warning:
-                return AnyShapeStyle(scheme == .dark ? Warning.tint.opacity(0.2) : Self.lightFill(.warning, tint: Warning.tint, standard: Warning.warning50))
+                return AnyShapeStyle(scheme == .dark ? Warning.tint.opacity(0.2) : Warning.tint.opacity(0.1))
             case .error:
-                return AnyShapeStyle(scheme == .dark ? Danger.tint.opacity(0.2) : Self.lightFill(.danger, tint: Danger.tint, standard: Danger.danger50))
+                return AnyShapeStyle(scheme == .dark ? Danger.tint.opacity(0.2) : Danger.tint.opacity(0.1))
             case .info:
-                return AnyShapeStyle(scheme == .dark ? Info.tint.opacity(0.2) : Self.lightFill(.info, tint: Info.tint, standard: Info.info50))
+                return AnyShapeStyle(scheme == .dark ? Info.tint.opacity(0.2) : Info.tint.opacity(0.1))
             case .status(let color):
                 // A touch more fill on dark, where the lifted label needs a
                 // surface to sit on rather than floating over the pane.
@@ -356,26 +360,15 @@ public enum BadgeStyle {
 
     func borderColor(for scheme: ColorScheme) -> Color {
         switch self {
-            case .primary: return scheme == .dark ? Color.accent.opacity(0.4) : Primary.primary200
+            case .primary: return scheme == .dark ? Color.accent.opacity(0.4) : Color.accent.opacity(0.3)
             case .secondary: return scheme == .dark ? Grey.grey500.opacity(0.3) : Grey.grey200
-            case .success: return scheme == .dark ? Success.tint.opacity(0.4) : Self.lightBorder(.success, tint: Success.tint, standard: Success.success200)
-            case .warning: return scheme == .dark ? Warning.tint.opacity(0.4) : Self.lightBorder(.warning, tint: Warning.tint, standard: Warning.warning200)
-            case .error: return scheme == .dark ? Danger.tint.opacity(0.4) : Self.lightBorder(.danger, tint: Danger.tint, standard: Danger.danger200)
-            case .info: return scheme == .dark ? Info.tint.opacity(0.4) : Self.lightBorder(.info, tint: Info.tint, standard: Info.info200)
+            case .success: return scheme == .dark ? Success.tint.opacity(0.4) : Success.tint.opacity(0.3)
+            case .warning: return scheme == .dark ? Warning.tint.opacity(0.4) : Warning.tint.opacity(0.3)
+            case .error: return scheme == .dark ? Danger.tint.opacity(0.4) : Danger.tint.opacity(0.3)
+            case .info: return scheme == .dark ? Info.tint.opacity(0.4) : Info.tint.opacity(0.3)
             case .status, .solid, .gradient: return .clear
             case .custom(_, _, _, let border): return border ?? .clear
         }
-    }
-
-    /// Light mode's fill and hairline for a semantic style: the fixed ramp, or
-    /// a wash of the theme's tint when the color theme sets that status (the
-    /// ramp is the built-in hue and would clash with the theme's marks).
-    private static func lightFill(_ kind: StatusKind, tint: Color, standard: Color) -> Color {
-        StatusTones.isThemed(kind) ? tint.opacity(0.1) : standard
-    }
-
-    private static func lightBorder(_ kind: StatusKind, tint: Color, standard: Color) -> Color {
-        StatusTones.isThemed(kind) ? tint.opacity(0.3) : standard
     }
 
     var hasBorder: Bool {
@@ -566,7 +559,7 @@ extension Badge {
 
         /// Create a Pro badge
     public static func pro(size: BadgeSize = .regular) -> Badge {
-        Badge("Pro")
+        Badge(.verbatim(String(localized: "Pro", bundle: .module)))
             .badgeStyle(.gradient(.pro))
             .badgeSize(size)
             .badgeShape(.roundedRect)
@@ -574,7 +567,7 @@ extension Badge {
     
         /// Create a Lifetime badge
     public static func lifetime(size: BadgeSize = .regular) -> Badge {
-        Badge("Lifetime")
+        Badge(.verbatim(String(localized: "Lifetime", bundle: .module)))
             .badgeStyle(.gradient(.lifetime))
             .badgeSize(size)
             .badgeShape(.roundedRect)

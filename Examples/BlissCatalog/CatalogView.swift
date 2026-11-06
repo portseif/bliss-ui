@@ -19,6 +19,14 @@ enum CatalogPage: String, CaseIterable, Identifiable {
     case table = "Table"
     case overlays = "Menus & Tooltips"
     case sheets = "Sheets & Toasts"
+    case filters = "Filters"
+    case calendar = "Calendar & Dates"
+    case commandSidebar = "Command & Sidebar"
+    case forms = "Forms & Feedback"
+    case data = "Data & Progress"
+    case fields = "Number & Text Fields"
+    case tokens = "Tokens & Autocomplete"
+    case layout = "Layout & People"
 
     var id: String { rawValue }
 
@@ -32,6 +40,14 @@ enum CatalogPage: String, CaseIterable, Identifiable {
         case .table: return "tablecells"
         case .overlays: return "text.bubble"
         case .sheets: return "rectangle.stack"
+        case .filters: return "line.3.horizontal.decrease.circle"
+        case .calendar: return "calendar"
+        case .commandSidebar: return "command"
+        case .forms: return "checklist"
+        case .data: return "chart.bar"
+        case .fields: return "number"
+        case .tokens: return "tag"
+        case .layout: return "person.2"
         }
     }
 }
@@ -122,6 +138,14 @@ struct CatalogView: View {
         case .table: TablePage()
         case .overlays: OverlaysPage()
         case .sheets: SheetsPage()
+        case .filters: FiltersPage()
+        case .calendar: CalendarPage()
+        case .commandSidebar: CommandSidebarPage()
+        case .forms: FormsPage()
+        case .data: DataPage()
+        case .fields: FieldsPage()
+        case .tokens: TokensPage()
+        case .layout: LayoutPage()
         }
     }
 }

@@ -17,8 +17,8 @@ enum CatalogDemo {
     static var state: String? { UserDefaults.standard.string(forKey: "demo") }
 }
 
-/// A titled demo block on a page.
-private struct DemoBlock<Content: View>: View {
+/// A titled demo block on a page. Shared by every catalog page.
+struct DemoBlock<Content: View>: View {
     let title: LocalizedStringKey
     @ViewBuilder let content: () -> Content
 

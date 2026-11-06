@@ -29,7 +29,7 @@ public struct StepIndicator: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Step \(currentIndex + 1) of \(stepCount)"))
+        .accessibilityLabel(Text("Step \(currentIndex + 1) of \(stepCount)", bundle: .module))
     }
 
     // MARK: - Step Dot

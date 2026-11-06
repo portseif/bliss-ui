@@ -34,7 +34,7 @@ public struct SelectionBar<Actions: View>: View {
 
     public var body: some View {
         HStack(spacing: Spacing.sm) {
-            Text("\(count) selected")
+            Text("\(count) selected", bundle: .module)
                 .font(Typography.labelMedium)
                 .foregroundStyle(.primary)
                 .monospacedDigit()
@@ -140,7 +140,7 @@ private struct SelectionBarClearButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: 12))
-        .accessibilityLabel(Text("Clear selection"))
+        .accessibilityLabel(Text("Clear selection", bundle: .module))
         .onHover { isHovering = $0 }
     }
 }

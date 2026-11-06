@@ -103,7 +103,7 @@ public struct CopyButton: View {
         Button {
             Task {
                 if isSecret {
-                    guard await SecretClipboard.copy(value, reason: String(localized: "copy a secret")) else { return }
+                    guard await SecretClipboard.copy(value, reason: String(localized: "copy a secret", bundle: .module)) else { return }
                 } else {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(value, forType: .string)
@@ -129,7 +129,7 @@ public struct CopyButton: View {
                 isButtonHovering = hovering
             }
         }
-        .accessibilityLabel(Text("Copy"))
+        .accessibilityLabel(Text("Copy", bundle: .module))
     }
 }
 

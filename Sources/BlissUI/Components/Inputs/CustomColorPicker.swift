@@ -36,10 +36,10 @@ public struct ColorPickerDefault {
         self.label = label
     }
 
-    public static let systemAccent = ColorPickerDefault(color: .controlAccentColor, symbol: "gearshape.fill", label: "Use system accent color")
+    public static let systemAccent = ColorPickerDefault(color: .controlAccentColor, symbol: "gearshape.fill", label: .verbatim(String(localized: "Use system accent color", bundle: .module)))
 
     public static func themeAccent(_ color: NSColor) -> ColorPickerDefault {
-        ColorPickerDefault(color: color, symbol: "paintpalette.fill", label: "Use the theme's accent color")
+        ColorPickerDefault(color: color, symbol: "paintpalette.fill", label: .verbatim(String(localized: "Use the theme's accent color", bundle: .module)))
     }
 
     /// The default for a theme's accent picker: the macOS accent under
@@ -146,7 +146,7 @@ public struct ColorPickerButton: View {
             ColorPickerSwatch(color: displayColor)
         }
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall))
-        .accessibilityLabel(Text("Choose color"))
+        .accessibilityLabel(Text("Choose color", bundle: .module))
         .popover(isPresented: $showingPopover) {
             ColorPickerPopover(
                 red: $tempRed,
@@ -306,13 +306,13 @@ public struct ColorPickerPopover: View {
 
             // Action buttons.
             HStack(spacing: Spacing.sm) {
-                Button("Cancel") {
+                Button(String(localized: "Cancel", bundle: .module)) {
                     onCancel()
                 }
                 .buttonStyle(SecondaryButtonStyle(compact: true))
                 .keyboardShortcut(.cancelAction)
 
-                Button("Apply") {
+                Button(String(localized: "Apply", bundle: .module)) {
                     onApply()
                 }
                 .buttonStyle(PrimaryButtonStyle(compact: true))
@@ -395,13 +395,13 @@ public struct ColorPickerPopover: View {
 
     private var presetColors: [PresetColor] {
         [
-            PresetColor(name: String(localized: "Purple"), red: 0.35, green: 0.34, blue: 0.84),
-            PresetColor(name: String(localized: "Pink"), red: 0.92, green: 0.26, blue: 0.42),
-            PresetColor(name: String(localized: "Orange"), red: 1.0, green: 0.58, blue: 0.0),
-            PresetColor(name: String(localized: "Green"), red: 0.2, green: 0.78, blue: 0.35),
-            PresetColor(name: String(localized: "Teal"), red: 0.0, green: 0.75, blue: 0.75),
-            PresetColor(name: String(localized: "White"), red: 1.0, green: 1.0, blue: 1.0),
-            PresetColor(name: String(localized: "Black"), red: 0.15, green: 0.15, blue: 0.15),
+            PresetColor(name: String(localized: "Purple", bundle: .module), red: 0.35, green: 0.34, blue: 0.84),
+            PresetColor(name: String(localized: "Pink", bundle: .module), red: 0.92, green: 0.26, blue: 0.42),
+            PresetColor(name: String(localized: "Orange", bundle: .module), red: 1.0, green: 0.58, blue: 0.0),
+            PresetColor(name: String(localized: "Green", bundle: .module), red: 0.2, green: 0.78, blue: 0.35),
+            PresetColor(name: String(localized: "Teal", bundle: .module), red: 0.0, green: 0.75, blue: 0.75),
+            PresetColor(name: String(localized: "White", bundle: .module), red: 1.0, green: 1.0, blue: 1.0),
+            PresetColor(name: String(localized: "Black", bundle: .module), red: 0.15, green: 0.15, blue: 0.15),
         ]
     }
 }

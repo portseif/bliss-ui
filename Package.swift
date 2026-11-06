@@ -23,6 +23,9 @@ let package = Package(
     targets: [
         .target(
             name: "BlissUI",
+            // Localizable.xcstrings: the library's own strings, looked up in
+            // `Bundle.module` so they're translated without the app's catalog.
+            resources: [.process("Resources")],
             swiftSettings: blissSwiftSettings
         ),
         // A demo app of every component, built only on the public API:

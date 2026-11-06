@@ -30,7 +30,7 @@ public nonisolated struct IconCategory: Identifiable, Sendable {
 
     public static let general = IconCategory(
         id: "general",
-        title: String(localized: "General"),
+        title: String(localized: "General", bundle: .module),
         icon: "square.grid.2x2",
         icons: [
             .sfSymbol("folder"), .sfSymbol("folder.badge.gear"),
@@ -62,7 +62,7 @@ public nonisolated struct IconCategory: Identifiable, Sendable {
 
     public static let tools = IconCategory(
         id: "tools",
-        title: String(localized: "Tools"),
+        title: String(localized: "Tools", bundle: .module),
         icon: "wrench.and.screwdriver",
         icons: [
             .sfSymbol("wrench"), .sfSymbol("hammer"),
@@ -215,12 +215,12 @@ public struct IconPickerButton: View {
                 }
         }
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall))
-        .accessibilityLabel(Text("Choose icon"))
+        .accessibilityLabel(Text("Choose icon", bundle: .module))
         .popover(isPresented: $showingPicker) {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 if showsColor {
                     HStack(spacing: Spacing.sm) {
-                        Text("Color")
+                        Text("Color", bundle: .module)
                             .font(Typography.labelMedium)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: Spacing.sm)
@@ -288,7 +288,7 @@ public struct GroupIconPicker: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             // Search
-            TextField("Search icons...", text: $searchText)
+            TextField(String(localized: "Search icons...", bundle: .module), text: $searchText)
                 .textFieldStyle(.largePadded)
 
             // Icon grid by category — fixed-height scroll so the picker hugs its
@@ -319,7 +319,7 @@ public struct GroupIconPicker: View {
             HStack(spacing: Spacing.xs + 1) {
                 Image(systemName: "circle.fill")
                     .font(Typography.captionTiny)
-                Text("Default")
+                Text("Default", bundle: .module)
                     .font(Typography.labelTiny)
             }
             .foregroundStyle(colorScheme == .dark ? Grey.grey400 : Grey.grey500)
@@ -382,7 +382,11 @@ public struct GroupIconPicker: View {
     // MARK: - Empty State
 
     private var emptySearchState: some View {
-        EmptyState(icon: "magnifyingglass", title: "No icons found", subtitle: "Try another name.")
+        EmptyState(
+            icon: "magnifyingglass",
+            title: .verbatim(String(localized: "No icons found", bundle: .module)),
+            subtitle: .verbatim(String(localized: "Try another name.", bundle: .module))
+        )
             .contained()
     }
 }

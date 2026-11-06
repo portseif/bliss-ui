@@ -122,7 +122,8 @@ public nonisolated struct ThemeStatusColors: Equatable, Sendable {
 public nonisolated struct BlissTheme: Identifiable, Hashable, Sendable {
     /// Stable identifier, persisted as the user's choice.
     public let id: String
-    /// Name shown in pickers.
+    /// Name shown in pickers, looked up in the app's string catalog. The
+    /// built-ins' names come already translated from BlissUI's own.
     public let name: String
     public let lightPalette: ThemePalette?
     public let darkPalette: ThemePalette?
@@ -169,7 +170,7 @@ extension BlissTheme {
     /// Follows macOS: the built-in tokens and the system accent color.
     public static let system = BlissTheme(
         id: "system",
-        name: "System",
+        name: String(localized: "System", bundle: .module),
         light: nil,
         dark: nil,
         swatch: [ThemeRGB(0x3A3A3C), ThemeRGB(0xF4F4F4), ThemeRGB(0x0A84FF), ThemeRGB(0x34C759)]
@@ -180,7 +181,7 @@ extension BlissTheme {
     /// orange / red / blue.
     public static let highContrast = BlissTheme(
         id: "high-contrast",
-        name: "High Contrast",
+        name: String(localized: "High Contrast", bundle: .module),
         light: ThemePalette(
             windowBackground: ThemeRGB(0xFFFFFF), contentBackground: ThemeRGB(0xFFFFFF),
             elevatedBackground: ThemeRGB(0xF2F2F2), border: ThemeRGB(0x000000), accent: ThemeRGB(0x0030C0),
@@ -202,7 +203,7 @@ extension BlissTheme {
     /// matches by color).
     public static let colorBlindSafe = BlissTheme(
         id: "color-blind-safe",
-        name: "Color Blind Safe",
+        name: String(localized: "Color Blind Safe", bundle: .module),
         light: ThemePalette(
             windowBackground: ThemeRGB(0xF4F4F4), contentBackground: ThemeRGB(0xFFFFFF),
             elevatedBackground: ThemeRGB(0xFFFFFF), border: ThemeRGB(0xE0E0E0), accent: ThemeRGB(0x0072B2),
@@ -221,7 +222,7 @@ extension BlissTheme {
     /// glare), low contrast between surfaces, a muted amber accent.
     public static let lowGlare = BlissTheme(
         id: "low-glare",
-        name: "Low Glare",
+        name: String(localized: "Low Glare", bundle: .module),
         light: ThemePalette(
             windowBackground: ThemeRGB(0xECE5D5), contentBackground: ThemeRGB(0xF5EFE2),
             elevatedBackground: ThemeRGB(0xFAF6EC), border: ThemeRGB(0xDDD3BF), accent: ThemeRGB(0x8A6A3B),

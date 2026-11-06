@@ -21,7 +21,7 @@ import SwiftUI
 
 public struct PathHoverChip: View {
     let path: String
-    var placeholder: String = String(localized: "No path")
+    var placeholder: String = String(localized: "No path", bundle: .module)
     var monospaced: Bool = false
     /// Whether to offer "Open in Finder". Turn off for paths that don't exist
     /// on disk yet (e.g. a folder that's only planned) — Copy stays.
@@ -33,7 +33,7 @@ public struct PathHoverChip: View {
 
     public init(
         path: String,
-        placeholder: String = String(localized: "No path"),
+        placeholder: String = String(localized: "No path", bundle: .blissUI),
         monospaced: Bool = false,
         canReveal: Bool = true
     ) {
@@ -73,7 +73,7 @@ public struct PathHoverChip: View {
     }
 
     private var copyHelp: String {
-        isCode ? String(localized: "Copy command") : String(localized: "Copy path")
+        isCode ? String(localized: "Copy command", bundle: .module) : String(localized: "Copy path", bundle: .module)
     }
 
     private var textColor: Color {
@@ -98,7 +98,7 @@ public struct PathHoverChip: View {
                     systemImage: justCopied ? "checkmark" : "doc.on.doc",
                     size: Self.actionGlyphSize,
                     tint: justCopied ? Success.success500 : nil,
-                    help: justCopied ? String(localized: "Copied") : copyHelp,
+                    help: justCopied ? String(localized: "Copied", bundle: .module) : copyHelp,
                     action: copyPath
                 )
                 .transition(dropletInsertion(delay: 0))
@@ -107,7 +107,7 @@ public struct PathHoverChip: View {
                     HoverIconButton(
                         systemImage: "play.fill",
                         size: Self.actionGlyphSize,
-                        help: String(localized: "Run in terminal"),
+                        help: String(localized: "Run in terminal", bundle: .module),
                         action: onRun
                     )
                     .transition(dropletInsertion(delay: 0.04))
@@ -117,7 +117,7 @@ public struct PathHoverChip: View {
                     HoverIconButton(
                         systemImage: "arrow.up.forward.app",
                         size: Self.actionGlyphSize,
-                        help: String(localized: "Open in Finder"),
+                        help: String(localized: "Open in Finder", bundle: .module),
                         action: reveal
                     )
                     .transition(dropletInsertion(delay: 0.04))
@@ -144,8 +144,8 @@ public struct PathHoverChip: View {
         .accessibilityActions {
             if hasPath {
                 Button(copyHelp) { copyPath() }
-                if let onRun { Button("Run in terminal", action: onRun) }
-                if canReveal { Button("Open in Finder") { reveal() } }
+                if let onRun { Button(String(localized: "Run in terminal", bundle: .module), action: onRun) }
+                if canReveal { Button(String(localized: "Open in Finder", bundle: .module)) { reveal() } }
             }
         }
         .onHover { hovering in

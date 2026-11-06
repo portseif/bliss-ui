@@ -35,7 +35,7 @@ public nonisolated struct TerminalOutputLine: Identifiable, Equatable, Sendable 
 /// auto-scrolling, and error highlighting
 public struct TerminalOutputView: View {
     let lines: [TerminalOutputLine]
-    var title: String = String(localized: "Output")
+    var title: String = String(localized: "Output", bundle: .module)
     var maxHeight: CGFloat = 200
     var isCollapsible: Bool = true
     var showTimestamps: Bool = false
@@ -45,7 +45,7 @@ public struct TerminalOutputView: View {
 
     public init(
         lines: [TerminalOutputLine],
-        title: String = String(localized: "Output"),
+        title: String = String(localized: "Output", bundle: .blissUI),
         maxHeight: CGFloat = 200,
         isCollapsible: Bool = true,
         showTimestamps: Bool = false
@@ -99,7 +99,7 @@ public struct TerminalOutputView: View {
 
             // Line count badge
             if !lines.isEmpty {
-                Text("\(lines.count) line\(lines.count == 1 ? "" : "s")")
+                Text("\(lines.count) line\(lines.count == 1 ? "" : "s")", bundle: .module)
                     .font(Typography.captionTiny)
                     .foregroundStyle(.tertiary)
             }
@@ -119,10 +119,10 @@ public struct TerminalOutputView: View {
                 }
                 .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 2))
                 .tooltip(configuration: .iconHint, position: .above) {
-                    Text(isExpanded ? "Collapse output" : "Expand output").font(Typography.labelSmall)
+                    Text(isExpanded ? "Collapse output" : "Expand output", bundle: .module).font(Typography.labelSmall)
                 }
-                .accessibilityLabel(Text("Output"))
-                .accessibilityValue(isExpanded ? Text("Expanded") : Text("Collapsed"))
+                .accessibilityLabel(Text("Output", bundle: .module))
+                .accessibilityValue(isExpanded ? Text("Expanded", bundle: .module) : Text("Collapsed", bundle: .module))
             }
         }
         .padding(.horizontal, 12)
@@ -203,7 +203,7 @@ public struct TerminalOutputView: View {
     private var emptyStateView: some View {
         HStack {
             Spacer()
-            Text("Waiting for output...")
+            Text("Waiting for output...", bundle: .module)
                 .font(Typography.codeTiny)
                 .foregroundStyle(.tertiary)
             Spacer()
@@ -248,7 +248,7 @@ extension Color {
 
 extension TerminalOutputView {
     /// Create a terminal view from an array of strings (all treated as stdout)
-    public init(output: [String], title: String = String(localized: "Output"), maxHeight: CGFloat = 200) {
+    public init(output: [String], title: String = String(localized: "Output", bundle: .blissUI), maxHeight: CGFloat = 200) {
         self.lines = output.map { TerminalOutputLine($0, type: .stdout) }
         self.title = title
         self.maxHeight = maxHeight

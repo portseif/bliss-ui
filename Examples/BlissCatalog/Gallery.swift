@@ -30,9 +30,22 @@ enum Gallery {
         UserDefaults.standard.string(forKey: "gallery").map { URL(fileURLWithPath: $0, isDirectory: true) }
     }
 
+    /// Each catalog area's entries, in README order.
+    static var areas: [(name: String, entries: [GalleryEntry])] {
+        [("filters", filters), ("calendar", calendar), ("commandSidebar", commandSidebar), ("forms", forms), ("data", data), ("fields", fields), ("tokens", tokens), ("layout", layout)]
+    }
+
+    /// Everything to capture: `-galleryArea <name>` limits it to one area
+    /// (`core` for the original set).
+    static var entries: [GalleryEntry] {
+        let all = [("core", core)] + areas
+        guard let only = UserDefaults.standard.string(forKey: "galleryArea") else { return all.flatMap(\.entries) }
+        return all.first { $0.name == only }?.entries ?? []
+    }
+
     // MARK: - Entries
 
-    static let entries: [GalleryEntry] = [
+    static let core: [GalleryEntry] = [
         // Buttons & styles
         GalleryEntry("buttons", height: 76) {
             HStack(spacing: Spacing.sm) {
