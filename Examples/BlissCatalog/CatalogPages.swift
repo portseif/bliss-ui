@@ -11,6 +11,12 @@ import SwiftUI
 
 // MARK: - Shared
 
+/// `-demo <state>` opens a page in a state that otherwise takes a click —
+/// used to capture the README screenshots (`selection`, `sheet`, `toasts`).
+enum CatalogDemo {
+    static var state: String? { UserDefaults.standard.string(forKey: "demo") }
+}
+
 /// A titled demo block on a page.
 private struct DemoBlock<Content: View>: View {
     let title: LocalizedStringKey
@@ -275,13 +281,16 @@ private struct CatalogTask: Identifiable {
 
 struct TablePage: View {
     @State private var selection: Set<UUID> = []
-    private let tasks = [
+    /// Static, so the rows keep their IDs across renders (a selection holds IDs).
+    private static let tasks = [
         CatalogTask(title: "Polish the onboarding card", owner: "Ada", priority: 2, updated: .now.addingTimeInterval(-600)),
         CatalogTask(title: "Ship the Low Glare theme", owner: "Grace", priority: 1, updated: .now.addingTimeInterval(-7_200)),
         CatalogTask(title: "Tune the sheet spring", owner: "Alan", priority: 3, updated: .now.addingTimeInterval(-86_400)),
         CatalogTask(title: "Audit focus rings", owner: "Katherine", priority: 1, updated: .now.addingTimeInterval(-172_800)),
         CatalogTask(title: "Write the catalog", owner: "Ada", priority: 2, updated: .now.addingTimeInterval(-30)),
     ]
+
+    private var tasks: [CatalogTask] { Self.tasks }
 
     var body: some View {
         BlissTable(
@@ -309,11 +318,17 @@ struct TablePage: View {
             TimeAgoLabel(date: task.updated)
                 .foregroundStyle(.secondary)
         }
+        // Tall enough that the selection bar floats below the rows.
+        .frame(minHeight: 540, alignment: .top)
         .selectionBar(count: selection.count, onClear: { selection.removeAll() }) {
             SelectionBarButton("Archive", systemImage: "archivebox") { selection.removeAll() }
             SelectionBarButton("Assign", systemImage: "person.crop.circle") {}
         }
-        .frame(minHeight: 360, alignment: .top)
+        .onAppear {
+            if CatalogDemo.state == "selection" {
+                selection = Set(tasks.filter { $0.priority == 1 }.map(\.id))
+            }
+        }
     }
 }
 
@@ -416,8 +431,23 @@ struct SheetsPage: View {
                 }
             }
         }
-        .appSheet(isPresented: $showingSheet) {
+        // A fixed-width sheet is content-sized.
+        .appSheet(isPresented: $showingSheet, contentSized: true) {
             CatalogSheet()
+        }
+        .onAppear(perform: showDemoState)
+    }
+
+    private func showDemoState() {
+        switch CatalogDemo.state {
+        case "sheet":
+            showingSheet = true
+        case "toasts":
+            ToastService.shared.show(.success(title: "Saved", message: "Your changes are in."), autoDismiss: false)
+            ToastService.shared.show(.info(title: "Update available", message: "Version 1.1 is ready."), autoDismiss: false)
+            ToastService.shared.show(ToastData(title: "Exporting", message: "Writing files…", style: .progress(0.6)))
+        default:
+            break
         }
     }
 
@@ -457,6 +487,7 @@ private struct CatalogSheet: View {
                 Toggle("Notify me when it's done", isOn: $notify).toggleStyle(.flatSwitch(showsLabel: true))
             }
             .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
         } footer: {
             ActionBar(confirmTitle: "Create", isConfirmDisabled: title.isEmpty, onCancel: dismiss) {
                 dismiss()

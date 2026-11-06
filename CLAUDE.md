@@ -13,6 +13,7 @@ The components were extracted from StackMe, where every one of them was tuned in
 **Swift settings** (`Package.swift`): Swift 5 language mode, `defaultIsolation(MainActor.self)`, approachable concurrency (`NonisolatedNonsendingByDefault`, `InferIsolatedConformances`), `MemberImportVisibility`. Everything is main-actor unless marked `nonisolated`.
 
 - **The catalog is the integration check.** `Examples/BlissCatalog` uses only the public API; add a demo for every new component.
+- **README screenshots:** `scripts/screenshots.sh` rebuilds every image in `docs/images` (needs `cwebp` and Screen Recording permission). A new component gets a `GalleryEntry` in `Examples/BlissCatalog/Gallery.swift` and a card in the README's Component index. The catalog flags it drives: `-gallery <folder>` (capture each `GalleryEntry`, quit), `-capture <file.png>` (capture the window once settled, quit), `-page <case>`, `-demo selection|sheet|toasts`, plus any `UserDefaults` key as `-bliss.theme low-glare` / `-bliss.colorScheme Dark`.
 - **Two test targets.** `BlissUITests` uses `@testable import` for internals. `BlissUIPublicAPITests` imports BlissUI *without* `@testable`, so it only compiles against the public API — every public component gets a construction test there. If an app can't reach it, that target fails to build.
 - **Previews:** every component has a `#Preview(traits: .fixedLayout(…))`, one per component plus variants only for different data states; no dedicated dark-mode previews (the canvas has an appearance toggle). Generic sample data only.
 
@@ -40,7 +41,8 @@ Sources/BlissUI/
     ├── Tables/      BlissTable, SelectionBar, DividedForEach, list-row hover
     ├── Grids/       FlowLayout
     └── Toasts/      ToastData, ToastService, ToastNotification, .globalToast()
-Examples/BlissCatalog/  Demo app of every component, public API only
+Examples/BlissCatalog/  Demo app of every component, public API only (Gallery.swift feeds the README index)
+scripts/screenshots.sh  Regenerates docs/images
 ```
 
 ## Code Conventions

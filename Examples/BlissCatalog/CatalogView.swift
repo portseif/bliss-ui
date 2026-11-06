@@ -6,6 +6,7 @@
 //  the content surface beside it.
 //
 
+import AppKit
 import BlissUI
 import SwiftUI
 
@@ -43,12 +44,27 @@ struct CatalogView: View {
         String(describing: $0) == UserDefaults.standard.string(forKey: "page")
     } ?? .themes
 
+    @State private var window: NSWindow?
+
     var body: some View {
         HStack(spacing: 0) {
             sidebar
             content
         }
         .background(Color.appShell)
+        .onWindow { hostWindow in
+            if window !== hostWindow { window = hostWindow }
+        }
+        .task { await captureIfRequested() }
+    }
+
+    /// `-capture <file>`: wait for the page (and any demo state) to settle,
+    /// capture the window, quit.
+    private func captureIfRequested() async {
+        guard let file = WindowCapture.requestedFile else { return }
+        try? await Task.sleep(for: .milliseconds(2_000))
+        if let window { WindowCapture.capture(window, to: file) }
+        NSApplication.shared.terminate(nil)
     }
 
     // MARK: - Sidebar

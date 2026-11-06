@@ -23,13 +23,19 @@ struct BlissCatalogApp: App {
 
     var body: some Scene {
         WindowGroup("BlissUI Catalog") {
-            CatalogView()
-                .frame(minWidth: 960, minHeight: 640)
-                .appSheetHost(leadingInset: CatalogView.sidebarWidth)
-                .globalToast()
-                .blissTheme()
-                .blissWindowChrome()
-                .persistsWindowFrame(key: "blissCatalog.windowFrame")
+            if let outputDirectory = Gallery.outputDirectory {
+                // `-gallery <folder>`: capture each component, then quit.
+                GalleryExportView(outputDirectory: outputDirectory)
+                    .blissTheme()
+            } else {
+                CatalogView()
+                    .frame(minWidth: 960, minHeight: 640)
+                    .appSheetHost(leadingInset: CatalogView.sidebarWidth)
+                    .globalToast()
+                    .blissTheme()
+                    .blissWindowChrome()
+                    .persistsWindowFrame(key: "blissCatalog.windowFrame")
+            }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1180, height: 780)
