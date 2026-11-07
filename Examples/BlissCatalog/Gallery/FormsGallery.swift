@@ -46,9 +46,9 @@ extension Gallery {
                 columns: 3,
                 axis: .vertical,
                 title: { LocalizedStringKey($0) },
-                detail: { $0 == "Monthly" ? "$8 a month" : ($0 == "Yearly" ? "$80 a year" : "$199 once") },
-                icon: { $0 == "Lifetime" ? "infinity" : "calendar" },
-                badge: { $0 == "Yearly" ? Badge("Save 17%").badgeStyle(.success) : nil }
+                detail: { GalleryPlan.detail(for: $0) },
+                icon: { GalleryPlan.icon(for: $0) },
+                badge: { GalleryPlan.badge(for: $0) }
             )
         },
         GalleryEntry("option-cards-multiple", height: 110) {
@@ -57,8 +57,8 @@ extension Gallery {
                 selection: .constant(["Database", "Files"]),
                 columns: 3,
                 title: { LocalizedStringKey($0) },
-                detail: { $0 == "Database" ? "1.2 GB" : ($0 == "Files" ? "18,206 files" : "12 KB") },
-                icon: { $0 == "Database" ? "cylinder" : ($0 == "Files" ? "folder" : "gearshape") }
+                detail: { GalleryBackupContent.detail(for: $0) },
+                icon: { GalleryBackupContent.icon(for: $0) }
             )
         },
 
@@ -127,6 +127,45 @@ private enum GalleryTaskKind {
         case "Refactor": "wand.and.rays"
         case "Write tests": "checkmark.seal"
         default: "text.bubble"
+        }
+    }
+}
+
+// Typed lookups rather than nested ternaries in the closures: Swift 6.3 gives
+// up type-checking those ("unable to type-check this expression in
+// reasonable time") even though 6.4 manages.
+private enum GalleryPlan {
+    static func detail(for plan: String) -> LocalizedStringKey {
+        switch plan {
+        case "Monthly": "$8 a month"
+        case "Yearly": "$80 a year"
+        default: "$199 once"
+        }
+    }
+
+    static func icon(for plan: String) -> String {
+        plan == "Lifetime" ? "infinity" : "calendar"
+    }
+
+    static func badge(for plan: String) -> Badge? {
+        plan == "Yearly" ? Badge("Save 17%").badgeStyle(.success) : nil
+    }
+}
+
+private enum GalleryBackupContent {
+    static func detail(for content: String) -> LocalizedStringKey {
+        switch content {
+        case "Database": "1.2 GB"
+        case "Files": "18,206 files"
+        default: "12 KB"
+        }
+    }
+
+    static func icon(for content: String) -> String {
+        switch content {
+        case "Database": "cylinder"
+        case "Files": "folder"
+        default: "gearshape"
         }
     }
 }

@@ -90,7 +90,7 @@ public enum AvatarSize: Hashable, Sendable, CaseIterable {
 }
 
 /// An avatar's outline.
-public enum AvatarShape: Hashable, Sendable {
+public nonisolated enum AvatarShape: Hashable, Sendable {
     case circle
     /// A rounded square — for a team, a workspace or a bot rather than a person.
     case rounded
