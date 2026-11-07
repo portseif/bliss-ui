@@ -196,3 +196,4 @@ A value-keyed `.animation(_:value:)` on a big subtree retimes everything that ch
 | A focused Button loses focus to the first text field | Its label switched between view types (`if` / `else`); keep one structure and change its contents |
 | `.accessibilityLabel` on a hosted `NSTextView` does nothing | Set the AppKit view's label from a resolved string (`TextArea` takes a `LocalizedStringResource`) |
 | `ForEach(weekdaySymbols, id: \.self)` drops or duplicates days | Initials repeat ("S", "T"); identify by position |
+| Translations fall back to English under Swift 6.3 (`LocalizationTests` fail, bundle has only `en`) | 6.3's default native build system copies `Localizable.xcstrings` uncompiled — build with `--build-system swiftbuild` (6.4's default; CI passes it) |
