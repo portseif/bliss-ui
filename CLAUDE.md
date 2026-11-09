@@ -38,11 +38,11 @@ Sources/BlissUI/
     ├── Display/     Badge, EmptyState, ThinkingSpinner, InfoButton, PathHoverChip, SlidingNumber, StatusPill, KeyHintPill, …
     ├── Feedback/    Banner, DisclosureSection, ConfirmationSheet, skeleton loading
     ├── Filters/     FilterBar + FilterCondition matching, filter menu rows, FilterMenuButton
-    ├── Forms/       SettingsRow family, settings table of contents, OptionCard, RadioGlyph, wizard rows
-    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, NumberField, BlissSlider, TextArea, TokenField, ComboBox, ShortcutRecorder
+    ├── Forms/       SettingsRow family, settings table of contents, FormField, OptionCard, RadioGlyph, wizard rows
+    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, NumberField, BlissSlider, TextArea, SecretField, TokenField, ComboBox, ShortcutRecorder
     ├── Layout/      Avatar, AvatarStack, Breadcrumbs, InspectorSplit, CodeField + highlighters
     ├── Navigation/  UnderlineTabBar, StepIndicator, CommandPalette, Sidebar, SlideoutPanel
-    ├── Overlays/    FloatingMenu, Tooltip, ScrollViewWithThinIndicator, ProgressOverlay
+    ├── Overlays/    FloatingMenu, context menu, Tooltip, ScrollViewWithThinIndicator, ProgressOverlay
     ├── Sections/    RoundedSection, SectionHeader, DetailRow, InfoList
     ├── Sheets/      AppSheet, SheetHeader, SheetCloseButton
     ├── Tables/      BlissTable, SelectionBar, DividedForEach, list-row hover
@@ -104,7 +104,7 @@ Four built-ins: **System** (no palettes — built-in tokens, macOS accent, byte-
 
 ## Components
 
-**Use the custom components, never native equivalents** (no `.bordered`/`.borderedProminent`/`.plain` for real buttons, no native `Picker`/`Menu`/`ColorPicker`/`.help()`/`.contextMenu`).
+**Use the custom components, never native equivalents** (no `.bordered`/`.borderedProminent`/`.plain` for real buttons, no native `Picker`/`Menu`/`ColorPicker`/`.help()`/`.contextMenu` — `.blissContextMenu { … }` is the right-click menu).
 
 ### Buttons (`ButtonStyles.swift`)
 
@@ -112,9 +112,13 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 **Keyboard focus:** every style is a Tab stop with the same ring, and **rings show only after keyboard input** (`FocusVisibilityService`, like the web's `:focus-visible`). Space presses; Return presses the control a ring is on. The ring appears without animation. A menu's trigger button must **toggle** its `isPresented` binding, not set it `true`.
 
+**Busy buttons:** `.buttonLoading(isSaving)` on any text button puts a spinner where the label was (same size) and blocks presses while keeping the enabled look — a working button isn't a disabled one.
+
 ### Inputs
 
 - `TextField(...).textFieldStyle(.largePadded)`. A hand-built input wraps its chrome in `.inputBox(isFocused:cornerRadius:)` — don't hand-roll the box.
+- `FormField(title, hint:, error:, isRequired:) { control }` puts the title above and the hint or error below; while `error` is set it sets `\.formFieldIsInvalid`, which the text field styles and `.inputBox` draw as a red line (read it in your own input). The control keeps its own label for VoiceOver; the hint or error becomes its accessibility hint.
+- `SecretField` for keys, tokens and passwords: masked until revealed, copy through `SecretClipboard`. Both fields stay mounted (one hidden) so the reveal keeps focus — a `SecureField` ↔ `TextField` swap drops it. Revealing asks `SecretClipboard.authorize`, and the value re-masks when the app resigns active.
 - Toggles are `.toggleStyle(.flatSwitch)`, never the native `.switch` (a Tab stop with the shared ring that Space flips, real switch semantics for VoiceOver).
 - `FloatingMenuPicker` for dropdowns, `FloatingMenu` for action menus, `SegmentedPills` for segmented controls, `InfoButton(text:)` / `InfoHint { … }` instead of `.help()`.
 - `ColorPickerButton` and the icon pickers stay native `.popover`s on purpose: a floating panel can't become key, so search fields and Return/Esc wouldn't work.
@@ -158,6 +162,7 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 - **Tooltip:** `.tooltip("Settings", position: .below)` — never `.help()`. Grouped timing: the first waits 500ms, the next within 400ms shows instantly.
 - **Toasts:** `ToastService.shared` rendered by `.globalToast()`. They stack (at most 5), fan out on hover, and a progress toast is the caller's to take down (`dismiss(id:)` from a `defer`). `success`/`info` auto-dismiss; `error`/`warning`/in-progress persist.
+- **Right-click menus:** `.blissContextMenu { QuickActionMenuItem…; MenuDivider(); … }` — the popup (`PopupMenuService`) at the pointer, also opened by ⌃Return / ⇧F10 while the view has focus. A picked `QuickActionMenuItem` closes the popup on its own (inside a `floatingMenu` the trigger's binding closes it).
 - **Floating menus:** content must be a `View` struct with `@Binding`s (it's hosted in an `NSHostingView` snapshotted at open). Menus are child windows at the parent's level, and the page doesn't scroll under an open one.
 - **`ScrollViewWithThinIndicator`** — thin overlay indicator plus optional edge fades. The fade is an alpha MASK, and **never animate a mask**: an animated mask re-renders into a new texture every frame of a live resize (hundreds of MB of graphics memory).
 

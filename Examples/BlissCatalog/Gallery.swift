@@ -64,6 +64,14 @@ enum Gallery {
                 Button("Remove") {}.buttonStyle(DestructiveButtonStyle(compact: true))
             }
         },
+        GalleryEntry("loading-buttons", height: 76) {
+            HStack(spacing: Spacing.sm) {
+                Button("Save") {}.buttonStyle(PrimaryButtonStyle()).buttonLoading(true)
+                Button("Checking…") {}.buttonStyle(SecondaryButtonStyle()).buttonLoading(true)
+                Button("Publishing") {}.buttonStyle(OutlineButtonStyle(compact: true)).buttonLoading(true)
+                Button("Deleting") {}.buttonStyle(DestructiveButtonStyle(compact: true, prominent: true)).buttonLoading(true)
+            }
+        },
         GalleryEntry("gradient-button", height: 76) {
             HStack(spacing: Spacing.sm) {
                 Button {} label: { Label("Generate", systemImage: "sparkles") }
@@ -93,6 +101,12 @@ enum Gallery {
             VStack(spacing: Spacing.md) {
                 TextField("Project name", text: .constant("Bliss")).textFieldStyle(.largePadded)
                 TextField("Search", text: .constant("")).textFieldStyle(.search)
+            }
+        },
+        GalleryEntry("secret-field", width: 420, height: 108) {
+            VStack(spacing: Spacing.md) {
+                SecretField("API key", text: .constant("sk-live-4f8a2c9e1b7d6a3f"))
+                SecretField("Password", text: .constant(""), prompt: Text("Required"), isCopyable: false)
             }
         },
         GalleryEntry("flat-switch", height: 84) {

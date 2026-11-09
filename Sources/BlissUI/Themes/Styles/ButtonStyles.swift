@@ -18,6 +18,51 @@
 
 import SwiftUI
 
+    // MARK: - Loading State
+
+/// Set by `.buttonLoading(_:)` on the button.
+struct ButtonIsLoadingKey: EnvironmentKey {
+    static let defaultValue: Bool = false
+}
+
+extension EnvironmentValues {
+    /// True while the button is busy (`.buttonLoading(true)`): the text button
+    /// styles hide the label under a spinner at the label's size.
+    public var buttonIsLoading: Bool {
+        get { self[ButtonIsLoadingKey.self] }
+        set { self[ButtonIsLoadingKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// A busy button: a spinner takes the label's place (the button keeps its
+    /// size) and it can't be pressed, but it keeps its enabled look — it's
+    /// working, not unavailable. For the text button styles (Primary,
+    /// Secondary, Outline, Ghost, Destructive).
+    ///
+    /// ```swift
+    /// Button("Save") { save() }
+    ///     .buttonStyle(PrimaryButtonStyle())
+    ///     .buttonLoading(isSaving)
+    /// ```
+    public func buttonLoading(_ isLoading: Bool) -> some View {
+        environment(\.buttonIsLoading, isLoading)
+            .disabled(isLoading)
+            .accessibilityValue(isLoading ? Text("Loading", bundle: .module) : Text(verbatim: ""))
+    }
+
+    /// The label hidden under a spinner while loading, at the label's own size
+    /// so the button doesn't shrink.
+    fileprivate func loadingSpinner(_ isLoading: Bool, color: Color, compact: Bool) -> some View {
+        opacity(isLoading ? 0 : 1)
+            .overlay {
+                if isLoading {
+                    ThinkingSpinner(size: compact ? 12 : 14, lineWidth: 2, color: color)
+                }
+            }
+    }
+}
+
     // MARK: - Primary Button Style
 
     /// Primary button — the neutral filled surface, no accent hue
@@ -27,6 +72,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
     var cornerRadiusOverride: CGFloat? = nil
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.buttonIsLoading) private var isLoading
     @Environment(\.colorScheme) private var colorScheme
 
     /// - Parameters:
@@ -45,7 +91,9 @@ public struct PrimaryButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         PrimaryButton(
             configuration: configuration,
-            isEnabled: isEnabled,
+            // A loading button is disabled, but keeps its enabled look.
+            isEnabled: isEnabled || isLoading,
+            isLoading: isLoading,
             colorScheme: colorScheme,
             labelFont: labelFont,
             compact: compact,
@@ -58,6 +106,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
 private struct PrimaryButton: View {
     let configuration: ButtonStyleConfiguration
     let isEnabled: Bool
+    let isLoading: Bool
     let colorScheme: ColorScheme
     let labelFont: Font
     var compact: Bool = false
@@ -90,6 +139,7 @@ private struct PrimaryButton: View {
         configuration.label
             .font(labelFont)
             .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+            .loadingSpinner(isLoading, color: .primary, compact: compact)
             .padding(.horizontal, compact ? Spacing.md : Spacing.lg + 2)
             .padding(.vertical, compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4)
             .frame(minHeight: compact ? Sizing.controlDefault : Sizing.controlMedium)
@@ -102,7 +152,7 @@ private struct PrimaryButton: View {
             .focusable()
             .focused($isFocused)
             .focusEffectDisabled()
-            .onHover { isHovering = isEnabled ? $0 : false }
+            .onHover { isHovering = isEnabled && !isLoading ? $0 : false }
             .animation(Animations.hover, value: isHovering)
             .animation(Animations.press, value: isPressed)
     }
@@ -119,6 +169,7 @@ public struct OutlineButtonStyle: ButtonStyle {
     var cornerRadiusOverride: CGFloat? = nil
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.buttonIsLoading) private var isLoading
     @Environment(\.colorScheme) private var colorScheme
 
     /// - Parameters:
@@ -136,7 +187,8 @@ public struct OutlineButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         OutlineButton(
             configuration: configuration,
-            isEnabled: isEnabled,
+            isEnabled: isEnabled || isLoading,
+            isLoading: isLoading,
             colorScheme: colorScheme,
             labelFont: labelFont,
             compact: compact,
@@ -149,6 +201,7 @@ public struct OutlineButtonStyle: ButtonStyle {
 private struct OutlineButton: View {
     let configuration: ButtonStyleConfiguration
     let isEnabled: Bool
+    let isLoading: Bool
     let colorScheme: ColorScheme
     let labelFont: Font
     var compact: Bool = false
@@ -172,6 +225,7 @@ private struct OutlineButton: View {
         configuration.label
             .font(labelFont)
             .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+            .loadingSpinner(isLoading, color: .primary, compact: compact)
             .padding(.horizontal, compact ? Spacing.md : Spacing.lg + 2)
             .padding(.vertical, compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4)
             .frame(minHeight: compact ? Sizing.controlDefault : Sizing.controlMedium)
@@ -190,7 +244,7 @@ private struct OutlineButton: View {
             .focusable()
             .focused($isFocused)
             .focusEffectDisabled()
-            .onHover { isHovering = isEnabled ? $0 : false }
+            .onHover { isHovering = isEnabled && !isLoading ? $0 : false }
             .animation(Animations.hover, value: isHovering)
             .animation(Animations.press, value: configuration.isPressed)
     }
@@ -202,6 +256,7 @@ private struct OutlineButton: View {
     /// Use for secondary actions: Cancel, Back, Edit
 public struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.buttonIsLoading) private var isLoading
     @Environment(\.colorScheme) private var colorScheme
 
     var compact: Bool = false
@@ -238,7 +293,8 @@ public struct SecondaryButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         SecondaryButton(
             configuration: configuration,
-            isEnabled: isEnabled,
+            isEnabled: isEnabled || isLoading,
+            isLoading: isLoading,
             colorScheme: colorScheme,
             compact: compact,
             iconOnly: iconOnly,
@@ -255,6 +311,7 @@ public struct SecondaryButtonStyle: ButtonStyle {
 private struct SecondaryButton: View {
     let configuration: ButtonStyleConfiguration
     let isEnabled: Bool
+    let isLoading: Bool
     let colorScheme: ColorScheme
     let compact: Bool
     let iconOnly: Bool
@@ -307,6 +364,7 @@ private struct SecondaryButton: View {
         configuration.label
             .font(labelFont)
             .foregroundStyle(textColor)
+            .loadingSpinner(isLoading, color: textColor, compact: compact)
             .padding(.horizontal, iconOnly ? 0 : (compact ? Spacing.md : Spacing.lg))
             .padding(.vertical, iconOnly ? 0 : (compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4))
             .frame(width: iconOnly ? iconOnlySize : nil, height: iconOnly ? iconOnlySize : nil)
@@ -328,7 +386,7 @@ private struct SecondaryButton: View {
             .focusable()
             .focused($isFocused)
             .focusEffectDisabled()
-            .onHover { isHovering = isEnabled ? $0 : false }
+            .onHover { isHovering = isEnabled && !isLoading ? $0 : false }
             .animation(Animations.hover, value: isHovering)
             .animation(Animations.press, value: isPressed)
     }
@@ -347,6 +405,7 @@ public struct GhostButtonStyle: ButtonStyle {
     var hugsLabel: Bool = false
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.buttonIsLoading) private var isLoading
 
     /// - Parameters:
     ///   - compact: The dense size, for toolbars and tight rows.
@@ -358,7 +417,7 @@ public struct GhostButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        GhostButton(configuration: configuration, colorScheme: colorScheme, compact: compact, hugsLabel: hugsLabel)
+        GhostButton(configuration: configuration, colorScheme: colorScheme, isLoading: isLoading, compact: compact, hugsLabel: hugsLabel)
     }
 }
 
@@ -366,6 +425,9 @@ public struct GhostButtonStyle: ButtonStyle {
 private struct GhostButton: View {
     let configuration: ButtonStyleConfiguration
     let colorScheme: ColorScheme
+    /// Only the padded body shows the spinner; a label-hugging heading link
+    /// has no room for one.
+    var isLoading: Bool = false
     var compact: Bool = false
     var hugsLabel: Bool = false
 
@@ -445,6 +507,7 @@ private struct GhostButton: View {
         configuration.label
             .font(labelFont)
             .foregroundStyle(textColor)
+            .loadingSpinner(isLoading, color: textColor, compact: compact)
             .padding(.horizontal, compact ? Spacing.md : Spacing.lg)
             .padding(.vertical, compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4)
             .frame(minHeight: compact ? Sizing.controlDefault : Sizing.controlMedium)
@@ -459,7 +522,7 @@ private struct GhostButton: View {
             .focused($isFocused)
             .focusEffectDisabled()
             .onHover { hovering in
-                isHovering = hovering
+                isHovering = hovering && !isLoading
             }
             .animation(Animations.hover, value: isHovering)
             .animation(Animations.press, value: configuration.isPressed)
@@ -472,6 +535,7 @@ private struct GhostButton: View {
     /// Use secondary/tertiary treatment unless it's a confirmation dialog
 public struct DestructiveButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.buttonIsLoading) private var isLoading
     @Environment(\.colorScheme) private var colorScheme
 
     var compact: Bool = false
@@ -498,7 +562,8 @@ public struct DestructiveButtonStyle: ButtonStyle {
         if prominent {
             ProminentDestructiveButton(
                 configuration: configuration,
-                isEnabled: isEnabled,
+                isEnabled: isEnabled || isLoading,
+                isLoading: isLoading,
                 colorScheme: colorScheme,
                 compact: compact,
                 font: prominentFont
@@ -506,7 +571,8 @@ public struct DestructiveButtonStyle: ButtonStyle {
         } else {
             SubtleDestructiveButton(
                 configuration: configuration,
-                isEnabled: isEnabled,
+                isEnabled: isEnabled || isLoading,
+                isLoading: isLoading,
                 colorScheme: colorScheme,
                 compact: compact,
                 font: subtleFont
@@ -519,6 +585,7 @@ public struct DestructiveButtonStyle: ButtonStyle {
 private struct ProminentDestructiveButton: View {
     let configuration: ButtonStyleConfiguration
     let isEnabled: Bool
+    let isLoading: Bool
     let colorScheme: ColorScheme
     let compact: Bool
     let font: Font
@@ -545,6 +612,7 @@ private struct ProminentDestructiveButton: View {
         configuration.label
             .font(font)
             .foregroundStyle(Color.white)
+            .loadingSpinner(isLoading, color: .white, compact: compact)
             .padding(.horizontal, compact ? Spacing.md : Spacing.lg + 2)
             .padding(.vertical, compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4)
             .frame(minHeight: compact ? Sizing.controlDefault : Sizing.controlMedium)
@@ -567,6 +635,7 @@ private struct ProminentDestructiveButton: View {
 private struct SubtleDestructiveButton: View {
     let configuration: ButtonStyleConfiguration
     let isEnabled: Bool
+    let isLoading: Bool
     let colorScheme: ColorScheme
     let compact: Bool
     let font: Font
@@ -605,6 +674,7 @@ private struct SubtleDestructiveButton: View {
         configuration.label
             .font(font)
             .foregroundStyle(isEnabled ? textColor : (colorScheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.3)))
+            .loadingSpinner(isLoading, color: textColor, compact: compact)
             .padding(.horizontal, compact ? Spacing.md : Spacing.lg)
             .padding(.vertical, compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4)
             .frame(minHeight: compact ? Sizing.controlDefault : Sizing.controlMedium)
@@ -622,7 +692,7 @@ private struct SubtleDestructiveButton: View {
             .focusable()
             .focused($isFocused)
             .focusEffectDisabled()
-            .onHover { isHovering = isEnabled ? $0 : false }
+            .onHover { isHovering = isEnabled && !isLoading ? $0 : false }
             .animation(Animations.hover, value: isHovering)
             .animation(Animations.press, value: isPressed)
     }

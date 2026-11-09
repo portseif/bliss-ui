@@ -211,4 +211,10 @@ import BlissUI
         environment.appSheetMaxHeight = 480
         #expect(environment.appSheetMaxHeight == 480)
     }
+
+    @Test func secretFieldIsReachable() {
+        _ = SecretField("API key", text: .constant("sk-live"))
+        _ = SecretField("Password", text: .constant(""), prompt: Text("Required"), isCopyable: false)
+        _ = RevealToggleIcon(isRevealed: true)
+    }
 }

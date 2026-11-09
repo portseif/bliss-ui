@@ -104,4 +104,16 @@ import BlissUI
         #expect(!service.isSuppressed())
         #expect(ShortcutHintService.revealDelay > 0)
     }
+
+    @Test func buttonsTakeALoadingState() {
+        _ = Button("Save") {}.buttonStyle(PrimaryButtonStyle()).buttonLoading(true)
+        _ = Button("Cancel") {}.buttonStyle(SecondaryButtonStyle(compact: true)).buttonLoading(false)
+        _ = Button("Publish") {}.buttonStyle(OutlineButtonStyle()).buttonLoading(true)
+        _ = Button("Skip") {}.buttonStyle(GhostButtonStyle()).buttonLoading(true)
+        _ = Button("Delete") {}.buttonStyle(DestructiveButtonStyle(prominent: true)).buttonLoading(true)
+        var environment = EnvironmentValues()
+        #expect(!environment.buttonIsLoading)
+        environment.buttonIsLoading = true
+        #expect(environment.buttonIsLoading)
+    }
 }

@@ -16,11 +16,16 @@ import SwiftUI
 public struct LargePaddedTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.formFieldIsInvalid) private var isInvalid
 
     public init() {}
 
-    /// Underline color — accent on focus, muted grey otherwise.
+    /// Underline color — red inside a `FormField` with an error, accent on
+    /// focus, muted grey otherwise.
     private var lineColor: Color {
+        if isInvalid {
+            return Danger.danger500
+        }
         if isFocused {
             return Color.accent
         }
@@ -56,6 +61,7 @@ extension TextFieldStyle where Self == LargePaddedTextFieldStyle {
 public struct CompactTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.formFieldIsInvalid) private var isInvalid
 
     public init() {}
 
@@ -64,6 +70,9 @@ public struct CompactTextFieldStyle: TextFieldStyle {
     }
 
     private var borderColor: Color {
+        if isInvalid {
+            return Danger.danger500
+        }
         if isFocused {
             return Color.accent
         }
@@ -230,19 +239,32 @@ extension View {
     /// The box behind an input built by hand — a search bar with an icon, a
     /// note field with a timestamp beside it, an inline composer field: a faint
     /// fill and a hairline at rest, the control surface and the shared focus
-    /// ring (the one every button shows) while focused. The field needs its own
+    /// ring (the one every button shows) while focused, and a red hairline
+    /// inside a `FormField` with an error. The field needs its own
     /// `.focused(_:)` binding to pass in as `isFocused`.
     public func inputBox(isFocused: Bool, cornerRadius: CGFloat = Sizing.radiusDefault) -> some View {
-        background {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(isFocused ? Color.controlBackground : Color.primary.opacity(0.04))
-                .animation(Animations.hover, value: isFocused)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(Color.menuBorder, lineWidth: 1)
-        }
-        .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, showsOnPointerFocus: true)
+        modifier(InputBoxModifier(isFocused: isFocused, cornerRadius: cornerRadius))
+    }
+}
+
+private struct InputBoxModifier: ViewModifier {
+    let isFocused: Bool
+    let cornerRadius: CGFloat
+
+    @Environment(\.formFieldIsInvalid) private var isInvalid
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(isFocused ? Color.controlBackground : Color.primary.opacity(0.04))
+                    .animation(Animations.hover, value: isFocused)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(isInvalid ? Danger.danger500 : Color.menuBorder, lineWidth: 1)
+            }
+            .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, showsOnPointerFocus: true)
     }
 }
 

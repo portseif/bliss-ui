@@ -26,6 +26,16 @@ extension Gallery {
         GalleryEntry("settings-table-of-contents", width: 640, height: 300) {
             GallerySettingsScrollView()
         },
+        GalleryEntry("form-field", width: 420, height: 196) {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                FormField("Name", hint: "Shown on your receipts.", isRequired: true) {
+                    TextField("Name", text: .constant("Ada Lovelace")).textFieldStyle(.largePadded)
+                }
+                FormField("Email", error: "Enter a full address, like ada@example.com", isRequired: true) {
+                    TextField("Email", text: .constant("ada@example")).textFieldStyle(.largePadded)
+                }
+            }
+        },
 
         // Option cards
         GalleryEntry("option-cards", height: 196) {

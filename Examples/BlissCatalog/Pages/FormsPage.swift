@@ -15,12 +15,45 @@ struct FormsPage: View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             FormsSettingsRowsDemo()
             FormsTableOfContentsDemo()
+            FormsFieldDemo()
             FormsOptionCardsDemo()
             FormsWizardRowsDemo()
             FormsBannersDemo()
             FormsDisclosureDemo()
             FormsConfirmationDemo()
             FormsSkeletonDemo()
+        }
+    }
+}
+
+// MARK: - Form field
+
+private struct FormsFieldDemo: View {
+    @State private var name = ""
+    @State private var email = "ada@example"
+    @State private var port = 2222
+
+    private var emailError: LocalizedStringKey? {
+        email.contains("@") && email.contains(".") ? nil : "Enter a full address, like ada@example.com"
+    }
+
+    var body: some View {
+        DemoBlock(title: "Form field") {
+            Text("A title above the control and a hint or error under it. The error also turns the control's line red.")
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                FormField("Name", hint: "Shown on your receipts.", isRequired: true) {
+                    TextField("Name", text: $name).textFieldStyle(.largePadded)
+                }
+                FormField("Email", hint: "We only use it for receipts.", error: emailError, isRequired: true) {
+                    TextField("Email", text: $email).textFieldStyle(.largePadded)
+                }
+                FormField("SSH port", hint: "1 to 65535") {
+                    NumberField("SSH port", value: $port, in: 1...65_535)
+                }
+            }
+            .frame(maxWidth: 420)
         }
     }
 }

@@ -247,8 +247,16 @@ public struct QuickActionMenuItem: View {
         }
     }
 
+    /// Inside a right-click popup a picked row is the end of the menu, so the
+    /// popup closes after the action. A floating menu's trigger owns its
+    /// `isPresented`, so there the action closes it (or leaves it open).
+    private func activate() {
+        action()
+        if navigator != nil { PopupMenuService.shared.hide() }
+    }
+
     public var body: some View {
-        Button(action: action) {
+        Button(action: activate) {
             HStack(spacing: 10) {
                 iconContent
                     .frame(width: 16)
@@ -281,7 +289,7 @@ public struct QuickActionMenuItem: View {
             isHovered = hovering
             if hovering { navigator?.notePointerHover(rowID) }
         }
-        .onAppear { navigator?.register(rowID, row: PopupMenuNavigator.Row(activate: action)) }
+        .onAppear { navigator?.register(rowID, row: PopupMenuNavigator.Row(activate: activate)) }
         .onDisappear { navigator?.unregister(rowID) }
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { minY in
             navigator?.updatePosition(rowID, minY: minY)

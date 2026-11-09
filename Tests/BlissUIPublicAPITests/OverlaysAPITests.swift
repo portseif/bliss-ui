@@ -187,4 +187,13 @@ import BlissUI
         }
         _ = open
     }
+
+    @Test func contextMenuIsReachable() {
+        _ = Text("Row").blissContextMenu {
+            QuickActionMenuItem(title: "Rename", icon: "pencil") {}
+            MenuDivider()
+            QuickActionMenuItem(title: "Delete", icon: "trash", isDestructive: true) {}
+        }
+        _ = MenuDivider()
+    }
 }

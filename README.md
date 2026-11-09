@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 76 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 79 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -153,7 +153,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/text-link-dark.webp"><img src="docs/images/components/text-link-light.webp" alt="Text link" width="420"></picture><br><b>Text link</b><br><code>TextLink</code><br><sub>A dotted-underline URL that turns accent on hover.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/loading-buttons-dark.webp"><img src="docs/images/components/loading-buttons-light.webp" alt="Loading buttons" width="420"></picture><br><b>Loading buttons</b><br><code>.buttonLoading(_:)</code> on any text button style<br><sub>A spinner takes the label's place at the same size; the button can't be pressed but keeps its enabled look.</sub></td>
   </tr>
 </table>
 
@@ -189,7 +189,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/shortcut-recorder-dark.webp"><img src="docs/images/components/shortcut-recorder-light.webp" alt="Shortcut recorder" width="300"></picture><br><b>Shortcut recorder</b><br><code>ShortcutRecorder</code> · <code>KeyboardShortcutValue</code><br><sub>Click and press a combo; Esc cancels, Delete clears.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/secret-field-dark.webp"><img src="docs/images/components/secret-field-light.webp" alt="Secret field" width="315"></picture><br><b>Secret field</b><br><code>SecretField</code> · <code>RevealToggleIcon</code><br><sub>Masked until revealed, with a copy that's concealed from clipboard managers; the value masks itself again when the app goes to the background.</sub></td>
   </tr>
 </table>
 
@@ -303,6 +303,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/wizard-radio-rows-dark.webp"><img src="docs/images/components/wizard-radio-rows-light.webp" alt="Wizard choices" width="330"></picture><br><b>Wizard choices</b><br><code>WizardRadioRow</code> · <code>RadioGlyph</code><br><sub>Large radio rows for the first step of a flow.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/wizard-step-rows-dark.webp"><img src="docs/images/components/wizard-step-rows-light.webp" alt="Wizard steps" width="300"></picture><br><b>Wizard steps</b><br><code>WizardStepRow</code><br><sub>Pending, current, running, done and failed, with details.</sub></td>
   </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/form-field-dark.webp"><img src="docs/images/components/form-field-light.webp" alt="Form field" width="315"></picture><br><b>Form field</b><br><code>FormField</code> · <code>\.formFieldIsInvalid</code><br><sub>A title above the control and a hint or error under it; the error turns the field's line red.</sub></td>
+    <td width="50%"></td>
+  </tr>
 </table>
 
 </details>
@@ -392,7 +396,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
 
 <table>
   <tr>
-    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/menu-rows-dark.webp"><img src="docs/images/components/menu-rows-light.webp" alt="Menu rows" width="240"></picture><br><b>Menu rows</b><br><code>.floatingMenu</code> · <code>PopupMenuService</code> · <code>QuickActionMenuItem</code> · <code>.onSecondaryClick</code><br><sub>Menus open from the trigger's corner and run from the keyboard. (Drawn inline here; the real one is a panel.)</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/menu-rows-dark.webp"><img src="docs/images/components/menu-rows-light.webp" alt="Menu rows" width="240"></picture><br><b>Menu rows</b><br><code>.floatingMenu</code> · <code>PopupMenuService</code> · <code>QuickActionMenuItem</code> · <code>.blissContextMenu</code> · <code>MenuDivider</code><br><sub>Menus open from the trigger's corner, right-click menus at the pointer, and both run from the keyboard. (Drawn inline here; the real one is a panel.)</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/toasts-dark.webp"><img src="docs/images/components/toasts-light.webp" alt="Toasts" width="420"></picture><br><b>Toasts</b><br><code>ToastService</code> · <code>.globalToast()</code><br><sub>Pills that stack into a deck, fan out on hover, and expand errors into a card.</sub></td>
   </tr>
   <tr>

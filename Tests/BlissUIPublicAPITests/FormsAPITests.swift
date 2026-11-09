@@ -143,4 +143,21 @@ import BlissUI
         _ = Text("Ada Lovelace").skeleton(isLoading: true)
         _ = Text("Ada Lovelace").skeleton(isLoading: false)
     }
+
+    @Test func formFieldsAreReachable() {
+        _ = FormField("Name") { TextField("Name", text: .constant("")).textFieldStyle(.largePadded) }
+        _ = FormField("Email", hint: "We only use it for receipts.", isRequired: true) {
+            TextField("Email", text: .constant("")).textFieldStyle(.compact)
+        }
+        _ = FormField("Email", hint: "We only use it for receipts.", error: "Enter a full address") {
+            TextField("Email", text: .constant("ada@")).textFieldStyle(.largePadded)
+        }
+        _ = FormField("Port", error: "Out of range") {
+            NumberField("Port", value: .constant(70_000), in: 1...65_535)
+        }
+        var environment = EnvironmentValues()
+        #expect(!environment.formFieldIsInvalid)
+        environment.formFieldIsInvalid = true
+        #expect(environment.formFieldIsInvalid)
+    }
 }

@@ -58,6 +58,8 @@ struct ThemesPage: View {
 // MARK: - Buttons
 
 struct ButtonsPage: View {
+    @State private var isSaving = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             DemoBlock(title: "Text buttons") {
@@ -75,6 +77,22 @@ struct ButtonsPage: View {
                     Button("Continue") {}.buttonStyle(SecondaryButtonStyle(compact: true, accent: true))
                     Button("Save") {}.buttonStyle(PrimaryButtonStyle(compact: true))
                     Button("Remove") {}.buttonStyle(DestructiveButtonStyle(compact: true))
+                }
+            }
+            DemoBlock(title: "Loading") {
+                HStack(spacing: Spacing.sm) {
+                    Button("Save") {
+                        isSaving = true
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            isSaving = false
+                        }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonLoading(isSaving)
+                    Button("Checking…") {}.buttonStyle(SecondaryButtonStyle()).buttonLoading(true)
+                    Button("Publishing") {}.buttonStyle(OutlineButtonStyle(compact: true)).buttonLoading(true)
+                    Button("Deleting") {}.buttonStyle(DestructiveButtonStyle(compact: true, prominent: true)).buttonLoading(true)
                 }
             }
             DemoBlock(title: "Signature") {
@@ -123,12 +141,17 @@ struct InputsPage: View {
     @State private var green = 0.52
     @State private var blue = 1.0
     @State private var agreed = false
+    @State private var apiKey = "sk-live-4f8a2c9e1b7d6a3f"
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             DemoBlock(title: "Text fields") {
                 TextField("Name", text: $name).textFieldStyle(.largePadded)
                 TextField("Search", text: $search).textFieldStyle(.search)
+            }
+            DemoBlock(title: "Secret field") {
+                SecretField("API key", text: $apiKey, prompt: Text("sk-…"))
+                    .frame(maxWidth: 420)
             }
             DemoBlock(title: "Switch and checkbox") {
                 Toggle("Notifications", isOn: $notificationsOn).toggleStyle(.flatSwitch(showsLabel: true))
@@ -366,15 +389,11 @@ struct OverlaysPage: View {
                         RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
                             .strokeBorder(Color.menuBorder, style: StrokeStyle(lineWidth: 1, dash: [4]))
                     }
-                    .onSecondaryClick { point in
-                        PopupMenuService.shared.show(at: point) {
-                            VStack(alignment: .leading, spacing: 0) {
-                                QuickActionMenuItem(title: "Rename", icon: "pencil") { PopupMenuService.shared.hide() }
-                                QuickActionMenuItem(title: "Duplicate", icon: "plus.square.on.square") { PopupMenuService.shared.hide() }
-                                QuickActionMenuItem(title: "Delete", icon: "trash", isDestructive: true) { PopupMenuService.shared.hide() }
-                            }
-                            .padding(Spacing.menuPadding)
-                        }
+                    .blissContextMenu {
+                        QuickActionMenuItem(title: "Rename", icon: "pencil") {}
+                        QuickActionMenuItem(title: "Duplicate", icon: "plus.square.on.square") {}
+                        MenuDivider()
+                        QuickActionMenuItem(title: "Delete", icon: "trash", isDestructive: true) {}
                     }
             }
         }
