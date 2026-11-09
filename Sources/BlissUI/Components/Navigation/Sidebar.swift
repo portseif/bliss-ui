@@ -9,7 +9,9 @@
 //
 //  Rows share the neutral `RowTint` fill (selected a step above hover), have no
 //  press state, and are Tab stops with the shared ring. Holding ⌘ swaps a row's
-//  count for its shortcut (`ShortcutHintService`).
+//  count for its shortcut (`ShortcutHintService`). Collapsed, the sidebar shows
+//  each row's icon alone (its title in a tooltip, a count as a dot) in
+//  `Sizing.sidebarCollapsedWidth`; `SidebarToggleButton` flips it.
 //
 
 import SwiftUI
@@ -30,6 +32,18 @@ extension EnvironmentValues {
     var sidebarSelection: SidebarSelectionContext? {
         get { self[SidebarSelectionKey.self] }
         set { self[SidebarSelectionKey.self] = newValue }
+    }
+}
+
+private struct SidebarIsCollapsedKey: EnvironmentKey {
+    static let defaultValue: Bool = false
+}
+
+extension EnvironmentValues {
+    /// Set by a collapsed `Sidebar`: rows draw their icon alone.
+    var sidebarIsCollapsed: Bool {
+        get { self[SidebarIsCollapsedKey.self] }
+        set { self[SidebarIsCollapsedKey.self] = newValue }
     }
 }
 
@@ -56,22 +70,36 @@ extension EnvironmentValues {
 /// ```
 ///
 /// It has no background of its own: it sits on the window's shell
-/// (`Color.appShell`). Size it with `.frame(width:)`.
+/// (`Color.appShell`). Size it with `.frame(width:)` — collapsed, with
+/// `Sizing.sidebarCollapsedWidth`, and the rows shrink to their icons:
+///
+/// ```swift
+/// Sidebar(selection: $destination, isCollapsed: isCollapsed) { … }
+///     .frame(width: isCollapsed ? Sizing.sidebarCollapsedWidth : 220)
+/// ```
+///
+/// Flip `isCollapsed` inside `withAnimation(Animations.pane)` (or with
+/// `SidebarToggleButton`) and the width and the rows animate together.
 public struct Sidebar<Selection: Hashable, Content: View, Footer: View>: View {
     @Binding private var selection: Selection
+    private let isCollapsed: Bool
     private let content: Content
     private let footer: Footer
 
     /// - Parameters:
     ///   - selection: The selected row's value.
+    ///   - isCollapsed: Icons only, titles in tooltips. Size the sidebar to
+    ///     `Sizing.sidebarCollapsedWidth` while it's set.
     ///   - content: Sections, rows and dividers, top to bottom.
     ///   - footer: Rows pinned to the bottom (Settings).
     public init(
         selection: Binding<Selection>,
+        isCollapsed: Bool = false,
         @ViewBuilder content: () -> Content,
         @ViewBuilder footer: () -> Footer
     ) {
         self._selection = selection
+        self.isCollapsed = isCollapsed
         self.content = content()
         self.footer = footer()
     }
@@ -100,13 +128,42 @@ public struct Sidebar<Selection: Hashable, Content: View, Footer: View>: View {
                 if let typed = value.base as? Selection { selection = typed }
             }
         ))
+        .environment(\.sidebarIsCollapsed, isCollapsed)
     }
 }
 
 extension Sidebar where Footer == EmptyView {
     /// A sidebar with no pinned footer.
-    public init(selection: Binding<Selection>, @ViewBuilder content: () -> Content) {
-        self.init(selection: selection, content: content, footer: { EmptyView() })
+    public init(selection: Binding<Selection>, isCollapsed: Bool = false, @ViewBuilder content: () -> Content) {
+        self.init(selection: selection, isCollapsed: isCollapsed, content: content, footer: { EmptyView() })
+    }
+}
+
+// MARK: - Toggle button
+
+/// The title-bar button that collapses and expands a `Sidebar`.
+public struct SidebarToggleButton: View {
+    @Binding private var isCollapsed: Bool
+
+    /// - Parameter isCollapsed: The sidebar's collapsed state; a click flips it
+    ///   on `Animations.pane`.
+    public init(isCollapsed: Binding<Bool>) {
+        self._isCollapsed = isCollapsed
+    }
+
+    public var body: some View {
+        Button {
+            withAnimation(Animations.pane) { isCollapsed.toggle() }
+        } label: {
+            Image(systemName: "sidebar.left")
+        }
+        .buttonStyle(ToolbarIconButtonStyle())
+        .tooltip(position: .below) { label.font(Typography.labelSmall) }
+        .accessibilityLabel(label)
+    }
+
+    private var label: Text {
+        isCollapsed ? Text("Show Sidebar", bundle: .module) : Text("Hide Sidebar", bundle: .module)
     }
 }
 
@@ -126,9 +183,12 @@ public struct SidebarSection<Content: View>: View {
         self.content = content()
     }
 
+    @Environment(\.sidebarIsCollapsed) private var isCollapsed
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            if let title {
+            // No room for a header beside icons; the rows' tooltips carry the names.
+            if let title, !isCollapsed {
                 Text(title)
                     .font(Typography.labelXSmall)
                     // Secondary, not tertiary: the smaller size already ranks it
@@ -175,6 +235,7 @@ public struct SidebarRow: View {
     private let role: SidebarRowRole
 
     @Environment(\.sidebarSelection) private var sidebarSelection
+    @Environment(\.sidebarIsCollapsed) private var isCollapsed
     // Disabled under a sheet or the command palette, where no hint shows.
     @Environment(\.isEnabled) private var isEnabled
 
@@ -236,35 +297,49 @@ public struct SidebarRow: View {
 
     public var body: some View {
         SidebarRowButton(isSelected: isSelected, action: { role.perform(in: sidebarSelection) }) {
-            HStack(spacing: Spacing.sm) {
+            HStack(spacing: isCollapsed ? 0 : Spacing.sm) {
                 SidebarRowIcon(name: icon)
                     .font(Typography.labelMedium)
                     .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                Text(title)
-                    .font(Typography.bodySmall)
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                // Holding ⌘ swaps the count for the row's shortcut. The compact
-                // key is shorter than the row's icon, so the row never grows.
-                if let shortcut, shortcutHints.isShowingHints && isEnabled {
-                    ShortcutKey(shortcut, compact: true)
-                        .transition(.opacity)
-                        .accessibilityHidden(true)
-                } else if count > 0 {
-                    Badge(count: count)
-                        .badgeStyle(.custom(
-                            text: AccentHue.contrastForeground,
-                            icon: AccentHue.contrastForeground,
-                            background: Color.accent,
-                            border: nil
-                        ))
-                        .badgeSize(.small)
-                        .transition(.opacity)
+                    // Collapsed, a count is a dot on the icon.
+                    .overlay(alignment: .topTrailing) {
+                        if isCollapsed && count > 0 {
+                            Circle()
+                                .fill(Color.accent)
+                                .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
+                                .offset(x: 2, y: -2)
+                                .transition(.opacity)
+                        }
+                    }
+                HStack(spacing: Spacing.sm) {
+                    Text(title)
+                        .font(Typography.bodySmall)
+                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    // Holding ⌘ swaps the count for the row's shortcut. The compact
+                    // key is shorter than the row's icon, so the row never grows.
+                    if let shortcut, shortcutHints.isShowingHints && isEnabled {
+                        ShortcutKey(shortcut, compact: true)
+                            .transition(.opacity)
+                            .accessibilityHidden(true)
+                    } else if count > 0 {
+                        Badge(count: count)
+                            .badgeStyle(.custom(
+                                text: AccentHue.contrastForeground,
+                                icon: AccentHue.contrastForeground,
+                                background: Color.accent,
+                                border: nil
+                            ))
+                            .badgeSize(.small)
+                            .transition(.opacity)
+                    }
                 }
+                .sidebarRowText(isCollapsed: isCollapsed)
             }
         }
+        .sidebarRowTitle(title, isCollapsed: isCollapsed)
         .onAppear { if shortcut != nil { shortcutHints.startIfNeeded() } }
     }
 }
@@ -280,6 +355,7 @@ public struct SidebarFilterRow: View {
     private let role: SidebarRowRole
 
     @Environment(\.sidebarSelection) private var sidebarSelection
+    @Environment(\.sidebarIsCollapsed) private var isCollapsed
 
     /// A filter row that selects `value` in the enclosing `Sidebar`.
     ///
@@ -329,18 +405,22 @@ public struct SidebarFilterRow: View {
 
     public var body: some View {
         SidebarRowButton(isSelected: isSelected, action: { role.perform(in: sidebarSelection) }) {
-            HStack(spacing: Spacing.sm) {
+            HStack(spacing: isCollapsed ? 0 : Spacing.sm) {
                 // The filter's mark (dot / asset / SF Symbol) in its own color.
                 IconGlyph(name: icon, color: color, size: 15)
                     .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
                     .accessibilityHidden(true)
-                Text(title)
-                    .font(Typography.bodySmall)
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+                HStack(spacing: Spacing.sm) {
+                    Text(title)
+                        .font(Typography.bodySmall)
+                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .sidebarRowText(isCollapsed: isCollapsed)
             }
         }
+        .sidebarRowTitle(title, isCollapsed: isCollapsed)
     }
 }
 
@@ -359,6 +439,26 @@ extension SidebarRowRole {
         case .value(let value): context?.select(value)
         case .action(_, let perform): perform()
         }
+    }
+}
+
+extension View {
+    /// A row's title and trailing accessory: folded to nothing while the
+    /// sidebar is collapsed. The views stay mounted (a structure change would
+    /// drop a focused row's focus), so the width animates with the sidebar's.
+    fileprivate func sidebarRowText(isCollapsed: Bool) -> some View {
+        frame(maxWidth: isCollapsed ? 0 : .infinity)
+            .opacity(isCollapsed ? 0 : 1)
+            .clipped()
+            .accessibilityHidden(isCollapsed)
+    }
+
+    /// Collapsed, the title moves into a tooltip and stays the row's
+    /// accessibility label.
+    fileprivate func sidebarRowTitle(_ title: LocalizedStringKey, isCollapsed: Bool) -> some View {
+        tooltip(title, position: .trailing)
+            .tooltipsDisabled(!isCollapsed)
+            .accessibilityLabel(Text(title))
     }
 }
 
@@ -387,6 +487,7 @@ private struct SidebarRowButton<Label: View>: View {
     @ViewBuilder let label: Label
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.sidebarIsCollapsed) private var isCollapsed
     @State private var isHovering = false
 
     var body: some View {
@@ -394,7 +495,7 @@ private struct SidebarRowButton<Label: View>: View {
             label
                 .padding(.horizontal, Spacing.sm)
                 .padding(.vertical, Spacing.xs + 1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: isCollapsed ? .center : .leading)
                 .background {
                     // Neutral RowTint over the themed shell (not a fixed system
                     // material), so selection and hover read as a tint of the
@@ -438,5 +539,25 @@ private enum SidebarPreviewDestination: Hashable {
         SidebarRow("Settings", icon: "gearshape", value: SidebarPreviewDestination.settings, shortcut: "⌘,")
     }
     .frame(width: 220)
+    .background(Color.appShell)
+}
+
+#Preview("Collapsed", traits: .fixedLayout(width: 80, height: 300)) {
+    @Previewable @State var destination = SidebarPreviewDestination.today
+    Sidebar(selection: $destination, isCollapsed: true) {
+        SidebarSection {
+            SidebarRow("Inbox", icon: "tray", value: SidebarPreviewDestination.inbox, count: 4, shortcut: "⌘1")
+            SidebarRow("Today", icon: "sun.max", value: SidebarPreviewDestination.today, shortcut: "⌘2")
+            SidebarRow("Upcoming", icon: "calendar", value: SidebarPreviewDestination.upcoming, shortcut: "⌘3")
+        }
+        SidebarDivider()
+        SidebarSection("Filters") {
+            SidebarFilterRow("Running", color: Success.success500, value: SidebarPreviewDestination.running)
+            SidebarFilterRow("Clients", icon: "star.fill", color: Info.info500, value: SidebarPreviewDestination.clients)
+        }
+    } footer: {
+        SidebarRow("Settings", icon: "gearshape", value: SidebarPreviewDestination.settings, shortcut: "⌘,")
+    }
+    .frame(width: Sizing.sidebarCollapsedWidth)
     .background(Color.appShell)
 }

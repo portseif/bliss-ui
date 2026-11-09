@@ -31,4 +31,13 @@ import BlissUI
             .borderlessCardWindow(isActive: false)
             .onWindow { _ in }
     }
+
+    @Test func windowTitleBarIsReachable() {
+        _ = WindowTitleBar { Button("Back") {} } center: { Text("Inbox") } trailing: { Button("New") {} }
+        _ = WindowTitleBar(height: 52, insetsForTrafficLights: false, showsDivider: true) { Text("Settings") }
+        _ = WindowTitleBar { EmptyView() } trailing: { Button("New") {} }
+        #expect(WindowTitleBar<EmptyView, Text, EmptyView>.trafficLightClearance > 0)
+        #expect(Sizing.titleBarHeight == 44)
+        #expect(Sizing.sidebarCollapsedWidth > 0)
+    }
 }

@@ -103,4 +103,28 @@ import BlissUI
             Button("Mark all read") {}
         }
     }
+
+    @Test func sidebarCollapses() {
+        _ = Sidebar(selection: .constant(1), isCollapsed: true) {
+            SidebarRow("Inbox", icon: "tray", value: 1, count: 3)
+            SidebarFilterRow("Running", color: Success.success500, value: 2)
+        }
+        .frame(width: Sizing.sidebarCollapsedWidth)
+        _ = Sidebar(selection: .constant(1), isCollapsed: false, content: { SidebarRow("Inbox", icon: "tray", value: 1) }, footer: { SidebarRow("Settings", icon: "gearshape", value: 9) })
+        _ = SidebarToggleButton(isCollapsed: .constant(false))
+    }
+
+    @Test func outlineListIsReachable() {
+        struct Node: Identifiable {
+            let id: Int
+            var children: [Node]? = nil
+        }
+        let tree = [Node(id: 1, children: [Node(id: 2)]), Node(id: 3)]
+        _ = OutlineList(tree, children: \.children, selection: .constant(nil), expanded: .constant([1])) { node in
+            Text(verbatim: "\(node.id)")
+        }
+        _ = OutlineList(tree, children: \.children, selection: .constant(2), expanded: .constant([]), indent: 20) { _ in
+            Text("Row")
+        }
+    }
 }

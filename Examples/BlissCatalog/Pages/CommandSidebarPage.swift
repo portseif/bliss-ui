@@ -22,6 +22,12 @@ struct CommandSidebarPage: View {
             DemoBlock(title: "Sidebar") {
                 SidebarDemo()
             }
+            DemoBlock(title: "Title bar and collapsed sidebar") {
+                TitleBarDemo()
+            }
+            DemoBlock(title: "Outline list") {
+                OutlineListDemo()
+            }
             DemoBlock(title: "Slideout panel") {
                 SlideoutPanelDemo()
             }
@@ -310,17 +316,7 @@ private struct SidebarDemo: View {
     }
 
     private func title(for destination: CatalogDestination) -> String {
-        switch destination {
-        case .inbox: return "Inbox"
-        case .today: return "Today"
-        case .upcoming: return "Upcoming"
-        case .projects: return "Projects"
-        case .settings: return "Settings"
-        case .running: return "Running"
-        case .inReview: return "In review"
-        case .recent: return "Recent"
-        case .savedFilter(let id): return savedFilters.first { $0.id == id }?.name ?? "Filter"
-        }
+        CatalogDestination.title(for: destination, savedFilters: savedFilters)
     }
 
     private func addFilter() {
@@ -334,6 +330,143 @@ private struct SidebarDemo: View {
     private func remove(_ filter: CatalogSavedFilter) {
         if selection == .savedFilter(filter.id) { selection = .today }
         savedFilters.removeAll { $0.id == filter.id }
+    }
+}
+
+extension CatalogDestination {
+    /// The page title for a destination; saved filters read their own name.
+    static func title(for destination: CatalogDestination, savedFilters: [CatalogSavedFilter] = []) -> String {
+        switch destination {
+        case .inbox: return "Inbox"
+        case .today: return "Today"
+        case .upcoming: return "Upcoming"
+        case .projects: return "Projects"
+        case .settings: return "Settings"
+        case .running: return "Running"
+        case .inReview: return "In review"
+        case .recent: return "Recent"
+        case .savedFilter(let id): return savedFilters.first { $0.id == id }?.name ?? "Filter"
+        }
+    }
+}
+
+// MARK: - Title bar and collapsed sidebar
+
+private struct TitleBarDemo: View {
+    @State private var selection = CatalogDestination.today
+    @State private var isCollapsed = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("A hidden-title-bar window's custom title bar: the toggle collapses the sidebar to its icons (hover one for its name), the title stays centered, and the empty bar drags the window. The traffic-light inset is off here, since this mock window has none.")
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            DemoWindow(height: 360) {
+                VStack(spacing: 0) {
+                    WindowTitleBar(insetsForTrafficLights: false) {
+                        SidebarToggleButton(isCollapsed: $isCollapsed)
+                    } center: {
+                        Text(verbatim: CatalogDestination.title(for: selection))
+                    } trailing: {
+                        Button {} label: { Image(systemName: "magnifyingglass") }
+                            .buttonStyle(ToolbarIconButtonStyle())
+                            .accessibilityLabel(Text("Search"))
+                            .tooltip("Search", position: .below)
+                        Button("New") {}
+                            .buttonStyle(OutlineButtonStyle(compact: true))
+                    }
+                    HStack(spacing: 0) {
+                        CollapsibleSidebarSample(selection: $selection, isCollapsed: isCollapsed)
+                            .frame(width: isCollapsed ? Sizing.sidebarCollapsedWidth : 220)
+                        VStack(alignment: .leading, spacing: Spacing.md) {
+                            DemoPageRows(titles: ["Design review", "Write release notes", "Audit focus rings"])
+                            Spacer(minLength: 0)
+                        }
+                        .padding(Spacing.lg)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .background(Color.contentAreaBackground)
+                        .clipShape(UnevenRoundedRectangle(topLeadingRadius: Sizing.radiusLarge, style: .continuous))
+                        .overlay {
+                            UnevenRoundedRectangle(topLeadingRadius: Sizing.radiusLarge, style: .continuous)
+                                .strokeBorder(Color.menuBorder, lineWidth: 1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The sidebar the title-bar demo and the gallery collapse.
+struct CollapsibleSidebarSample: View {
+    @Binding var selection: CatalogDestination
+    var isCollapsed = false
+
+    var body: some View {
+        Sidebar(selection: $selection, isCollapsed: isCollapsed) {
+            SidebarSection {
+                SidebarRow("Inbox", icon: "tray", value: CatalogDestination.inbox, count: 4, shortcut: "⌘1")
+                SidebarRow("Today", icon: "sun.max", value: CatalogDestination.today, shortcut: "⌘2")
+                SidebarRow("Upcoming", icon: "calendar", value: CatalogDestination.upcoming, shortcut: "⌘3")
+                SidebarRow("Projects", icon: "folder", value: CatalogDestination.projects, count: 12, shortcut: "⌘4")
+            }
+            SidebarDivider()
+            SidebarSection("Filters") {
+                SidebarFilterRow("Running", color: Success.success500, value: CatalogDestination.running)
+                SidebarFilterRow("In review", color: Warning.warning500, value: CatalogDestination.inReview)
+            }
+        } footer: {
+            SidebarRow("Settings", icon: "gearshape", value: CatalogDestination.settings, shortcut: "⌘,")
+        }
+    }
+}
+
+// MARK: - Outline list
+
+/// A file-tree node for the outline demo and the gallery.
+struct CatalogOutlineNode: Identifiable {
+    let id: String
+    let name: String
+    let icon: String
+    var children: [CatalogOutlineNode]? = nil
+
+    static let tree = [
+        CatalogOutlineNode(id: "sources", name: "Sources", icon: "folder", children: [
+            CatalogOutlineNode(id: "components", name: "Components", icon: "folder", children: [
+                CatalogOutlineNode(id: "badge", name: "Badge.swift", icon: "swift"),
+                CatalogOutlineNode(id: "sidebar", name: "Sidebar.swift", icon: "swift"),
+                CatalogOutlineNode(id: "outline", name: "OutlineList.swift", icon: "swift"),
+            ]),
+            CatalogOutlineNode(id: "themes", name: "Themes", icon: "folder", children: []),
+        ]),
+        CatalogOutlineNode(id: "tests", name: "Tests", icon: "folder", children: [
+            CatalogOutlineNode(id: "badge-tests", name: "BadgeTests.swift", icon: "swift"),
+        ]),
+        CatalogOutlineNode(id: "readme", name: "README.md", icon: "doc.text"),
+    ]
+}
+
+private struct OutlineListDemo: View {
+    @State private var selection: String? = "readme"
+    @State private var expanded: Set<String> = ["sources", "components"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("One Tab stop: ↑ / ↓ move, → opens a folder or steps into it, ← closes it or steps out, Space selects.")
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            OutlineList(CatalogOutlineNode.tree, children: \.children, selection: $selection, expanded: $expanded) { node in
+                Label {
+                    Text(verbatim: node.name).font(Typography.bodySmall)
+                } icon: {
+                    Image(systemName: node.icon).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: 360)
+        }
     }
 }
 

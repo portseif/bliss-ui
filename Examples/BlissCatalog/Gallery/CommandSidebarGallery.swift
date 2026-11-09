@@ -26,6 +26,32 @@ extension Gallery {
         GalleryEntry("sidebar", width: 268, height: 476) {
             GallerySidebar()
         },
+        GalleryEntry("window-title-bar", width: 640, height: 60) {
+            WindowTitleBar(insetsForTrafficLights: false, showsDivider: true) {
+                SidebarToggleButton(isCollapsed: .constant(false))
+            } center: {
+                Text("Inbox")
+            } trailing: {
+                Button {} label: { Image(systemName: "magnifyingglass") }
+                    .buttonStyle(ToolbarIconButtonStyle())
+                    .accessibilityLabel(Text("Search"))
+                Button("New") {}
+                    .buttonStyle(OutlineButtonStyle(compact: true))
+            }
+            .background(Color.appShell)
+        },
+        GalleryEntry("sidebar-collapsed", width: 560, height: 300) {
+            GalleryCollapsedWindow()
+        },
+        GalleryEntry("outline-list", width: 340, height: 300) {
+            OutlineList(CatalogOutlineNode.tree, children: \.children, selection: .constant("readme"), expanded: .constant(["sources", "components"])) { node in
+                Label {
+                    Text(verbatim: node.name).font(Typography.bodySmall)
+                } icon: {
+                    Image(systemName: node.icon).foregroundStyle(.secondary)
+                }
+            }
+        },
         GalleryEntry("slideout-panel", width: 640, height: 400) {
             GallerySlideout()
         },
@@ -83,5 +109,53 @@ private struct GallerySlideout: View {
                 RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
                     .strokeBorder(Color.menuBorder, lineWidth: 1)
             }
+    }
+}
+
+/// A mock window with the title bar and the sidebar collapsed to its icons.
+private struct GalleryCollapsedWindow: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            WindowTitleBar(insetsForTrafficLights: false) {
+                SidebarToggleButton(isCollapsed: .constant(true))
+            } center: {
+                Text("Today")
+            } trailing: {
+                Button("New") {}
+                    .buttonStyle(OutlineButtonStyle(compact: true))
+            }
+            HStack(spacing: 0) {
+                CollapsibleSidebarSample(selection: .constant(.today), isCollapsed: true)
+                    .frame(width: Sizing.sidebarCollapsedWidth)
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    DividedForEach(["Design review", "Write release notes", "Audit focus rings"], id: \.self) { title in
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "circle")
+                                .font(Typography.bodySmall)
+                                .foregroundStyle(.secondary)
+                            Text(verbatim: title)
+                                .font(Typography.bodySmall)
+                            Spacer()
+                        }
+                        .padding(.vertical, Spacing.xs)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(Spacing.lg)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color.contentAreaBackground)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: Sizing.radiusLarge, style: .continuous))
+                .overlay {
+                    UnevenRoundedRectangle(topLeadingRadius: Sizing.radiusLarge, style: .continuous)
+                        .strokeBorder(Color.menuBorder, lineWidth: 1)
+                }
+            }
+        }
+        .background(Color.appShell)
+        .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
+                .strokeBorder(Color.menuBorder, lineWidth: 1)
+        }
     }
 }

@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 79 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 84 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -190,6 +190,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/shortcut-recorder-dark.webp"><img src="docs/images/components/shortcut-recorder-light.webp" alt="Shortcut recorder" width="300"></picture><br><b>Shortcut recorder</b><br><code>ShortcutRecorder</code> · <code>KeyboardShortcutValue</code><br><sub>Click and press a combo; Esc cancels, Delete clears.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/secret-field-dark.webp"><img src="docs/images/components/secret-field-light.webp" alt="Secret field" width="315"></picture><br><b>Secret field</b><br><code>SecretField</code> · <code>RevealToggleIcon</code><br><sub>Masked until revealed, with a copy that's concealed from clipboard managers; the value masks itself again when the app goes to the background.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/drop-zone-dark.webp"><img src="docs/images/components/drop-zone-light.webp" alt="Drop zone" width="360"></picture><br><b>Drop zone</b><br><code>DropZone</code><br><sub>A dashed target that lights up in the accent while files hover; click it or press Space for an open panel with the same rules.</sub></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
@@ -343,6 +347,14 @@ Not pictured, because they're separate panels rather than part of the window: `.
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/underline-tab-bar-dark.webp"><img src="docs/images/components/underline-tab-bar-light.webp" alt="Underline tabs" width="420"></picture><br><b>Underline tabs</b><br><code>UnderlineTabBar</code><br><sub>A sliding underline with optional count chips and icons.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/step-indicator-dark.webp"><img src="docs/images/components/step-indicator-light.webp" alt="Step indicator" width="420"></picture><br><b>Step indicator</b><br><code>StepIndicator</code><br><sub>Dots for a wizard.</sub></td>
   </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/window-title-bar-dark.webp"><img src="docs/images/components/window-title-bar-light.webp" alt="Window title bar" width="420"></picture><br><b>Window title bar</b><br><code>WindowTitleBar</code><br><sub>Leading and trailing controls around a centered title, with room for the traffic lights; the empty bar drags the window.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/sidebar-collapsed-dark.webp"><img src="docs/images/components/sidebar-collapsed-light.webp" alt="Collapsed sidebar" width="420"></picture><br><b>Collapsed sidebar</b><br><code>Sidebar(isCollapsed:)</code> · <code>SidebarToggleButton</code><br><sub>Icons only, titles in tooltips and counts as dots; the toggle animates the width and the rows together.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/outline-list-dark.webp"><img src="docs/images/components/outline-list-light.webp" alt="Outline list" width="255"></picture><br><b>Outline list</b><br><code>OutlineList</code><br><sub>A tree with disclosure chevrons and one indent per level; one Tab stop where ← / → open and close and Space selects.</sub></td>
+    <td width="50%"></td>
+  </tr>
 </table>
 
 </details>
@@ -358,6 +370,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/divided-list-dark.webp"><img src="docs/images/components/divided-list-light.webp" alt="Divided list" width="420"></picture><br><b>Divided list</b><br><code>DividedForEach</code> · <code>.rowHover()</code> · <code>.rowTapAction</code><br><sub>Flat rows with a divider between each pair and one shared hover fill.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/flow-layout-dark.webp"><img src="docs/images/components/flow-layout-light.webp" alt="Flow layout" width="420"></picture><br><b>Flow layout</b><br><code>FlowLayout</code><br><sub>Wraps chips and tags onto as many lines as they need.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/reorderable-list-dark.webp"><img src="docs/images/components/reorderable-list-light.webp" alt="Reorderable list" width="270"></picture><br><b>Reorderable list</b><br><code>ReorderableList</code><br><sub>Drag a row by its grip and the others slide out of the way; ⌥↑ / ⌥↓ move it from the keyboard.</sub></td>
+    <td width="50%"></td>
   </tr>
 </table>
 

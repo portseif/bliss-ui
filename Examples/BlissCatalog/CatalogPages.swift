@@ -8,6 +8,7 @@
 
 import BlissUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Shared
 
@@ -142,6 +143,7 @@ struct InputsPage: View {
     @State private var blue = 1.0
     @State private var agreed = false
     @State private var apiKey = "sk-live-4f8a2c9e1b7d6a3f"
+    @State private var droppedFiles: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -152,6 +154,17 @@ struct InputsPage: View {
             DemoBlock(title: "Secret field") {
                 SecretField("API key", text: $apiKey, prompt: Text("sk-…"))
                     .frame(maxWidth: 420)
+            }
+            DemoBlock(title: "Drop zone") {
+                DropZone("Drop images here", hint: "PNG or JPEG, up to 10 MB", systemImage: "photo.on.rectangle", allowedContentTypes: [.png, .jpeg]) { urls in
+                    droppedFiles = urls.map(\.lastPathComponent)
+                }
+                .frame(maxWidth: 480)
+                if !droppedFiles.isEmpty {
+                    Text(verbatim: droppedFiles.joined(separator: ", "))
+                        .font(Typography.captionSmall)
+                        .foregroundStyle(.secondary)
+                }
             }
             DemoBlock(title: "Switch and checkbox") {
                 Toggle("Notifications", isOn: $notificationsOn).toggleStyle(.flatSwitch(showsLabel: true))
@@ -302,8 +315,22 @@ private struct CatalogTask: Identifiable {
     let updated: Date
 }
 
+/// A pipeline step the reorderable list demo drags around.
+private struct CatalogStep: Identifiable {
+    let id: Int
+    let title: String
+    let icon: String
+}
+
 struct TablePage: View {
     @State private var selection: Set<UUID> = []
+    @State private var steps = [
+        CatalogStep(id: 1, title: "Install dependencies", icon: "shippingbox"),
+        CatalogStep(id: 2, title: "Run migrations", icon: "cylinder.split.1x2"),
+        CatalogStep(id: 3, title: "Build", icon: "hammer"),
+        CatalogStep(id: 4, title: "Run tests", icon: "checkmark.seal"),
+        CatalogStep(id: 5, title: "Deploy", icon: "paperplane"),
+    ]
     /// Static, so the rows keep their IDs across renders (a selection holds IDs).
     private static let tasks = [
         CatalogTask(title: "Polish the onboarding card", owner: "Ada", priority: 2, updated: .now.addingTimeInterval(-600)),
@@ -316,6 +343,27 @@ struct TablePage: View {
     private var tasks: [CatalogTask] { Self.tasks }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            table
+            DemoBlock(title: "Reorderable list") {
+                Text("Drag a row by its grip, or Tab to the grip and press ⌥↑ / ⌥↓.")
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(.secondary)
+                ReorderableList($steps, divided: true) { step in
+                    Label {
+                        Text(verbatim: step.title).font(Typography.bodySmall)
+                    } icon: {
+                        Image(systemName: step.icon)
+                            .foregroundStyle(.secondary)
+                            .frame(width: Sizing.iconDefault)
+                    }
+                }
+                .frame(maxWidth: 420)
+            }
+        }
+    }
+
+    private var table: some View {
         BlissTable(
             tasks,
             columns: [

@@ -241,6 +241,12 @@ public enum Sizing {
     /// 320px - Maximum sidebar width
     public static let sidebarMaxWidth: CGFloat = 320
 
+    /// 56px - A `Sidebar` collapsed to icons
+    public static let sidebarCollapsedWidth: CGFloat = 56
+
+    /// 44px - A custom title bar in a hidden-title-bar window (`WindowTitleBar`)
+    public static let titleBarHeight: CGFloat = 44
+
     /// 300px - Default sheet width (small)
     public static let sheetWidthSmall: CGFloat = 300
 

@@ -27,7 +27,7 @@ Sources/BlissUI/
 │   └── Styles/      Button, form/toggle, text-field and link styles — global, theme-aware
 ├── Animations/      Motion tokens, Reduce Motion fallback, isTahoeOrLater
 ├── Effects/         Glass border, dimmed overlay, shimmer
-├── Window/          Traffic-light offset, shell backdrop, drag exclusion, frame persistence, borderless card
+├── Window/          Traffic-light offset, shell backdrop, drag exclusion, frame persistence, borderless card, WindowTitleBar
 ├── Services/        Focus visibility, shortcut hints, popup menus, secret clipboard
 ├── Extensions/      Date formatting, LocalizedStringKey(verbatim:), Bundle.blissUI
 ├── Resources/       Localizable.xcstrings — the library's own strings, 10 languages
@@ -39,13 +39,13 @@ Sources/BlissUI/
     ├── Feedback/    Banner, DisclosureSection, ConfirmationSheet, skeleton loading
     ├── Filters/     FilterBar + FilterCondition matching, filter menu rows, FilterMenuButton
     ├── Forms/       SettingsRow family, settings table of contents, FormField, OptionCard, RadioGlyph, wizard rows
-    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, NumberField, BlissSlider, TextArea, SecretField, TokenField, ComboBox, ShortcutRecorder
+    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, NumberField, BlissSlider, TextArea, SecretField, TokenField, ComboBox, ShortcutRecorder, DropZone
     ├── Layout/      Avatar, AvatarStack, Breadcrumbs, InspectorSplit, CodeField + highlighters
-    ├── Navigation/  UnderlineTabBar, StepIndicator, CommandPalette, Sidebar, SlideoutPanel
+    ├── Navigation/  UnderlineTabBar, StepIndicator, CommandPalette, Sidebar, OutlineList, SlideoutPanel
     ├── Overlays/    FloatingMenu, context menu, Tooltip, ScrollViewWithThinIndicator, ProgressOverlay
     ├── Sections/    RoundedSection, SectionHeader, DetailRow, InfoList
     ├── Sheets/      AppSheet, SheetHeader, SheetCloseButton
-    ├── Tables/      BlissTable, SelectionBar, DividedForEach, list-row hover
+    ├── Tables/      BlissTable, SelectionBar, ReorderableList, DividedForEach, list-row hover
     ├── Grids/       FlowLayout
     └── Toasts/      ToastData, ToastService, ToastNotification, .globalToast()
 Examples/BlissCatalog/  Demo app of every component, public API only (Gallery.swift feeds the README index)
@@ -118,6 +118,7 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 - `TextField(...).textFieldStyle(.largePadded)`. A hand-built input wraps its chrome in `.inputBox(isFocused:cornerRadius:)` — don't hand-roll the box.
 - `FormField(title, hint:, error:, isRequired:) { control }` puts the title above and the hint or error below; while `error` is set it sets `\.formFieldIsInvalid`, which the text field styles and `.inputBox` draw as a red line (read it in your own input). The control keeps its own label for VoiceOver; the hint or error becomes its accessibility hint.
+- `DropZone(title, hint:, allowedContentTypes:, …) { urls in … }` is the file drop target: a dashed card, accent while a drag hovers, and the whole card is one button that opens an `NSOpenPanel` with the same rules (the Browse text is drawn, not a nested button, so Tab stops once). Folders count only with `canChooseDirectories`.
 - `SecretField` for keys, tokens and passwords: masked until revealed, copy through `SecretClipboard`. Both fields stay mounted (one hidden) so the reveal keeps focus — a `SecureField` ↔ `TextField` swap drops it. Revealing asks `SecretClipboard.authorize`, and the value re-masks when the app resigns active.
 - Toggles are `.toggleStyle(.flatSwitch)`, never the native `.switch` (a Tab stop with the shared ring that Space flips, real switch semantics for VoiceOver).
 - `FloatingMenuPicker` for dropdowns, `FloatingMenu` for action menus, `SegmentedPills` for segmented controls, `InfoButton(text:)` / `InfoHint { … }` instead of `.help()`.
@@ -139,7 +140,8 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 ### Navigation
 
 - `CommandPalette` / `.commandPalette(isPresented:commands:)` — app-supplied sections of `CommandPaletteCommand`s, ranked fuzzy matching, recents, ↑↓/Tab move, Return runs, Esc clears then closes. Modal like `AppSheet` (content disabled + hidden from VoiceOver, scoped blur on `Animations.paletteBackdrop`); the card itself appears at once — ⌘K is a keyboard action. The selected row rings only after a keyboard move.
-- `Sidebar(selection:)` with `SidebarSection`, `SidebarRow` (icon, count badge, ⌘-number hint while ⌘ is held) and `SidebarFilterRow` (dot or custom icon).
+- `Sidebar(selection:isCollapsed:)` with `SidebarSection`, `SidebarRow` (icon, count badge, ⌘-number hint while ⌘ is held) and `SidebarFilterRow` (dot or custom icon). Collapsed, rows keep their icon (title in a tooltip, count as a dot) and the caller sizes it to `Sizing.sidebarCollapsedWidth`; `SidebarToggleButton` flips it on `Animations.pane`. The title and accessory stay mounted at width 0, so a focused row keeps its focus.
+- `OutlineList(items, children:, selection:, expanded:) { row }` — a tree with chevrons and one indent per level; expansion is the caller's `Set`. One Tab stop with a roving row: ↑↓ move, → opens or steps in, ← closes or steps out, Space / Return selects.
 - `.slideoutPanel(isPresented:title:edge:width:)` — stays mounted, slides on `Animations.pane` in / `exit` out (fades under Reduce Motion), a click outside or Esc closes it. Not keyboard-modal.
 
 ### Forms & feedback
@@ -151,6 +153,8 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 ### Tables
 
 `BlissTable(rows, columns:, selection:, onOpen:) { row in cell; cell; cell }` — the `cells` closure returns one view per column and `BlissTableRowLayout` gives each its column width, so the header and rows always line up. Columns are `.fixed(_)` or `.flexible(minimum:)`; a column sorts when given a comparator or key path. Rows are an eager `VStack` by default — a `LazyVStack` shimmers by a sub-pixel during width animations. Bulk actions go in `.selectionBar(count:onClear:) { SelectionBarButton(…) }`, which lifts toasts above it.
+
+`ReorderableList($items, gripPlacement:, divided:) { row }` — flat rows with a grip that drags them into a new order (the others slide as the dragged row's center crosses theirs); ⌥↑ / ⌥↓ move the focused grip's row, VoiceOver gets Move up / Move down. Only the grip drags, so the row's text stays selectable.
 
 ### Sheets
 
@@ -168,7 +172,7 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 ### Window
 
-For a `.windowStyle(.hiddenTitleBar)` window: `.blissWindowChrome()` (opaque shell behind the whole window + traffic lights at `TrafficLightOffset.defaultOffset`), `.persistsWindowFrame(key:)`, `.windowDragDisabled()` on custom title-bar controls, `.borderlessCardWindow(isActive:size:)` for a first-run card.
+For a `.windowStyle(.hiddenTitleBar)` window: `.blissWindowChrome()` (opaque shell behind the whole window + traffic lights at `TrafficLightOffset.defaultOffset`), `WindowTitleBar { leading } center: { title } trailing: { … }` (`Sizing.titleBarHeight` tall, `trafficLightClearance` before the leading controls — dropped in full screen — and the empty bar drags the window through `WindowDragGesture`; its controls are `.windowDragDisabled()` for you), `.persistsWindowFrame(key:)`, `.windowDragDisabled()` on other custom title-bar controls, `.borderlessCardWindow(isActive:size:)` for a first-run card.
 
 - **Traffic lights** are offset by replacing `NSThemeFrame`'s private `_closeButtonOrigin` — AppKit re-places the buttons on every title-bar layout (each live-resize step that grows the height), so moving their view afterwards is always undone. If a macOS release drops the method, the swap is skipped and the lights sit at the default spot.
 - **The backdrop fills with its layer's `backgroundColor`, never `draw(_:)`** — a window-sized drawn view gets a window-sized backing store at every live-resize step.
@@ -201,4 +205,5 @@ A value-keyed `.animation(_:value:)` on a big subtree retimes everything that ch
 | A focused Button loses focus to the first text field | Its label switched between view types (`if` / `else`); keep one structure and change its contents |
 | `.accessibilityLabel` on a hosted `NSTextView` does nothing | Set the AppKit view's label from a resolved string (`TextArea` takes a `LocalizedStringResource`) |
 | `ForEach(weekdaySymbols, id: \.self)` drops or duplicates days | Initials repeat ("S", "T"); identify by position |
+| A dragged row's measured frame never settles | Its geometry includes its own `.offset`; measure row frames only while nothing is dragged (`ReorderableList`) |
 | Translations fall back to English under Swift 6.3 (`LocalizationTests` fail, bundle has only `en`) | 6.3's default native build system copies `Localizable.xcstrings` uncompiled — build with `--build-system swiftbuild` (6.4's default; CI passes it) |

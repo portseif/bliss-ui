@@ -4,6 +4,14 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+
+- `WindowTitleBar` — the custom title bar for a hidden-title-bar window: leading and trailing controls around a centered title, room for the traffic lights (dropped in full screen), and the empty bar drags the window.
+- `Sidebar(isCollapsed:)` and `SidebarToggleButton` — the sidebar collapses to its icons (titles in tooltips, counts as dots) at `Sizing.sidebarCollapsedWidth`.
+- `OutlineList` — a tree with disclosure chevrons and one indent per level; one Tab stop with a roving row.
+- `ReorderableList` — rows with a grip handle that drag into a new order; ⌥↑ / ⌥↓ move the focused row.
+- `DropZone` — a file drop target that doubles as a Browse button, with the same rules for both.
+
 ## [1.0.0] — 2026-11-09
 
 The first tagged release — the StackMe component set, extracted into a package.

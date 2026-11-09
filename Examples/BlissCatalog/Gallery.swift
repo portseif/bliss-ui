@@ -11,6 +11,7 @@
 import AppKit
 import BlissUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// One component in the index.
 struct GalleryEntry: Identifiable {
@@ -108,6 +109,9 @@ enum Gallery {
                 SecretField("API key", text: .constant("sk-live-4f8a2c9e1b7d6a3f"))
                 SecretField("Password", text: .constant(""), prompt: Text("Required"), isCopyable: false)
             }
+        },
+        GalleryEntry("drop-zone", width: 480, height: 200) {
+            DropZone("Drop images here", hint: "PNG or JPEG, up to 10 MB", systemImage: "photo.on.rectangle", allowedContentTypes: [.png, .jpeg]) { _ in }
         },
         GalleryEntry("flat-switch", height: 84) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -247,6 +251,17 @@ enum Gallery {
         // Tables & grids
         GalleryEntry("bliss-table", width: 640, height: 230) {
             GalleryTable()
+        },
+        GalleryEntry("reorderable-list", width: 360, height: 220) {
+            ReorderableList(.constant(GalleryStep.pipeline), divided: true) { step in
+                Label {
+                    Text(verbatim: step.title).font(Typography.bodySmall)
+                } icon: {
+                    Image(systemName: step.icon)
+                        .foregroundStyle(.secondary)
+                        .frame(width: Sizing.iconDefault)
+                }
+            }
         },
         GalleryEntry("selection-bar", width: 520, height: 92) {
             SelectionBar(count: 3, onClear: {}) {
@@ -482,4 +497,19 @@ enum WindowCapture {
         try? process.run()
         process.waitUntilExit()
     }
+}
+
+/// A pipeline step for the reorderable list.
+private struct GalleryStep: Identifiable {
+    let id: Int
+    let title: String
+    let icon: String
+
+    static let pipeline = [
+        GalleryStep(id: 1, title: "Install dependencies", icon: "shippingbox"),
+        GalleryStep(id: 2, title: "Run migrations", icon: "cylinder.split.1x2"),
+        GalleryStep(id: 3, title: "Build", icon: "hammer"),
+        GalleryStep(id: 4, title: "Run tests", icon: "checkmark.seal"),
+        GalleryStep(id: 5, title: "Deploy", icon: "paperplane"),
+    ]
 }
