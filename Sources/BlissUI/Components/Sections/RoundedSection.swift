@@ -37,6 +37,9 @@ public struct RoundedSection<Content: View, Header: View>: View {
     let header: Header?
     var showHeader: Bool = true
     let divided: Bool
+    /// Whether the header lines up with the content inside the card (inset by
+    /// `Spacing.md`) or with the card's own edge.
+    var insetsHeader: Bool = true
     /// Overrides the hairline color — the "this section is confirmed" signal
     /// (e.g. `Success.tint.opacity(0.3)` after a connection test passes).
     /// Deliberately border-only: a full status FILL would out-weight the
@@ -57,9 +60,17 @@ public struct RoundedSection<Content: View, Header: View>: View {
         borderTint ?? (colorScheme == .dark ? Grey.grey700 : Grey.grey200)
     }
 
+    /// - Parameters:
+    ///   - divided: A divider between each child view.
+    ///   - borderTint: Overrides the hairline color.
+    ///   - insetsHeader: Lines the header up with the content inside the card;
+    ///     false puts it flush with the card's edge, like a heading above it.
+    ///   - content: The section's rows.
+    ///   - header: The title above the card.
     public init(
         divided: Bool = false,
         borderTint: Color? = nil,
+        insetsHeader: Bool = true,
         @ViewBuilder content: () -> Content,
         @ViewBuilder header: () -> Header
     ) {
@@ -67,6 +78,7 @@ public struct RoundedSection<Content: View, Header: View>: View {
         self.header = header()
         self.showHeader = true
         self.divided = divided
+        self.insetsHeader = insetsHeader
         self.borderTint = borderTint
     }
 
@@ -76,7 +88,7 @@ public struct RoundedSection<Content: View, Header: View>: View {
                 header
                     .font(Typography.bodySmall)
                     .foregroundStyle(Color.secondary)
-                    .padding(.horizontal, isPlain ? 0 : Spacing.md)
+                    .padding(.horizontal, isPlain || !insetsHeader ? 0 : Spacing.md)
             }
 
             if divided {
@@ -127,17 +139,20 @@ public struct RoundedSection<Content: View, Header: View>: View {
 // MARK: - Convenience Initializers
 
 extension RoundedSection where Header == Text {
-    /// Initialize with a simple string title
+    /// Initialize with a simple string title. `insetsHeader: false` puts the
+    /// title flush with the card's edge instead of in line with its content.
     public init(
         _ title: LocalizedStringKey,
         divided: Bool = false,
         borderTint: Color? = nil,
+        insetsHeader: Bool = true,
         @ViewBuilder content: () -> Content
     ) {
         self.content = content()
         self.header = Text(title)
         self.showHeader = true
         self.divided = divided
+        self.insetsHeader = insetsHeader
         self.borderTint = borderTint
     }
 }

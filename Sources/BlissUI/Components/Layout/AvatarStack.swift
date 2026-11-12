@@ -10,6 +10,15 @@
 
 import SwiftUI
 
+/// How `AvatarStack` shows the avatars past its limit.
+public enum AvatarStackOverflowStyle: Hashable, Sendable {
+    /// `+N` in a pill on the selection fill, tucked under the last avatar.
+    case chip
+    /// `+N` as plain secondary text after the last avatar, for dense rows
+    /// where a filled chip is one shape too many.
+    case plain
+}
+
 /// Overlapping avatars with a `+N` overflow and a tooltip of names.
 ///
 /// ```swift
@@ -25,6 +34,7 @@ public struct AvatarStack<Item>: View {
     private let limit: Int
     private let size: AvatarSize
     private let shape: AvatarShape
+    private let overflowStyle: AvatarStackOverflowStyle
 
     /// - Parameters:
     ///   - items: The people, in order; the first sits on top.
@@ -33,13 +43,15 @@ public struct AvatarStack<Item>: View {
     ///   - limit: How many avatars show before the rest fold into `+N`.
     ///   - size: Small (20pt), medium (28pt) or large (40pt).
     ///   - shape: A circle, or a rounded square.
+    ///   - overflowStyle: `+N` in a filled chip, or as plain text.
     public init(
         _ items: [Item],
         name: @escaping (Item) -> String,
         image: @escaping (Item) -> Image? = { _ in nil },
         limit: Int = 4,
         size: AvatarSize = .medium,
-        shape: AvatarShape = .circle
+        shape: AvatarShape = .circle,
+        overflowStyle: AvatarStackOverflowStyle = .chip
     ) {
         self.items = items
         self.name = name
@@ -47,6 +59,7 @@ public struct AvatarStack<Item>: View {
         self.limit = max(1, limit)
         self.size = size
         self.shape = shape
+        self.overflowStyle = overflowStyle
     }
 
     /// Avatars with initials only, from a list of names.
@@ -54,9 +67,10 @@ public struct AvatarStack<Item>: View {
         names: [String],
         limit: Int = 4,
         size: AvatarSize = .medium,
-        shape: AvatarShape = .circle
+        shape: AvatarShape = .circle,
+        overflowStyle: AvatarStackOverflowStyle = .chip
     ) where Item == String {
-        self.init(names, name: { $0 }, limit: limit, size: size, shape: shape)
+        self.init(names, name: { $0 }, limit: limit, size: size, shape: shape, overflowStyle: overflowStyle)
     }
 
     /// How many avatars show, and how many fold into the `+N` chip. A chip
@@ -80,7 +94,12 @@ public struct AvatarStack<Item>: View {
                     .zIndex(Double(visibleCount - index))
             }
             if overflow > 0 {
-                AvatarOverflowChip(count: overflow, size: size, shape: shape, neighborDistance: step)
+                switch overflowStyle {
+                case .chip:
+                    AvatarOverflowChip(count: overflow, size: size, shape: shape, neighborDistance: step)
+                case .plain:
+                    AvatarOverflowLabel(count: overflow, size: size)
+                }
             }
         }
         .tooltip(configuration: .default, position: .above) {
@@ -94,8 +113,10 @@ public struct AvatarStack<Item>: View {
 
 // MARK: - Overflow chip
 
-/// `+N`, in an avatar's shape on the neutral selection fill, cut by the
-/// avatar before it like the others.
+/// `+N` in a pill on the neutral selection fill, cut by the avatar before it
+/// like the others. Every chip is sized for the widest label (`+99`) at one
+/// fixed font, so a column of stacks lines up whatever the counts; past 99 it
+/// reads `99+`.
 private struct AvatarOverflowChip: View {
     let count: Int
     let size: AvatarSize
@@ -112,17 +133,69 @@ private struct AvatarOverflowChip: View {
                 .insetBy(dx: -size.gap, dy: -size.gap),
             cornerRadius: shape == .circle ? nil : size.cornerRadius + size.gap
         )
-        Text(verbatim: "+\(count.formatted())")
-            .font(size.initialsFont)
+        AvatarOverflowCount(count: count, size: size, alignment: .center)
             .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            // Centered in the part the avatar before it leaves showing.
-            .frame(width: diameter - size.stackHiddenWidth)
-            .offset(x: size.stackHiddenWidth / 2)
-            .frame(width: diameter, height: diameter)
-            .background(RowTint.selected(colorScheme))
-            .clipShape(AvatarCutoutShape(shape: shape, cornerRadius: size.cornerRadius, holes: [neighbor]))
+        // The leading part sits under the avatar before it.
+        .padding(.leading, size.stackHiddenWidth + size.overflowPadding)
+        .padding(.trailing, size.overflowPadding)
+        .frame(minWidth: diameter, minHeight: diameter, maxHeight: diameter)
+        .background(RowTint.selected(colorScheme))
+        // A circle stack gets a capsule: a wider-than-tall ellipse would read as a blob.
+        .clipShape(AvatarCutoutShape(shape: .rounded, cornerRadius: shape == .circle ? diameter / 2 : size.cornerRadius, holes: [neighbor]))
+    }
+}
+
+/// `+N` as plain text after the last avatar, at the chip's fixed width.
+private struct AvatarOverflowLabel: View {
+    let count: Int
+    let size: AvatarSize
+
+    var body: some View {
+        AvatarOverflowCount(count: count, size: size, alignment: .leading)
+            .foregroundStyle(.secondary)
+            // Undo the stack's overlap, then the usual gap between neighbors.
+            .padding(.leading, size.stackOverlap + size.gap + size.gap)
+            .frame(height: size.diameter)
+    }
+}
+
+/// The `+N` label at a fixed width, sized for `+99`; past 99 it reads `99+`.
+private struct AvatarOverflowCount: View {
+    let count: Int
+    let size: AvatarSize
+    /// Where a shorter label sits in the `+99` width: centered in a chip,
+    /// leading after the avatars when plain.
+    let alignment: Alignment
+
+    var body: some View {
+        ZStack(alignment: alignment) {
+            Text(verbatim: "+99").hidden()
+            Text(verbatim: count > 99 ? "99+" : "+\(count)")
+        }
+        .font(size.overflowFont)
+        .lineLimit(1)
+        .fixedSize()
+    }
+}
+
+extension AvatarSize {
+    /// The `+N` chip's label: a step up from the initials, so the count reads
+    /// at a glance.
+    var overflowFont: Font {
+        switch self {
+        case .small: Typography.captionSmallSemibold
+        case .medium: Typography.bodySmallSemibold
+        case .large: Typography.bodyMediumSemibold
+        }
+    }
+
+    /// Space on each side of the `+N` label inside its pill.
+    var overflowPadding: CGFloat {
+        switch self {
+        case .small: Spacing.xs
+        case .medium: Spacing.sm
+        case .large: Spacing.sm
+        }
     }
 }
 

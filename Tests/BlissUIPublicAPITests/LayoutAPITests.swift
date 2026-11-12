@@ -34,6 +34,7 @@ import BlissUI
     @Test func avatarStacksAreReachable() {
         let members = [Member(name: "Ada", photo: nil), Member(name: "Grace", photo: Image(systemName: "person"))]
         _ = AvatarStack(members, name: \.name, image: \.photo)
+        _ = AvatarStack(names: ["Ada Lovelace", "Grace Hopper", "Alan Turing", "Edsger Dijkstra", "Barbara Liskov", "Ken Thompson"], size: .small, shape: .rounded, overflowStyle: .plain)
         _ = AvatarStack(members, name: { $0.name }, limit: 1, size: .small, shape: .rounded)
         _ = AvatarStack(names: ["Ada", "Grace", "Alan"])
         _ = AvatarStack(names: [], limit: 3, size: .large, shape: .circle)

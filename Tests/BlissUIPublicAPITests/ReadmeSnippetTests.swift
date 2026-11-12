@@ -89,6 +89,11 @@ import BlissUI
         .selectionBar(count: 1, onClear: {}) {
             SelectionBarButton("Archive", systemImage: "archivebox") {}
         }
+        _ = ScrollViewWithThinIndicator {
+            BlissTable(people, columns: [BlissTableColumn("Name", sortedBy: \Person.name)], pinsHeader: true) { person in
+                Text(person.name)
+            }
+        }
         let layout = BlissTableRowLayout(columns: [.fixed(40), .flexible(), .flexible(minimum: 80)])
         _ = layout
     }

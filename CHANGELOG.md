@@ -11,6 +11,20 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 - `OutlineList` — a tree with disclosure chevrons and one indent per level; one Tab stop with a roving row.
 - `ReorderableList` — rows with a grip handle that drag into a new order; ⌥↑ / ⌥↓ move the focused row.
 - `DropZone` — a file drop target that doubles as a Browse button, with the same rules for both.
+- `CommitGraph` — a git history as a graph: colored lanes, merge rings, rounded elbows where branches leave and rejoin, and ref pills, with an optional trailing accessory per row.
+- `RoundedSection(insetsHeader:)` — `false` puts the section's title flush with the card's edge instead of in line with its content.
+- `BlissTable(pinsHeader:)` — the header stays at the top of the enclosing scroll view while the rows scroll under it.
+- `AvatarStack(overflowStyle: .plain)` — `+N` as plain text after the avatars instead of a filled chip.
+
+### Changed
+
+- Text tooltips (`.tooltip("…")`) use the same tight 10/5 padding as every preset; `TooltipConfiguration`'s init defaults now match.
+- `AvatarStack`'s `+N` chip is a pill sized for `+99` at a fixed, larger font, so stacks in a column line up whatever the counts.
+- `ToolbarIconButtonStyle` buttons are square (28pt, 30pt before macOS 26, 24pt compact) whatever the glyph's shape.
+
+### Fixed
+
+- `ScrollViewWithThinIndicator` keeps the system scroller hidden after its content grows past the viewport (a sidebar whose rows load after it appears showed the wide legacy scroller).
 
 ## [1.0.0] — 2026-11-09
 

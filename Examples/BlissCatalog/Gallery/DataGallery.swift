@@ -71,6 +71,9 @@ extension Gallery {
                     .frame(width: 100, height: 28)
             }
         },
+        GalleryEntry("commit-graph", width: 560, height: 860) {
+            CommitGraph(DataSamples.commits)
+        },
         GalleryEntry("status-pill", width: 340, height: 68) {
             HStack(spacing: Spacing.sm) {
                 StatusPill("Running", isActive: true)

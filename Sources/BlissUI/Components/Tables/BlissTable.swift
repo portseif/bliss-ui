@@ -93,14 +93,16 @@ public struct BlissTableSort: Hashable, Sendable {
 /// Rows sit in an eager `VStack`: a `LazyVStack` re-evaluates row frames while
 /// its width animates (a sidebar collapsing) and shifts on-screen rows by a
 /// sub-pixel. Pass `isLazy: true` for long tables that never animate width.
-/// The table doesn't scroll on its own — put it in a `ScrollViewWithThinIndicator`
-/// (or pin the header above one with `BlissTableHeader`).
+/// The table doesn't scroll on its own — put it in a `ScrollViewWithThinIndicator`.
+/// `pinsHeader: true` keeps the header at the top of that scroll view while the
+/// rows scroll under it.
 public struct BlissTable<Row: Identifiable, Cells: View>: View {
     private let rows: [Row]
     private let columns: [BlissTableColumn<Row>]
     private let selection: Binding<Set<Row.ID>>?
     private let externalSort: Binding<BlissTableSort?>?
     private let isLazy: Bool
+    private let pinsHeader: Bool
     private let contentInset: CGFloat
     private let onOpen: ((Row) -> Void)?
     private let onSecondaryClick: ((Row, NSPoint) -> Void)?
@@ -118,6 +120,11 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     ///     starting from `initialSort`.
     ///   - initialSort: The first sort when the table owns it.
     ///   - isLazy: Builds rows as they scroll into view.
+    ///   - pinsHeader: Keeps the header at the top of the enclosing scroll view,
+    ///     on the content surface, while rows scroll under it. Rows are built
+    ///     lazily in this mode (a pinned header needs a lazy stack). Turn off the
+    ///     scroll view's `showFadeMask`: the mask would fade the header too, and
+    ///     the rows would show through it.
     ///   - contentInset: Space on each side of the rows' hover fill.
     ///   - onOpen: A click on a row (outside its checkbox and buttons).
     ///   - onSecondaryClick: A right- or control-click on a row, with the screen point.
@@ -129,6 +136,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
         sortOrder: Binding<BlissTableSort?>? = nil,
         initialSort: BlissTableSort? = nil,
         isLazy: Bool = false,
+        pinsHeader: Bool = false,
         contentInset: CGFloat = Spacing.xl,
         onOpen: ((Row) -> Void)? = nil,
         onSecondaryClick: ((Row, NSPoint) -> Void)? = nil,
@@ -139,6 +147,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
         self.selection = selection
         self.externalSort = sortOrder
         self.isLazy = isLazy
+        self.pinsHeader = pinsHeader
         self.contentInset = contentInset
         self.onOpen = onOpen
         self.onSecondaryClick = onSecondaryClick
@@ -148,20 +157,43 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
 
     public var body: some View {
         let sortedRows = self.sortedRows
-        VStack(alignment: .leading, spacing: 0) {
-            BlissTableHeader(
-                columns: columns,
-                sortOrder: sortBinding,
-                selectionState: selectionState(for: sortedRows),
-                contentInset: contentInset,
-                onToggleAll: { toggleAll(sortedRows) }
-            )
-            if isLazy {
-                LazyVStack(alignment: .leading, spacing: 0) { rowList(sortedRows) }
-            } else {
-                VStack(alignment: .leading, spacing: 0) { rowList(sortedRows) }
+        if pinsHeader {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    rowList(sortedRows)
+                } header: {
+                    // Opaque, so rows scrolling under it don't show through. The
+                    // content surface alone is a translucent wash on Tahoe dark;
+                    // over the shell it matches the pane it sits on.
+                    header(sortedRows)
+                        .background {
+                            ZStack {
+                                Color.appShell
+                                Color.contentAreaBackground
+                            }
+                        }
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                header(sortedRows)
+                if isLazy {
+                    LazyVStack(alignment: .leading, spacing: 0) { rowList(sortedRows) }
+                } else {
+                    VStack(alignment: .leading, spacing: 0) { rowList(sortedRows) }
+                }
             }
         }
+    }
+
+    private func header(_ sortedRows: [Row]) -> some View {
+        BlissTableHeader(
+            columns: columns,
+            sortOrder: sortBinding,
+            selectionState: selectionState(for: sortedRows),
+            contentInset: contentInset,
+            onToggleAll: { toggleAll(sortedRows) }
+        )
     }
 
     @ViewBuilder

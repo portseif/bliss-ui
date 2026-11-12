@@ -29,7 +29,29 @@ struct DataPage: View {
             tickStripBlock
             changeBlocksBlock
             sparklineBlock
+            commitGraphBlock
             pillsBlock
+        }
+    }
+
+    // MARK: - Commit graph
+
+    @State private var openedCommit: CommitGraphCommit?
+
+    private var commitGraphBlock: some View {
+        DemoBlock(title: "Commit graph") {
+            CommitGraph(DataSamples.commits, onOpen: { openedCommit = $0 }) { commit, isHovered in
+                Button("Check Out") { openedCommit = commit }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+                    .opacity(isHovered ? 1 : 0)
+                    .disabled(!isHovered)
+            }
+            .frame(maxWidth: 640)
+            if let openedCommit {
+                Text(verbatim: "Opened \(openedCommit.shortHash): \(openedCommit.title)")
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -192,6 +214,29 @@ struct DataPage: View {
 
 /// Generic sample data shared by the Data page and its gallery entries.
 enum DataSamples {
+    /// A small app's history: a feature branch still open, two merged ones and a fix.
+    static var commits: [CommitGraphCommit] {
+        let day: TimeInterval = 86_400
+        let now = Date()
+        return [
+            CommitGraphCommit(id: "9a4a6a4", parentIDs: ["adc4847"], title: "Show sunrise and sunset", authorName: "Mara Lindqvist", date: now - 21 * day),
+            CommitGraphCommit(id: "da952d4", parentIDs: ["7c22f2f"], title: "Refresh the widget every hour", authorName: "Priya Raman", date: now - 28 * day, refs: [CommitGraphRef("origin/feature/widgets", kind: .remoteBranch), CommitGraphRef("feature/widgets", kind: .branch)]),
+            CommitGraphCommit(id: "7c22f2f", parentIDs: ["adc4847"], title: "Add a small Today widget", authorName: "Priya Raman", date: now - 30 * day),
+            CommitGraphCommit(id: "adc4847", parentIDs: ["2fd6dc2", "55697e4"], title: "Merge branch 'feature/offline'", authorName: "Mara Lindqvist", date: now - 32 * day, refs: [CommitGraphRef("v1.0.0", kind: .tag)]),
+            CommitGraphCommit(id: "55697e4", parentIDs: ["184d442"], title: "Serve the cached forecast when offline", authorName: "Theo Brandt", date: now - 33 * day),
+            CommitGraphCommit(id: "184d442", parentIDs: ["20eb5ba"], title: "Expire cached forecasts after six hours", authorName: "Theo Brandt", date: now - 34 * day),
+            CommitGraphCommit(id: "20eb5ba", parentIDs: ["71c90cc"], title: "Cache forecasts on disk", authorName: "Theo Brandt", date: now - 35 * day),
+            CommitGraphCommit(id: "2fd6dc2", parentIDs: ["a6dfa29"], title: "Localize condition names", authorName: "Priya Raman", date: now - 36 * day),
+            CommitGraphCommit(id: "a6dfa29", parentIDs: ["71c90cc", "f33ac3e"], title: "Merge branch 'fix/units'", authorName: "Mara Lindqvist", date: now - 37 * day),
+            CommitGraphCommit(id: "f33ac3e", parentIDs: ["71c90cc"], title: "Respect the system's temperature unit", authorName: "Jonas Weber", date: now - 38 * day),
+            CommitGraphCommit(id: "71c90cc", parentIDs: ["c41d2e9", "6856bfd"], title: "Merge branch 'feature/hourly'", authorName: "Mara Lindqvist", date: now - 39 * day),
+            CommitGraphCommit(id: "6856bfd", parentIDs: ["5a27a62"], title: "Animate temperature changes", authorName: "Priya Raman", date: now - 40 * day),
+            CommitGraphCommit(id: "5a27a62", parentIDs: ["c41d2e9"], title: "Add an hourly strip", authorName: "Priya Raman", date: now - 41 * day),
+            CommitGraphCommit(id: "c41d2e9", parentIDs: ["8e3f1a0"], title: "Retry failed requests with backoff", authorName: "Theo Brandt", date: now - 42 * day),
+            CommitGraphCommit(id: "8e3f1a0", parentIDs: [], title: "Fetch the forecast", authorName: "Mara Lindqvist", date: now - 45 * day),
+        ]
+    }
+
     static func gigabytes(_ value: Double) -> String {
         "\(value.formatted(.number.precision(.fractionLength(0)))) GB"
     }

@@ -34,7 +34,7 @@ Sources/BlissUI/
 └── Components/
     ├── Actions/     ActionBar, HoverIconButton, quick-action menu rows
     ├── Calendar/    MonthCalendar, DatePickerField, DateRangePickerField, DateRangeCalendar
-    ├── Data/        ProgressBar, ProgressRing, UsageBar, TickStrip, ChangeBlocks, Sparkline
+    ├── Data/        ProgressBar, ProgressRing, UsageBar, TickStrip, ChangeBlocks, Sparkline, CommitGraph
     ├── Display/     Badge, EmptyState, ThinkingSpinner, InfoButton, PathHoverChip, SlidingNumber, StatusPill, KeyHintPill, …
     ├── Feedback/    Banner, DisclosureSection, ConfirmationSheet, skeleton loading
     ├── Filters/     FilterBar + FilterCondition matching, filter menu rows, FilterMenuButton
@@ -131,11 +131,11 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 ### Display
 
-`Badge` (one badge, many styles: `.badgeStyle(.success)`, `Badge(count:)`, `.dot(_:)`), `EmptyState` (fills its container; `.contained()` for a section-level empty), `ThinkingSpinner` (the one indeterminate spinner — `ProgressView` can't be tinted on macOS), `TextLink` (URLs only), `TimeAgoLabel`, `DividedForEach`, `DetailRow`, `ShortcutKey`, `SectionHeader`, `UnderlineTabBar`, `FlowLayout`, `ShimmerTextOverlay`, `SlidingNumber`, `RoundedSection` (settings/form card).
+`Badge` (one badge, many styles: `.badgeStyle(.success)`, `Badge(count:)`, `.dot(_:)`), `EmptyState` (fills its container; `.contained()` for a section-level empty), `ThinkingSpinner` (the one indeterminate spinner — `ProgressView` can't be tinted on macOS), `TextLink` (URLs only), `TimeAgoLabel`, `DividedForEach`, `DetailRow`, `ShortcutKey`, `SectionHeader`, `UnderlineTabBar`, `FlowLayout`, `ShimmerTextOverlay`, `SlidingNumber`, `RoundedSection` (settings/form card; `insetsHeader: false` puts its title flush with the card's edge).
 
 - **Semantic badges** fill with a wash of their status tint in both schemes (`X.tint.opacity(0.1)` light / `0.2` dark, hairline `0.3` / `0.4`). The light ramp's `*50` / `*200` steps are near-full saturation; never fill a badge with them.
-- **Data views** are shape-based and dependency-free: `ProgressBar` / `ProgressRing` (determinate; `nil` value is the indeterminate sweep, still under Reduce Motion — `ThinkingSpinner` stays the one indeterminate spinner), `UsageBar` (stacked segments in whole points, largest-remainder split, or a meter that turns amber past 75% and red past 90%), `TickStrip`, `ChangeBlocks`, `Sparkline` (gaps draw dashed, never interpolated). Strokes and text use the status marks; washes use `.statusTint`.
-- **People & layout:** `Avatar` (initials on a name-hashed color held to the theme's contrast, optional status with a shape per state), `AvatarStack`, `Breadcrumbs` (middle segments fold into a "…" floating menu), `InspectorSplit` (pinned shrinks the content, unpinned is a drawer with a dim; drag grip, width clamped and optionally persisted), `CodeField` (clear editor under a colored overlay; `.shell` / `.yaml` / your own `CodeHighlighter`).
+- **Data views** are shape-based and dependency-free: `ProgressBar` / `ProgressRing` (determinate; `nil` value is the indeterminate sweep, still under Reduce Motion — `ThinkingSpinner` stays the one indeterminate spinner), `UsageBar` (stacked segments in whole points, largest-remainder split, or a meter that turns amber past 75% and red past 90%), `TickStrip`, `ChangeBlocks`, `Sparkline` (gaps draw dashed, never interpolated), `CommitGraph` (git history: `CommitGraphLayout` assigns lanes from the parent links — a commit takes the leftmost lane waiting for it, its first parent continues that lane, a lane keeps its color until it ends — and each row draws its own slice in a `Canvas` flush with the next; text starts after that row's lanes). Strokes and text use the status marks; washes use `.statusTint`.
+- **People & layout:** `Avatar` (initials on a name-hashed color held to the theme's contrast, optional status with a shape per state), `AvatarStack` (`+N` as a fixed-width chip, or `overflowStyle: .plain` text), `Breadcrumbs` (middle segments fold into a "…" floating menu), `InspectorSplit` (pinned shrinks the content, unpinned is a drawer with a dim; drag grip, width clamped and optionally persisted), `CodeField` (clear editor under a colored overlay; `.shell` / `.yaml` / your own `CodeHighlighter`).
 
 ### Navigation
 
@@ -152,7 +152,7 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 ### Tables
 
-`BlissTable(rows, columns:, selection:, onOpen:) { row in cell; cell; cell }` — the `cells` closure returns one view per column and `BlissTableRowLayout` gives each its column width, so the header and rows always line up. Columns are `.fixed(_)` or `.flexible(minimum:)`; a column sorts when given a comparator or key path. Rows are an eager `VStack` by default — a `LazyVStack` shimmers by a sub-pixel during width animations. Bulk actions go in `.selectionBar(count:onClear:) { SelectionBarButton(…) }`, which lifts toasts above it.
+`BlissTable(rows, columns:, selection:, onOpen:) { row in cell; cell; cell }` — the `cells` closure returns one view per column and `BlissTableRowLayout` gives each its column width, so the header and rows always line up. Columns are `.fixed(_)` or `.flexible(minimum:)`; a column sorts when given a comparator or key path. `pinsHeader: true` pins the header to the top of the enclosing scroll view (a lazy section header on the content surface). Rows are an eager `VStack` by default — a `LazyVStack` shimmers by a sub-pixel during width animations. Bulk actions go in `.selectionBar(count:onClear:) { SelectionBarButton(…) }`, which lifts toasts above it.
 
 `ReorderableList($items, gripPlacement:, divided:) { row }` — flat rows with a grip that drags them into a new order (the others slide as the dragged row's center crosses theirs); ⌥↑ / ⌥↓ move the focused grip's row, VoiceOver gets Move up / Move down. Only the grip drags, so the row's text stays selectable.
 

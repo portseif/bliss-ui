@@ -27,6 +27,14 @@ struct NativeScrollerSuppressor: NSViewRepresentable {
     }
 
     private final class SuppressorView: NSView {
+        /// The scroll view being kept clean, and what's watched on it.
+        private weak var observedScrollView: NSScrollView?
+        private var observers: [NSObjectProtocol] = []
+
+        deinit {
+            observers.forEach(NotificationCenter.default.removeObserver)
+        }
+
         override func viewDidMoveToSuperview() {
             super.viewDidMoveToSuperview()
             applySuppression()
@@ -51,17 +59,44 @@ struct NativeScrollerSuppressor: NSViewRepresentable {
             var current: NSView? = superview
             while let candidate = current {
                 if let scrollView = candidate as? NSScrollView {
+                    // Only what's changed: these setters can resize the clip
+                    // view, which the observers below would answer again.
                     if scrollView.scrollerStyle != .overlay {
                         scrollView.scrollerStyle = .overlay
                     }
-                    scrollView.hasVerticalScroller = false
-                    scrollView.hasHorizontalScroller = false
-                    scrollView.verticalScroller?.isHidden = true
-                    scrollView.horizontalScroller?.isHidden = true
+                    if scrollView.hasVerticalScroller { scrollView.hasVerticalScroller = false }
+                    if scrollView.hasHorizontalScroller { scrollView.hasHorizontalScroller = false }
+                    if scrollView.verticalScroller?.isHidden == false { scrollView.verticalScroller?.isHidden = true }
+                    if scrollView.horizontalScroller?.isHidden == false { scrollView.horizontalScroller?.isHidden = true }
+                    observe(scrollView)
                     return
                 }
                 current = candidate.superview
             }
+        }
+
+        /// A scroll view mounted with short content (a sidebar before its rows
+        /// load) gets the system scroller back from SwiftUI once the content
+        /// outgrows it, long after the mount-time suppression ran. Re-suppress
+        /// whenever the content or viewport resizes, or the system's scroller
+        /// style changes (a mouse plugged in under "Automatic").
+        private func observe(_ scrollView: NSScrollView) {
+            guard observedScrollView !== scrollView else { return }
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
+            observedScrollView = scrollView
+
+            let center = NotificationCenter.default
+            let resuppress: @Sendable (Notification) -> Void = { [weak self] _ in
+                MainActor.assumeIsolated { self?.applySuppression() }
+            }
+            scrollView.postsFrameChangedNotifications = true
+            observers.append(center.addObserver(forName: NSView.frameDidChangeNotification, object: scrollView, queue: .main, using: resuppress))
+            if let documentView = scrollView.documentView {
+                documentView.postsFrameChangedNotifications = true
+                observers.append(center.addObserver(forName: NSView.frameDidChangeNotification, object: documentView, queue: .main, using: resuppress))
+            }
+            observers.append(center.addObserver(forName: NSScroller.preferredScrollerStyleDidChangeNotification, object: nil, queue: .main, using: resuppress))
         }
     }
 }

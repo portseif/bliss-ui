@@ -865,9 +865,12 @@ private struct ToolbarIconButton: View {
         return Color.clear
     }
 
-    private var internalPadding: CGFloat {
-        if compact { return Spacing.xs }
-        return isTahoeOrLater ? Spacing.sm - 1 : Spacing.sm
+    /// Every icon button is square, whatever its glyph's shape: `sidebar.left`
+    /// is wider than tall, `arrow.clockwise` taller than wide. The side matches
+    /// the old glyph-plus-padding height (14pt glyph + 7 or 8 a side; compact 4).
+    private var side: CGFloat {
+        if compact { return 24 }
+        return isTahoeOrLater ? 28 : 30
     }
 
     private var insetPadding: CGFloat {
@@ -877,7 +880,7 @@ private struct ToolbarIconButton: View {
     var body: some View {
         configuration.label
             .foregroundStyle(iconColor)
-            .padding(internalPadding)
+            .frame(width: side, height: side)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(backgroundColor)

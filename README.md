@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 84 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 85 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -278,6 +278,9 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/change-blocks-dark.webp"><img src="docs/images/components/change-blocks-light.webp" alt="Change blocks" width="165"></picture><br><b>Change blocks</b><br><code>ChangeBlocks</code><br><sub>Additions and deletions as blocks with compact counts.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/sparkline-dark.webp"><img src="docs/images/components/sparkline-light.webp" alt="Sparkline" width="300"></picture><br><b>Sparkline</b><br><code>Sparkline</code><br><sub>A tiny trend line with an optional area wash; gaps draw dashed.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/commit-graph-dark.webp"><img src="docs/images/components/commit-graph-light.webp" alt="Commit graph" width="280"></picture><br><b>Commit graph</b><br><code>CommitGraph</code><br><sub>Git history as colored lanes with merge rings, rounded branch elbows and ref pills.</sub></td>
   </tr>
 </table>
 

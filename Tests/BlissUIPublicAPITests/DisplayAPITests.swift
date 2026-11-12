@@ -76,6 +76,8 @@ import BlissUI
         _ = RoundedSection("General", divided: true, borderTint: .green) { Text("A"); Text("B") }
         _ = RoundedSection { Text("Row") }
         _ = RoundedSection(divided: true) { Text("Row") } header: { Text("Custom") }
+        _ = RoundedSection("Details", insetsHeader: false) { Text("Row") }
+        _ = RoundedSection(divided: true, insetsHeader: false) { Text("Row") } header: { Text("Custom") }
         _ = Text("Flat").environment(\.roundedSectionPlain, true)
         _ = SectionHeader("Recent")
         _ = SectionHeader("Members", count: 12, countSuffix: "online", caption: "Updated now", topPadding: 0, bottomPadding: 4, horizontalPadding: 8) {

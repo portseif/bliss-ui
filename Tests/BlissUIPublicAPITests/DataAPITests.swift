@@ -74,4 +74,25 @@ import BlissUI
         _ = KeyHintPill("esc")
         _ = KeyHintPill("⌘↩")
     }
+
+    @Test func commitGraphIsReachable() {
+        let commits = [
+            CommitGraphCommit(
+                id: "9a4a6a4c1e",
+                parentIDs: ["adc4847"],
+                title: "Show sunrise and sunset",
+                authorName: "Mara Lindqvist",
+                date: .now,
+                refs: [CommitGraphRef("main", kind: .branch), CommitGraphRef("v1.0.0", kind: .tag), CommitGraphRef("Installed", kind: .highlight)]
+            ),
+            CommitGraphCommit(id: "adc4847", parentIDs: [], title: "Initial commit", shortHash: "adc4847", authorName: "Theo Brandt", date: .now),
+        ]
+        _ = CommitGraph(commits)
+        _ = CommitGraph(commits, laneWidth: 20, onOpen: { _ in })
+        _ = CommitGraph(commits) { commit, isHovered in
+            Button("Check Out \(commit.shortHash)") {}
+                .opacity(isHovered ? 1 : 0)
+                .disabled(!isHovered)
+        }
+    }
 }

@@ -49,9 +49,9 @@ public nonisolated struct TooltipConfiguration: Equatable, Sendable {
     /// Maximum height before scrolling is enabled
     public var maxHeight: CGFloat = 200
     /// Horizontal padding inside the tooltip
-    public var horizontalPadding: CGFloat = 12
+    public var horizontalPadding: CGFloat = 10
     /// Vertical padding inside the tooltip
-    public var verticalPadding: CGFloat = 10
+    public var verticalPadding: CGFloat = 5
     /// When true, the tooltip accepts mouse interaction: hovering it keeps it
     /// open (so the cursor can travel from the source into the tooltip), and
     /// it can host clickable action buttons. Default tooltips stay click-through.
@@ -60,8 +60,8 @@ public nonisolated struct TooltipConfiguration: Equatable, Sendable {
     public init(
         maxWidth: CGFloat = 250,
         maxHeight: CGFloat = 200,
-        horizontalPadding: CGFloat = 12,
-        verticalPadding: CGFloat = 10,
+        horizontalPadding: CGFloat = 10,
+        verticalPadding: CGFloat = 5,
         interactive: Bool = false
     ) {
         self.maxWidth = maxWidth
@@ -71,8 +71,9 @@ public nonisolated struct TooltipConfiguration: Equatable, Sendable {
         self.interactive = interactive
     }
 
-    // Every preset uses the tight (10h/5v) padding — tooltips read compact by
-    // default; the presets differ only in width envelope.
+    // Every tooltip uses the tight (10h/5v) padding — the init's defaults, so
+    // the text overloads that build their own configuration read compact too;
+    // the presets differ only in width envelope.
     public static let `default` = TooltipConfiguration(horizontalPadding: 10, verticalPadding: 5)
     public static let compact = TooltipConfiguration(maxWidth: 180, maxHeight: 120, horizontalPadding: 10, verticalPadding: 5)
     public static let wide = TooltipConfiguration(maxWidth: 320, maxHeight: 250, horizontalPadding: 10, verticalPadding: 5)
