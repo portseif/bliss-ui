@@ -134,7 +134,7 @@ private struct AvatarOverflowChip: View {
             cornerRadius: shape == .circle ? nil : size.cornerRadius + size.gap
         )
         AvatarOverflowCount(count: count, size: size, alignment: .center)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.textSecondary)
         // The leading part sits under the avatar before it.
         .padding(.leading, size.stackHiddenWidth + size.overflowPadding)
         .padding(.trailing, size.overflowPadding)
@@ -152,7 +152,7 @@ private struct AvatarOverflowLabel: View {
 
     var body: some View {
         AvatarOverflowCount(count: count, size: size, alignment: .leading)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.textSecondary)
             // Undo the stack's overlap, then the usual gap between neighbors.
             .padding(.leading, size.stackOverlap + size.gap + size.gap)
             .frame(height: size.diameter)

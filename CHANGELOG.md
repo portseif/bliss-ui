@@ -16,8 +16,25 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 - `BlissTable(pinsHeader:)` — the header stays at the top of the enclosing scroll view while the rows scroll under it. Rows stay eager unless `isLazy`, so a width animation doesn't rebuild them off screen.
 - `AvatarStack(overflowStyle: .plain)` — `+N` as plain text after the avatars instead of a filled chip.
 - `BlissTable(autoSizeColumns:)` — flexible columns size to their widest cell or header label instead of splitting the room evenly. Badges and dates hug their content; when the table is too narrow, the widest columns give way first (never below their minimum) and text truncates, so no column collapses or overflows. `BlissTableRowLayout(contentWidths:)` is the layout side of it.
+- `AppearanceModePicker` — Light / Dark / System as three window previews (System split down the middle), drawn with the active theme's palettes.
+- `ColorPickerButton(label: .hexChip)` — the color as a capsule with a round swatch and its hex value.
+- `BlissAppearance.reduceMotion` (`ReduceMotionOption`: System / On / Off) — force reduced motion on or off for the app; `prefersReducedMotion` honors it. `BlissAppearance.resetToDefaults()` returns every appearance choice to its default.
 - `.sidebarResizeHandle(width:in:isEnabled:)` — a grip on a sidebar's trailing edge that drags it wider or narrower, like `InspectorSplit`'s, adjustable with VoiceOver.
 - `LocalizedStringKey.verbatimWithCode(_:)` — like `.verbatim(_:)`, but `backticked` spans show as inline code (monospaced on a faint tint). Nothing else is parsed, so names with `_` or `*` still show as-is.
+- Custom background and foreground per theme and mode — `BlissAppearance.surfaceColor(_:for:in:)` / `setSurfaceColor(_:_:for:in:)` (`ThemeSurfaceRole`). A new background rebuilds the content pane, raised surfaces and border around it (`ThemePalette.withBackground(_:)`), and text turns light or dark to suit it unless a foreground is set. System takes them too, on its built-in surfaces.
+- `ThemePalette.foreground` — a theme's text color. `Color.textPrimary` uses it, `.textSecondary` and `.textTertiary` are mixed from it toward the background as far as 4.5:1 allows, and `.blissTheme()` sets it as the root foreground style. High Contrast, Color Blind Safe and Low Glare publish one.
+- When a picked background makes a mode's surfaces light in dark mode (or dark in light mode), `.blissTheme()` gives the views that scheme, so system colors and control labels stay readable on it.
+- Separate light and dark themes — `BlissAppearance.separateModes`, `theme(for:)` / `setTheme(_:for:)` and `BlissTheme.active(for:)`. `ThemeColors.palette(for:)` returns a mode's palette with the user's colors laid over.
+- `AppearanceSettings` gains Background and Foreground hex chips (for the mode being edited) and, under Advanced, "Separate light and dark modes" with a Light / Dark switch for which mode the card edits.
+- Fonts and font sizes — `BlissAppearance.font(_:for:)` / `setFont(_:_:for:)` pick a family and base face (`FontChoice`) for the UI, content and code (`FontRole`), and `uiFontSize` / `codeFontSize` set the base sizes (13 and 12 by default). Every `Typography` style is drawn in them and scaled from them, so a change re-sizes the whole app. The UI font is kept per mode while light and dark are separate.
+- `Typography.contentMedium`, `.contentSmall` and `.contentCaption` — text the app shows rather than labels it (descriptions, documents), in the content font.
+- `AppearanceSettings` gains a Font row in the theme card and, under Advanced, UI and code font sizes, UI font style, and content and code fonts (a monospaced family for code), like a modern editor's settings.
+- `BlissAppearance.contrast` (0–100, 50 by default): above 50, hairlines (`Color.menuBorder`), hover and selection washes (`RowTint`) and muted text step toward the text color; below, they soften, with muted text held at 4.5:1.
+- `BlissAppearance.translucentSidebar` and `Color.shellBackground`: the title bar and sidebar show the desktop blurred through a tint of the shell color. Fill the window's root with `Color.shellBackground` instead of `.appShell`.
+- `BlissAppearance.usesPointerCursors`: every BlissUI button style, switch, picker and menu row shows the pointing hand on hover. Off by default, like the rest of macOS.
+- Alternate Dock icons — `DockIconOption`, `BlissAppearance.dockIconID` and `applyDockIcon(from:)`. `AppearanceSettings(dockIcons:)` offers them.
+- Custom themes — `BlissTheme` (and its palettes) are `Codable`, colors as `#RRGGBB`. `BlissTheme.duplicate(_:)` copies a theme as it looks (picked background, foreground and accent included), `importTheme(from:)` reads a theme file, and `deleteCustom(_:)` removes one. They're kept under `BlissAppearance.Keys.customThemes` and listed with the built-ins; `resetToDefaults()` leaves them alone. `ThemeColors.palette(of:for:)` gives any theme's palette with the user's colors over it.
+- `AppearanceSettings` gains import, duplicate and delete buttons beside the theme, and Translucent sidebar, Contrast, Use pointer cursors and Dock icon under Advanced.
 
 ### Changed
 
@@ -31,10 +48,21 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 - `BlissTable`'s header band in light mode is the window's shell surface with a hairline (rows' hover and selection fills darken, so a darker band looked like a selected row); its labels are secondary instead of tertiary, readable on the band.
 - `RowTint.hover` and `.selected` are a faint wash of the theme's accent when a color theme is active, so list, table, sidebar and menu highlights take the theme's color; System keeps the neutral grays.
 - `Banner` puts its action under the message when it's narrower than 360pt, instead of squeezing the text into a column beside it.
-- `TerminalOutputView(isDocked:contentInset:)` — docked, it's a flush panel with a hairline on top for a console along the bottom of a pane; `contentInset` lines its text up with the content above.
+- `TerminalOutputView(isDocked:contentInset:)` — docked, it's a flush panel with a hairline on top for a console along the bottom of a pane; `contentInset` lines its text up with the content above. Docked, it has no fill of its own (the pane shows through); its header and the card take the theme's `RowTint.hover`.
+
+- Text meets WCAG AA. `Color.textSecondary`, `.textTertiary` and `.textPrimary` adapt to light and dark (they were fixed light-mode grays, about 3:1 in dark mode) and hold 4.5:1 on every built-in theme's surfaces, the accent-tinted selections included. The table header, sidebar rows and section titles, banner and sheet messages, detail labels, empty-state subtitles, `+N` counts, the terminal view's header and the secondary badge use them instead of SwiftUI's `.secondary` / `.tertiary`, which fall to about 3.9:1 and 1.9:1 on white.
+- `AppearanceSettings` is laid out like a modern settings page: Mode as window previews, a card with the theme (a menu with each theme's swatch) and the accent (Theme / System or Custom, plus a hex chip), and an Advanced disclosure (reduce motion) beside Reset to default. The theme card grid is gone; `ThemeCard` remains public.
+- Floating menus (dropdowns, kebab and context menus) cast a slightly stronger shadow (14% at an 18pt blur in light mode, 42% in dark) and draw a darker edge (the theme's border at full strength, or 12% black), so they don't blend into pale or tinted surfaces.
+- Text on the accent (`AccentHue.contrastForeground`) is chosen by WCAG contrast, not a brightness cutoff, which put white on a lavender accent at 2.7:1.
+
+- Tooltips, the action bar under a table and `AppSheet`'s dividers take the theme's surfaces and text instead of system materials and grays.
+- Toasts sit on the theme's raised surface with its border (like menus), and their close button's hover takes the theme's wash.
+- `SidebarToggleButton` answers ⌃⌘S, macOS's Toggle Sidebar shortcut, and its tooltip shows it.
+- `AppearanceModePicker` names a hovered mode on the preview itself, blurring it behind a centered label, instead of a tooltip under it.
 
 ### Fixed
 
+- Switching the color scheme from Light or Dark back to System no longer leaves a window half in each: `preferredColorScheme(nil)` doesn't hand a macOS window back to the system, so `.blissTheme()` now also sets the app's appearance and clears what each window was forced to. A System window whose appearance flips with the Mac re-reads the theme's palette too.
 - `ScrollViewWithThinIndicator` keeps the system scroller hidden after its content grows past the viewport (a sidebar whose rows load after it appears showed the wide legacy scroller).
 - `ScrollViewWithThinIndicator` no longer rebuilds its content on every resize and scroll frame. It sat in a `GeometryReader` and kept the scroll offset in its own state, so a sidebar collapse or a scroll re-ran `content()` each frame — seconds of main-thread work for a 100-row table. The thumb, fades and viewport fill now read the scroll metrics themselves.
 

@@ -98,7 +98,7 @@ public struct Banner: View {
                     if let message {
                         Text(message)
                             .font(Typography.captionSmall)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.textSecondary)
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
                     }

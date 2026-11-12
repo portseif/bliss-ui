@@ -177,7 +177,10 @@ public struct FlatSwitchToggleStyle: ToggleStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        FlatSwitchToggle(configuration: configuration, showsLabel: showsLabel)
+        Group {
+            FlatSwitchToggle(configuration: configuration, showsLabel: showsLabel)
+        }
+        .interactiveCursor()
     }
 }
 

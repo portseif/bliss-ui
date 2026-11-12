@@ -57,7 +57,7 @@ public struct EmptyState<Actions: View>: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(Typography.bodySmall)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.center)
                 }
             }

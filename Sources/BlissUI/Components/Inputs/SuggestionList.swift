@@ -210,6 +210,7 @@ struct SuggestionListContent<Item: Hashable>: View {
         // Menu-panel rows stay `.plain`: the panel never takes focus, and the
         // field runs the keys.
         .buttonStyle(.plain)
+        .interactiveCursor()
         .onHover { hovering in
             if hovering { model.highlight(index) }
         }

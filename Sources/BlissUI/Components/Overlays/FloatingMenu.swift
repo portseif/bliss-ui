@@ -166,7 +166,13 @@ private struct FloatingMenuContentWrapper<Content: View>: View {
     }
 
     /// Subtle border for definition, shared with all menu surfaces.
-    private var borderColor: Color { Color.menuBorder }
+    /// A step darker than the shared `menuBorder`, so the menu's edge holds on a
+    /// pale or tinted surface: the theme's border at full strength, or 12% black.
+    private var borderColor: Color {
+        if prefersIncreasedContrast { return Color.menuBorder }
+        if let palette = ThemeColors.activePalette { return palette.border.color }
+        return Color.primary.opacity(0.12)
+    }
 
     /// Surface fill: a solid themed elevated color when a color theme is active so
     /// menus match the theme; the vibrant material for the Default theme (unchanged).
@@ -224,17 +230,19 @@ private struct FloatingMenuContentWrapper<Content: View>: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: 1)
             )
-            // Soft drop shadow cast from the (now material-filled) card silhouette.
+            // Drop shadow cast from the (now material-filled) card silhouette.
             // A separate dark caster shape would bleed through the translucent
-            // material, so the shadow rides on the clipped card itself.
+            // material, so the shadow rides on the clipped card itself. A touch
+            // stronger than a hairline-only card needs: at 10% it blended into a
+            // pale, tinted surface. Fits the 40pt shadow padding.
             .shadow(
-                color: isDark ? Color.black.opacity(0.35) : Color.black.opacity(0.1),
-                radius: 16,
+                color: isDark ? Color.black.opacity(0.42) : Color.black.opacity(0.14),
+                radius: 18,
                 x: 0,
-                y: 6
+                y: 8
             )
             .shadow(
-                color: isDark ? Color.black.opacity(0.2) : Color.black.opacity(0.05),
+                color: isDark ? Color.black.opacity(0.25) : Color.black.opacity(0.08),
                 radius: 3,
                 x: 0,
                 y: 1

@@ -221,12 +221,15 @@ struct FloatingMenuPickerButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var colorScheme
 
     func makeBody(configuration: Configuration) -> some View {
-        FloatingMenuPickerButton(
-            configuration: configuration,
-            isActive: isActive,
-            horizontalPadding: horizontalPadding,
-            colorScheme: colorScheme
-        )
+        Group {
+            FloatingMenuPickerButton(
+                configuration: configuration,
+                isActive: isActive,
+                horizontalPadding: horizontalPadding,
+                colorScheme: colorScheme
+            )
+        }
+        .interactiveCursor()
     }
 }
 
@@ -463,6 +466,7 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                     .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusDefault)
                 }
                 .buttonStyle(.plain)
+                .interactiveCursor()
                 .id(index)
                 .onHover { hovering in
                     if hovering {

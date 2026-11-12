@@ -248,6 +248,7 @@ private struct OutlineRowView<Content: View>: View {
                     .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
             }
             .buttonStyle(.plain)
+            .interactiveCursor()
             .accessibilityHidden(true)
         } else {
             Color.clear

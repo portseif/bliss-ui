@@ -171,6 +171,7 @@ public struct ComboBox<Option: Hashable>: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .interactiveCursor()
         .focusable(false)
         .accessibilityHidden(true)
     }

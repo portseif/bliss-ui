@@ -100,17 +100,26 @@ public enum AccentHue {
         return BlissAppearance.customAccent.nsColor
     }
 
-    /// Whether the accent is light enough to need dark text on top. Computed from
-    /// the real effective accent (system or custom) via ITU-R BT.709 luminance, so
-    /// contrast text stays correct for any system accent (yellow, green, etc.).
+    /// Whether the accent is light enough to need dark text on top. Decided by
+    /// WCAG contrast against the real effective accent (system, custom or a
+    /// theme's): dark text when it reads clearly better than white. A plain
+    /// brightness cutoff put white on a lavender accent at 2.7:1.
     public static var accentIsLight: Bool {
         // A theme that publishes its on-accent color decides: dark text = light accent.
         if let foreground = ThemeColors.activeAccentForeground {
             return StatusToneMath.luminance(foreground) < 0.5
         }
         guard let c = effectiveAccentNSColor.usingColorSpace(.sRGB) else { return false }
-        let luminance = 0.2126 * c.redComponent + 0.7152 * c.greenComponent + 0.0722 * c.blueComponent
-        return luminance > 0.6
+        return needsDarkText(on: ThemeRGB(red: c.redComponent, green: c.greenComponent, blue: c.blueComponent))
+    }
+
+    /// Dark text when it reads clearly better than white on `accent`. White
+    /// wins a near tie: system blue is about 4:1 either way and keeps the white
+    /// macOS gives it.
+    nonisolated static func needsDarkText(on accent: ThemeRGB) -> Bool {
+        let whiteContrast = StatusToneMath.contrast(accent, ThemeRGB(red: 1, green: 1, blue: 1))
+        let darkContrast = StatusToneMath.contrast(accent, ThemeRGB(red: 0.1, green: 0.1, blue: 0.1))
+        return darkContrast > whiteContrast * 1.25
     }
 
     /// The ideal text color to use on top of the accent color for readable contrast.
@@ -265,21 +274,21 @@ public enum RowTint {
     public static func hover(_ scheme: ColorScheme) -> Color {
         if let accent = ThemeColors.activeAccent?.color {
             if prefersIncreasedContrast { return accent.opacity(scheme == .dark ? 0.20 : 0.18) }
-            return accent.opacity(scheme == .dark ? 0.10 : 0.07)
+            return accent.opacity((scheme == .dark ? 0.10 : 0.07) * contrastFactor)
         }
         if prefersIncreasedContrast { return Color.primary.opacity(scheme == .dark ? 0.10 : 0.12) }
-        return scheme == .dark ? Color.primary.opacity(0.04) : Color.primary.opacity(0.05)
+        return Color.primary.opacity((scheme == .dark ? 0.04 : 0.05) * contrastFactor)
     }
 
     /// Stronger fill for an active/selected sidebar row.
     public static func selected(_ scheme: ColorScheme) -> Color {
         if let accent = ThemeColors.activeAccent?.color {
             if prefersIncreasedContrast { return accent.opacity(scheme == .dark ? 0.34 : 0.30) }
-            return accent.opacity(scheme == .dark ? 0.20 : 0.15)
+            return accent.opacity((scheme == .dark ? 0.20 : 0.15) * contrastFactor)
         }
         if prefersIncreasedContrast { return Color.primary.opacity(scheme == .dark ? 0.18 : 0.20) }
         // Twice the hover, as in light — the same 0.04 made a selected row look hovered.
-        return scheme == .dark ? Color.primary.opacity(0.08) : Color.primary.opacity(0.10)
+        return Color.primary.opacity((scheme == .dark ? 0.08 : 0.10) * contrastFactor)
     }
 }
 
@@ -289,6 +298,18 @@ public enum RowTint {
 /// `prefersReducedMotion`; `ThemeModifier` re-IDs the tree when it changes.
 public var prefersIncreasedContrast: Bool {
     NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+}
+
+/// `BlissAppearance.contrast` as a multiplier for faint fills and hairlines:
+/// 1 at the default (50), 2 at 100, 0.4 at 0.
+var contrastFactor: Double {
+    let amount = contrastAmount
+    return amount >= 0 ? 1 + amount : 1 + 0.6 * amount
+}
+
+/// `BlissAppearance.contrast` as -1…1, 0 at the default.
+var contrastAmount: Double {
+    Double(BlissAppearance.contrast - BlissAppearance.defaultContrast) / Double(BlissAppearance.defaultContrast)
 }
 
 // MARK: - Purple Color Palette (Violet)
@@ -475,6 +496,13 @@ extension Color {
         return ThemeColors.resolvedScheme == .dark ? appShellDark : appShellLight
     }
 
+    /// The fill for the window's shell (title bar and sidebar) behind the
+    /// content panel: `appShell`, or a tint of it over the blurred desktop
+    /// while `BlissAppearance.translucentSidebar` is on.
+    public static var shellBackground: Color {
+        BlissAppearance.translucentSidebar ? appShell.opacity(0.72) : appShell
+    }
+
     // MARK: - Menu / Popover Surfaces
 
     /// Subtle definition edge shared by every floating surface — kebab menus,
@@ -485,8 +513,8 @@ extension Color {
     /// so one token works for both modes.
     public static var menuBorder: Color {
         let increased = prefersIncreasedContrast
-        if let palette = ThemeColors.activePalette { return palette.border.color.opacity(increased ? 1 : 0.5) }
-        return Color.primary.opacity(increased ? 0.25 : 0.08)
+        if let palette = ThemeColors.activePalette { return palette.border.color.opacity(increased ? 1 : min(0.5 * contrastFactor, 1)) }
+        return Color.primary.opacity(increased ? 0.25 : 0.08 * contrastFactor)
     }
 
     /// Background for the main content pane on Tahoe+. The pane sits on the
@@ -559,14 +587,77 @@ extension Color {
     /// The color for text in a non-key window
     public static let unemphasizedSelectedText = Color(nsColor: .unemphasizedSelectedTextColor)
 
-    /// Primary text on light backgrounds
-    public static let textPrimary = Grey.grey800
+    /// Primary text: the theme's foreground, else the system label color.
+    public static var textPrimary: Color {
+        ThemeColors.activePalette?.foreground?.color ?? Color.primary
+    }
 
-    /// Secondary/muted text
-    public static let textSecondary = Grey.grey600
+    /// Secondary/muted text. At least 4.5:1 (WCAG AA): under a theme with a
+    /// foreground, that color mixed toward the background as far as 4.5:1
+    /// allows; otherwise a gray that holds 4.5:1 on every built-in theme's
+    /// surfaces, selected rows included (SwiftUI's `.secondary` falls to about
+    /// 3.9:1 on white, so text uses this instead).
+    public static var textSecondary: Color {
+        themedText?.secondary ?? defaultText.secondary
+    }
 
-    /// Tertiary/disabled text
-    public static let textTertiary = Grey.grey500
+    /// Tertiary text: placeholders, captions, disabled. At least 4.5:1 on the
+    /// content and window surfaces.
+    public static var textTertiary: Color {
+        themedText?.tertiary ?? defaultText.tertiary
+    }
+
+    /// The grays at the default contrast hold 4.5:1; more contrast moves them
+    /// toward the label color, less leaves them at that floor.
+    private static var defaultText: (secondary: Color, tertiary: Color) {
+        let contrast = BlissAppearance.contrast
+        if let cached = defaultTextCache, cached.contrast == contrast { return (cached.secondary, cached.tertiary) }
+        let toward = max(contrastAmount, 0)
+        let result = (
+            secondary: adaptiveText(light: 0.36 * (1 - 0.6 * toward), dark: 0.70 + 0.22 * toward),
+            tertiary: adaptiveText(light: 0.44 * (1 - 0.6 * toward), dark: 0.62 + 0.28 * toward)
+        )
+        defaultTextCache = (contrast, result.secondary, result.tertiary)
+        return result
+    }
+
+    private static var defaultTextCache: (contrast: Int, secondary: Color, tertiary: Color)?
+
+    /// Secondary and tertiary text for the active palette's foreground, kept for
+    /// the palette they were mixed for: every row of a table reads them.
+    private static var themedTextCache: (palette: ThemePalette, contrast: Int, secondary: Color, tertiary: Color)?
+
+    private static var themedText: (secondary: Color, tertiary: Color)? {
+        guard let palette = ThemeColors.activePalette, let foreground = palette.foreground else { return nil }
+        let contrast = BlissAppearance.contrast
+        if let cached = themedTextCache, cached.palette == palette, cached.contrast == contrast { return (cached.secondary, cached.tertiary) }
+        let surfaces = [palette.contentBackground, palette.windowBackground]
+        func mixed(from start: Double, holding ratio: Double) -> Color {
+            var amount = start
+            while amount > 0 {
+                let candidate = foreground.mixed(with: palette.contentBackground, amount: amount)
+                if surfaces.allSatisfy({ StatusToneMath.contrast(candidate, $0) >= ratio }) { return candidate.color }
+                amount -= 0.03
+            }
+            return foreground.color
+        }
+        // More contrast starts the mix nearer the text color; less starts it
+        // farther, where the 4.5:1 floor stops it.
+        let scale = 1 - 0.8 * contrastAmount
+        let result = (secondary: mixed(from: 0.40 * scale, holding: 4.6), tertiary: mixed(from: 0.55 * scale, holding: 4.5))
+        themedTextCache = (palette, contrast, result.secondary, result.tertiary)
+        return result
+    }
+
+    /// A cool gray at `light` / `dark` brightness, by the drawing appearance.
+    private static func adaptiveText(light: CGFloat, dark: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return isDark
+                ? NSColor(hue: 240 / 360, saturation: 0.03, brightness: dark, alpha: 1)
+                : NSColor(hue: 220 / 360, saturation: 0.05, brightness: light, alpha: 1)
+        }))
+    }
 
     // MARK: - Control Colors
 

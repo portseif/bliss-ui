@@ -88,11 +88,11 @@ private struct ToastDismissButton: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.06))
+                    .fill(RowTint.hover(colorScheme))
                     .opacity(isHovering ? 1 : 0)
                 Image(systemName: "xmark")
                     .font(Typography.labelXTinySemibold)
-                    .foregroundStyle(isHovering ? Color.primary : Color.secondary)
+                    .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
             }
             .frame(width: 20, height: 20)
             .contentShape(Rectangle())
@@ -142,8 +142,10 @@ public struct ToastNotification: View {
         self.isTucked = isTucked
     }
 
+    /// The theme's raised surface (like a menu's), else white / near-black.
     private var backgroundColor: Color {
-        colorScheme == .dark ? Color(white: 0.12) : .white
+        if let palette = ThemeColors.activePalette { return palette.elevatedBackground.color }
+        return colorScheme == .dark ? Color(white: 0.12) : .white
     }
 
     private var shadowColor: Color {
@@ -479,7 +481,7 @@ public struct ToastNotification: View {
                     pillSeparator
                     Text(segment.text)
                         .font(Typography.labelMedium)
-                        .foregroundStyle(segment.isProminent ? Color.primary : Color.secondary)
+                        .foregroundStyle(segment.isProminent ? Color.textPrimary : Color.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -702,10 +704,10 @@ public struct ToastNotification: View {
             .foregroundStyle(.secondary)
     }
 
-    /// Subtle neutral hairline around the progress pill (matches the screenshot — not the
-    /// accent-tinted border the standard card uses).
+    /// Subtle hairline around the toast: the theme's border, else a neutral one.
     private var pillBorderColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
+        if ThemeColors.activePalette != nil { return Color.menuBorder }
+        return colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
     }
 }
 

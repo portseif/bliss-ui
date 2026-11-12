@@ -171,12 +171,17 @@ public var isTahoeOrLater: Bool {
     return false
 }
 
-/// System Settings → Accessibility → Display → Reduce motion. Read where a
-/// view scales, slides or loops so it can fall back to a plain fade (menus do
+/// System Settings → Accessibility → Display → Reduce motion, unless the app's
+/// own setting (`BlissAppearance.reduceMotion`) forces it on or off. Read where
+/// a view scales, slides or loops so it can fall back to a plain fade (menus do
 /// the same through `MenuPresentationMotion`). Re-read on every render, so a
 /// change applies from the next one.
 public var prefersReducedMotion: Bool {
-    NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    switch BlissAppearance.reduceMotion {
+    case .on: true
+    case .off: false
+    case .system: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 }
 
 extension AnyTransition {

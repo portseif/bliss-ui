@@ -108,7 +108,7 @@ public struct FilterMenuButton: View {
                         .accessibilityHidden(true)
                 }
             }
-            .foregroundStyle(isHighlighted || isHovering ? Color.primary : Color.secondary)
+            .foregroundStyle(isHighlighted || isHovering ? Color.textPrimary : Color.textSecondary)
             .padding(.horizontal, Spacing.sm + 2)
             .padding(.vertical, Spacing.xs)
             .background {

@@ -422,7 +422,10 @@ private struct ShortcutRecorderButtonStyle: ButtonStyle {
     let isFocused: FocusState<Bool>.Binding
 
     func makeBody(configuration: Configuration) -> some View {
-        ShortcutRecorderChrome(configuration: configuration, isRecording: isRecording, isFocused: isFocused)
+        Group {
+            ShortcutRecorderChrome(configuration: configuration, isRecording: isRecording, isFocused: isFocused)
+        }
+        .interactiveCursor()
     }
 }
 

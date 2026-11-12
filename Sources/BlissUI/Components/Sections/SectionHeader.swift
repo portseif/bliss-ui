@@ -71,7 +71,7 @@ public struct SectionHeader<Trailing: View>: View {
             if let caption {
                 Text(caption)
                     .font(Typography.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color.textTertiary)
             }
 
             Spacer(minLength: 0)

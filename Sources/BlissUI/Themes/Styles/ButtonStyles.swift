@@ -89,16 +89,19 @@ public struct PrimaryButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        PrimaryButton(
-            configuration: configuration,
-            // A loading button is disabled, but keeps its enabled look.
-            isEnabled: isEnabled || isLoading,
-            isLoading: isLoading,
-            colorScheme: colorScheme,
-            labelFont: labelFont,
-            compact: compact,
-            cornerRadiusOverride: cornerRadiusOverride
-        )
+        Group {
+            PrimaryButton(
+                configuration: configuration,
+                // A loading button is disabled, but keeps its enabled look.
+                isEnabled: isEnabled || isLoading,
+                isLoading: isLoading,
+                colorScheme: colorScheme,
+                labelFont: labelFont,
+                compact: compact,
+                cornerRadiusOverride: cornerRadiusOverride
+            )
+        }
+        .interactiveCursor()
     }
 }
 
@@ -138,7 +141,7 @@ private struct PrimaryButton: View {
     var body: some View {
         configuration.label
             .font(labelFont)
-            .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+            .foregroundStyle(isEnabled ? Color.textPrimary : Color.textSecondary)
             .loadingSpinner(isLoading, color: .primary, compact: compact)
             .padding(.horizontal, compact ? Spacing.md : Spacing.lg + 2)
             .padding(.vertical, compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4)
@@ -185,15 +188,18 @@ public struct OutlineButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        OutlineButton(
-            configuration: configuration,
-            isEnabled: isEnabled || isLoading,
-            isLoading: isLoading,
-            colorScheme: colorScheme,
-            labelFont: labelFont,
-            compact: compact,
-            cornerRadiusOverride: cornerRadiusOverride
-        )
+        Group {
+            OutlineButton(
+                configuration: configuration,
+                isEnabled: isEnabled || isLoading,
+                isLoading: isLoading,
+                colorScheme: colorScheme,
+                labelFont: labelFont,
+                compact: compact,
+                cornerRadiusOverride: cornerRadiusOverride
+            )
+        }
+        .interactiveCursor()
     }
 }
 
@@ -224,7 +230,7 @@ private struct OutlineButton: View {
     var body: some View {
         configuration.label
             .font(labelFont)
-            .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+            .foregroundStyle(isEnabled ? Color.textPrimary : Color.textSecondary)
             .loadingSpinner(isLoading, color: .primary, compact: compact)
             .padding(.horizontal, compact ? Spacing.md : Spacing.lg + 2)
             .padding(.vertical, compact ? Spacing.xs + 1 : Spacing.inlineSpacing + 4)
@@ -291,17 +297,20 @@ public struct SecondaryButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        SecondaryButton(
-            configuration: configuration,
-            isEnabled: isEnabled || isLoading,
-            isLoading: isLoading,
-            colorScheme: colorScheme,
-            compact: compact,
-            iconOnly: iconOnly,
-            accent: accent,
-            labelFont: labelFont,
-            cornerRadiusOverride: cornerRadiusOverride
-        )
+        Group {
+            SecondaryButton(
+                configuration: configuration,
+                isEnabled: isEnabled || isLoading,
+                isLoading: isLoading,
+                colorScheme: colorScheme,
+                compact: compact,
+                iconOnly: iconOnly,
+                accent: accent,
+                labelFont: labelFont,
+                cornerRadiusOverride: cornerRadiusOverride
+            )
+        }
+        .interactiveCursor()
     }
 }
 
@@ -417,7 +426,10 @@ public struct GhostButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        GhostButton(configuration: configuration, colorScheme: colorScheme, isLoading: isLoading, compact: compact, hugsLabel: hugsLabel)
+        Group {
+            GhostButton(configuration: configuration, colorScheme: colorScheme, isLoading: isLoading, compact: compact, hugsLabel: hugsLabel)
+        }
+        .interactiveCursor()
     }
 }
 
@@ -559,25 +571,28 @@ public struct DestructiveButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        if prominent {
-            ProminentDestructiveButton(
-                configuration: configuration,
-                isEnabled: isEnabled || isLoading,
-                isLoading: isLoading,
-                colorScheme: colorScheme,
-                compact: compact,
-                font: prominentFont
-            )
-        } else {
-            SubtleDestructiveButton(
-                configuration: configuration,
-                isEnabled: isEnabled || isLoading,
-                isLoading: isLoading,
-                colorScheme: colorScheme,
-                compact: compact,
-                font: subtleFont
-            )
+        Group {
+            if prominent {
+                ProminentDestructiveButton(
+                    configuration: configuration,
+                    isEnabled: isEnabled || isLoading,
+                    isLoading: isLoading,
+                    colorScheme: colorScheme,
+                    compact: compact,
+                    font: prominentFont
+                )
+            } else {
+                SubtleDestructiveButton(
+                    configuration: configuration,
+                    isEnabled: isEnabled || isLoading,
+                    isLoading: isLoading,
+                    colorScheme: colorScheme,
+                    compact: compact,
+                    font: subtleFont
+                )
+            }
         }
+        .interactiveCursor()
     }
 }
 
@@ -716,12 +731,15 @@ public struct SmallPillButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        SmallPillButton(
-            configuration: configuration,
-            colorScheme: colorScheme,
-            color: color,
-            labelFont: Typography.labelMedium
-        )
+        Group {
+            SmallPillButton(
+                configuration: configuration,
+                colorScheme: colorScheme,
+                color: color,
+                labelFont: Typography.labelMedium
+            )
+        }
+        .interactiveCursor()
     }
 }
 
@@ -802,15 +820,18 @@ public struct ToolbarIconButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        ToolbarIconButton(
-            configuration: configuration,
-            colorScheme: colorScheme,
-            isActive: isActive,
-            extraLeadingPadding: extraLeadingPadding,
-            extraTrailingPadding: extraTrailingPadding,
-            fill: fill,
-            compact: compact
-        )
+        Group {
+            ToolbarIconButton(
+                configuration: configuration,
+                colorScheme: colorScheme,
+                isActive: isActive,
+                extraLeadingPadding: extraLeadingPadding,
+                extraTrailingPadding: extraTrailingPadding,
+                fill: fill,
+                compact: compact
+            )
+        }
+        .interactiveCursor()
     }
 }
 
@@ -929,7 +950,10 @@ public struct FocusablePlainButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        FocusablePlainButton(configuration: configuration, cornerRadius: cornerRadius, outset: outset, bleed: bleed)
+        Group {
+            FocusablePlainButton(configuration: configuration, cornerRadius: cornerRadius, outset: outset, bleed: bleed)
+        }
+        .interactiveCursor()
     }
 }
 
@@ -969,7 +993,10 @@ public struct SelectableCardButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        SelectableCard(configuration: configuration, cornerRadius: cornerRadius)
+        Group {
+            SelectableCard(configuration: configuration, cornerRadius: cornerRadius)
+        }
+        .interactiveCursor()
     }
 }
 
@@ -1021,7 +1048,10 @@ public struct InlineIconButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        InlineIconButton(configuration: configuration, chipRadius: chipRadius)
+        Group {
+            InlineIconButton(configuration: configuration, chipRadius: chipRadius)
+        }
+        .interactiveCursor()
     }
 }
 
@@ -1081,12 +1111,15 @@ public struct AnimatedGradientBorderButtonStyle: ButtonStyle {
     @Environment(\.floatingMenuActive) private var menuActive
 
     public func makeBody(configuration: Configuration) -> some View {
-        AnimatedGradientBorderButton(
-            configuration: configuration,
-            colorScheme: colorScheme,
-            menuActive: menuActive,
-            size: size
-        )
+        Group {
+            AnimatedGradientBorderButton(
+                configuration: configuration,
+                colorScheme: colorScheme,
+                menuActive: menuActive,
+                size: size
+            )
+        }
+        .interactiveCursor()
     }
 }
 

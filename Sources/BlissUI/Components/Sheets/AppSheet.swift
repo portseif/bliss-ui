@@ -401,7 +401,7 @@ public struct AppSheetScaffold<Header: View, Content: View, Footer: View>: View 
             header
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
 
-            Divider()
+            AppSheetHairline()
 
             AutoHeightScroll(
                 showFadeMask: true,
@@ -415,11 +415,22 @@ public struct AppSheetScaffold<Header: View, Content: View, Footer: View>: View 
                 content
             }
 
-            Divider()
+            AppSheetHairline()
 
             footer
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { footerHeight = $0 }
         }
+    }
+}
+
+/// The line between a sheet's header, content and footer: the theme's border
+/// (the system separator under System) rather than a fixed gray.
+private struct AppSheetHairline: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.menuBorder)
+            .frame(height: 1)
+            .accessibilityHidden(true)
     }
 }
 

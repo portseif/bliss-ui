@@ -5,6 +5,7 @@
 //  Applies the user's preferred color scheme and accent color to views.
 //
 
+import AppKit
 import SwiftUI
 
 // MARK: - Accent Color Environment Key
@@ -35,16 +36,31 @@ public struct ThemeModifier: ViewModifier {
     @AppStorage(BlissAppearance.Keys.theme) private var colorTheme = BlissTheme.system.id
     /// The accents picked per theme — observed so a pick re-renders the tree.
     @AppStorage(BlissAppearance.Keys.themeAccentOverrides) private var themeAccentOverrides = ""
+    /// Read on access through `prefersReducedMotion`, so a change re-IDs the tree.
+    @AppStorage(BlissAppearance.Keys.reduceMotion) private var reduceMotion = ReduceMotionOption.system.rawValue
+    // Colors set per theme and mode, and a theme per mode: read on access too.
+    @AppStorage(BlissAppearance.Keys.surfaceOverrides) private var surfaceOverrides = ""
+    @AppStorage(BlissAppearance.Keys.separateModes) private var separateModes = false
+    @AppStorage(BlissAppearance.Keys.themeLight) private var lightThemeID = ""
+    @AppStorage(BlissAppearance.Keys.themeDark) private var darkThemeID = ""
+    /// Fonts and base sizes; `Typography` reads them on access.
+    @AppStorage(BlissAppearance.Keys.typography) private var typography = ""
+    @AppStorage(BlissAppearance.Keys.pointerCursors) private var usesPointerCursors = false
+    @AppStorage(BlissAppearance.Keys.contrast) private var contrastSetting = BlissAppearance.defaultContrast
+    @AppStorage(BlissAppearance.Keys.translucentSidebar) private var translucentSidebar = false
     /// Increase Contrast; tokens read `prefersIncreasedContrast` on access, so a
     /// change re-IDs the tree like a theme switch.
     @Environment(\.colorSchemeContrast) private var contrast
+    /// The appearance the window actually has. Under System it flips with the
+    /// Mac's, and the themed tokens (read on access) must be re-read when it does.
+    @Environment(\.colorScheme) private var appearanceScheme
 
-    /// The active color theme (`.system` when none is selected).
-    private var activeTheme: BlissTheme { BlissThemeRegistry.theme(withID: colorTheme) ?? .system }
+    /// The theme in effect for the mode on screen (`.system` when none is selected).
+    private var activeTheme: BlissTheme { BlissTheme.active }
 
-    /// The theme's accent palette for the resolved scheme, or nil for default.
+    /// The palette in effect, with the user's colors over it; nil for default.
     private var themePalette: ThemePalette? {
-        activeTheme.palette(for: ThemeColors.resolvedScheme)
+        ThemeColors.activePalette
     }
 
     private var preferredScheme: ColorScheme? {
@@ -64,6 +80,16 @@ public struct ThemeModifier: ViewModifier {
         case .system: return nil
         case .custom: return Color(red: customRed, green: customGreen, blue: customBlue)
         }
+    }
+
+    /// The scheme the theme's surfaces read as, when it isn't the mode's own: a
+    /// light background picked for dark mode (or a dark one for light). Views
+    /// get it as their color scheme, so system colors (`Color.primary`, control
+    /// labels, washes) turn dark on the light surfaces instead of staying white.
+    private var surfaceScheme: ColorScheme? {
+        guard let palette = themePalette else { return nil }
+        let paletteScheme: ColorScheme = palette.isDark ? .dark : .light
+        return paletteScheme == appearanceScheme ? nil : paletteScheme
     }
 
     /// Compute the accent hue for environment injection
@@ -99,18 +125,70 @@ public struct ThemeModifier: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
+            // The theme's text color for every view that doesn't set its own;
+            // `.primary`, `.secondary` and `.tertiary` styles derive from it.
+            .modifier(ThemeForeground(color: themePalette?.foreground?.color, surfaceScheme: surfaceScheme))
             .preferredColorScheme(preferredScheme)
             .tint(accentColor)
             .accentColor(accentColor)  // Also set accentColor for legacy support
             .environment(\.accentHue, accentHue)  // Inject accent hue for Primary colors
             .id(accentColorId)  // Force view refresh when accent color changes
+            .onChange(of: colorSchemeSetting, initial: true) { _, _ in syncAppAppearance() }
+            // The shell backdrop is AppKit's: swap it for the blur (or back).
+            .onChange(of: translucentSidebar) { _, _ in WindowChrome.reapplyShellBackdrops() }
+    }
+
+    /// `preferredColorScheme(nil)` doesn't hand a window back to the system on
+    /// macOS: after Light or Dark it keeps the forced appearance while SwiftUI's
+    /// environment moves on, so system colors and SwiftUI colors disagree (black
+    /// text on a dark card). The app's appearance follows the setting too, and
+    /// choosing System clears what each window was forced to.
+    private func syncAppAppearance() {
+        guard let app = NSApp else { return }
+        switch preferredScheme {
+        case .light: app.appearance = NSAppearance(named: .aqua)
+        case .dark: app.appearance = NSAppearance(named: .darkAqua)
+        default:
+            app.appearance = nil
+            for window in app.windows { window.appearance = nil }
+        }
     }
 
     /// Unique ID based on theme + accent + scheme settings to force a view
     /// refresh when any of them change (themed surface tokens are read on access,
     /// so the tree must re-render to repick them).
     private var accentColorId: String {
-        "\(colorTheme)-\(colorSchemeSetting)-\(accentColorOverride)-\(customRed)-\(customGreen)-\(customBlue)-\(themeAccentOverrides)-\(contrast == .increased)"
+        "\(colorTheme)-\(colorSchemeSetting)-\(appearanceScheme)-\(accentColorOverride)-\(customRed)-\(customGreen)-\(customBlue)-\(themeAccentOverrides)-\(reduceMotion)-\(surfaceOverrides)-\(separateModes)-\(lightThemeID)-\(darkThemeID)-\(typography)-\(usesPointerCursors)-\(contrastSetting)-\(translucentSidebar)-\(contrast == .increased)"
+    }
+}
+
+/// The theme's text color as the base foreground style, when it has one, and
+/// the surfaces' scheme when it differs from the mode's.
+private struct ThemeForeground: ViewModifier {
+    let color: Color?
+    let surfaceScheme: ColorScheme?
+
+    func body(content: Content) -> some View {
+        Group {
+            if let color {
+                content.foregroundStyle(color)
+            } else {
+                content
+            }
+        }
+        .modifier(SurfaceScheme(scheme: surfaceScheme))
+    }
+}
+
+private struct SurfaceScheme: ViewModifier {
+    let scheme: ColorScheme?
+
+    func body(content: Content) -> some View {
+        if let scheme {
+            content.environment(\.colorScheme, scheme)
+        } else {
+            content
+        }
     }
 }
 

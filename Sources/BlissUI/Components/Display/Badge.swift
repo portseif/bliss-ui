@@ -311,7 +311,7 @@ public enum BadgeStyle {
             // same reason the labels do: a `*400` glyph lands near 3.6:1 on the
             // badge fill and reads dimmer than the text beside it.
             case .primary: return scheme == .dark ? Primary.primary300 : Color.accent
-            case .secondary: return scheme == .dark ? Grey.grey300 : Grey.grey500
+            case .secondary: return scheme == .dark ? Grey.grey300 : Color.textSecondary
             case .success: return Success.success500
             case .warning: return Warning.warning500
             case .error: return Danger.danger500

@@ -151,7 +151,7 @@ public struct CodeField: View {
                 .textFieldStyle(.plain)
                 .font(font)
                 .multilineTextAlignment(.leading)
-                .foregroundStyle(text.wrappedValue.isEmpty ? Color.primary : Color.clear)
+                .foregroundStyle(text.wrappedValue.isEmpty ? Color.textPrimary : Color.clear)
                 .focused($isFocused)
 
                 // Always show syntax highlighted text when there's content. On top
@@ -187,7 +187,7 @@ public struct CodeField: View {
                 // moves it and the overlay together (two scrolls drifted apart).
                 TextEditor(text: text)
                     .font(font)
-                    .foregroundStyle(isEmpty ? Color.primary : Color.clear)
+                    .foregroundStyle(isEmpty ? Color.textPrimary : Color.clear)
                     .scrollContentBackground(.hidden)
                     .scrollDisabled(true)
                     .focused($isFocused)
@@ -370,7 +370,7 @@ struct CodeSyntaxPalette {
     /// What the field sits on: the theme's content and raised surfaces, or the
     /// system's control and window backgrounds.
     var surfaces: [ThemeRGB] {
-        if let palette = BlissTheme.active.palette(for: scheme) {
+        if let palette = ThemeColors.palette(for: scheme) {
             return [palette.contentBackground, palette.elevatedBackground]
         }
         return [NSColor.controlBackgroundColor, NSColor.windowBackgroundColor].map(resolved)

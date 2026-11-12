@@ -77,6 +77,14 @@ struct ColorPickerSwatch: View {
 }
 
 /// A color swatch button that opens a popover with HSL sliders and an Apply button.
+/// How a `ColorPickerButton` shows its color.
+public nonisolated enum ColorPickerButtonLabel: Sendable {
+    /// A small swatch.
+    case swatch
+    /// A capsule with a round swatch and the color's hex value ("#CC7D5E").
+    case hexChip
+}
+
 /// Bind `red`/`green`/`blue` (0...1). Pass `isUsingDefault` only where a default
 /// applies (`defaultOption`: the system accent unless given another); omit it for
 /// a plain custom color.
@@ -88,6 +96,7 @@ public struct ColorPickerButton: View {
     /// it in the swatch while it's in use. Nil = a plain custom color.
     var isUsingDefault: Binding<Bool>? = nil
     var defaultOption: ColorPickerDefault = .systemAccent
+    var label: ColorPickerButtonLabel = .swatch
     var onColorApplied: () -> Void = {}
 
     @State private var showingPopover = false
@@ -105,6 +114,7 @@ public struct ColorPickerButton: View {
         blue: Binding<Double>,
         isUsingDefault: Binding<Bool>? = nil,
         defaultOption: ColorPickerDefault = .systemAccent,
+        label: ColorPickerButtonLabel = .swatch,
         onColorApplied: @escaping () -> Void = {}
     ) {
         self._red = red
@@ -112,7 +122,22 @@ public struct ColorPickerButton: View {
         self._blue = blue
         self.isUsingDefault = isUsingDefault
         self.defaultOption = defaultOption
+        self.label = label
         self.onColorApplied = onColorApplied
+    }
+
+    /// The shown color's components (the default's while it's in use).
+    private var displayComponents: (red: Double, green: Double, blue: Double) {
+        if usingDefault, let srgb = defaultOption.color.usingColorSpace(.sRGB) {
+            return (Double(srgb.redComponent), Double(srgb.greenComponent), Double(srgb.blueComponent))
+        }
+        return (red, green, blue)
+    }
+
+    private var displayHex: String {
+        let (r, g, b) = displayComponents
+        func byte(_ value: Double) -> Int { Int((min(max(value, 0), 1) * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", byte(r), byte(g), byte(b))
     }
 
     private var usingDefault: Bool { isUsingDefault?.wrappedValue ?? false }
@@ -143,9 +168,14 @@ public struct ColorPickerButton: View {
             }
             showingPopover = true
         } label: {
-            ColorPickerSwatch(color: displayColor)
+            switch label {
+            case .swatch:
+                ColorPickerSwatch(color: displayColor)
+            case .hexChip:
+                ColorHexChip(color: displayColor, hex: displayHex)
+            }
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall))
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: label == .hexChip ? Sizing.radiusFull : Sizing.radiusSmall))
         .accessibilityLabel(Text("Choose color", bundle: .module))
         .popover(isPresented: $showingPopover) {
             ColorPickerPopover(
@@ -175,6 +205,30 @@ public struct ColorPickerButton: View {
                 }
             )
         }
+    }
+}
+
+/// A capsule with a round swatch and the hex value, for `ColorPickerButton(label: .hexChip)`.
+private struct ColorHexChip: View {
+    let color: Color
+    let hex: String
+
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            Circle()
+                .fill(color)
+                .frame(width: 14, height: 14)
+                .overlay { Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1) }
+            Text(verbatim: hex)
+                .font(Typography.labelMedium.monospacedDigit())
+                .foregroundStyle(Color.textPrimary)
+        }
+        .padding(.leading, Spacing.sm)
+        .padding(.trailing, Spacing.md)
+        .padding(.vertical, Spacing.xs)
+        .background(Capsule().fill(Color.primary.opacity(0.04)))
+        .overlay(Capsule().strokeBorder(Color.menuBorder, lineWidth: 1))
+        .contentShape(Capsule())
     }
 }
 

@@ -285,6 +285,7 @@ public struct QuickActionMenuItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .interactiveCursor()
         .onHover { hovering in
             isHovered = hovering
             if hovering { navigator?.notePointerHover(rowID) }

@@ -101,6 +101,7 @@ public struct FilterCheckRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .interactiveCursor()
         .accessibilityAddTraits(isOn ? [.isSelected] : [])
         .onHover { isHovering = $0 }
     }
@@ -162,6 +163,7 @@ public struct DisplayRadioRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .interactiveCursor()
         .accessibilityAddTraits(isOn ? [.isSelected] : [])
         .onHover { isHovering = $0 }
     }
@@ -234,6 +236,7 @@ public struct FilterMenuRow<Leading: View>: View {
             .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
         }
         .buttonStyle(.plain)
+        .interactiveCursor()
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         // The highlight follows the pointer in these menus, so the ring waits
         // for the next key press.

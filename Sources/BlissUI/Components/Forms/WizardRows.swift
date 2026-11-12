@@ -153,7 +153,7 @@ public struct WizardStepRow: View {
             VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
                 Text(title)
                     .font(Typography.labelMedium)
-                    .foregroundStyle(state == .pending ? Color.secondary : Color.primary)
+                    .foregroundStyle(state == .pending ? Color.textSecondary : Color.textPrimary)
                 if let detail {
                     Text(detail)
                         .font(Typography.captionSmall)

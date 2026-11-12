@@ -634,7 +634,10 @@ private struct ChipSegmentButtonStyle: ButtonStyle {
     var isActive = false
 
     func makeBody(configuration: Configuration) -> some View {
-        ChipSegmentBody(configuration: configuration, isActive: isActive)
+        Group {
+            ChipSegmentBody(configuration: configuration, isActive: isActive)
+        }
+        .interactiveCursor()
     }
 
     private struct ChipSegmentBody: View {

@@ -571,6 +571,7 @@ private struct TokenChip: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .interactiveCursor()
         .focusable(false)
         .onHover { isRemoveHovered = $0 }
         .animation(Animations.hover, value: isRemoveHovered)

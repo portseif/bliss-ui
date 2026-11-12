@@ -82,7 +82,7 @@ public struct SheetHeader: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(Typography.bodySmall)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

@@ -38,14 +38,24 @@ final class ShellBackdropView: NSView {
     /// window including the title-bar band, so the top edge reads the shell
     /// color in every theme and active state — no band, no seam, no bleed.
     static func apply(to window: NSWindow) {
+        guard let contentView = window.contentView,
+              let frameView = contentView.superview else { return }
+        // Translucent: the desktop shows, blurred, wherever the SwiftUI shell
+        // fill (`Color.shellBackground`, a tint) lets it.
+        if BlissAppearance.translucentSidebar {
+            frameView.subviews.compactMap { $0 as? ShellBackdropView }.forEach { $0.removeFromSuperview() }
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            ShellVibrancyView.install(in: frameView)
+            return
+        }
+        frameView.subviews.compactMap { $0 as? ShellVibrancyView }.forEach { $0.removeFromSuperview() }
         let shell = NSColor(Color.appShell)
         window.isOpaque = true
         window.backgroundColor = shell
         // `.windowStyle(.hiddenTitleBar)` owns the title bar now — content fills
         // to the top with no native title-bar material. This just keeps the
         // window opaque with the shell color as the backing behind everything.
-        guard let contentView = window.contentView,
-              let frameView = contentView.superview else { return }
 
         let backdrop: ShellBackdropView
         if let existing = frameView.subviews.compactMap({ $0 as? ShellBackdropView }).first {
@@ -71,6 +81,27 @@ final class ShellBackdropView: NSView {
         if frameView.subviews.first !== backdrop {
             backdrop.removeFromSuperview()
             frameView.addSubview(backdrop, positioned: .below, relativeTo: nil)
+        }
+    }
+}
+
+/// The blurred desktop behind a translucent shell: a sidebar-material
+/// vibrancy view, backmost in the frame view like `ShellBackdropView`.
+final class ShellVibrancyView: NSVisualEffectView {
+    static func install(in frameView: NSView) {
+        let vibrancy = frameView.subviews.compactMap { $0 as? ShellVibrancyView }.first ?? {
+            let view = ShellVibrancyView(frame: frameView.bounds)
+            view.material = .sidebar
+            view.blendingMode = .behindWindow
+            view.state = .followsWindowActiveState
+            view.autoresizingMask = [.width, .height]
+            return view
+        }()
+        vibrancy.frame = frameView.bounds
+        // Backmost, below the hosting view, every time (see `apply`).
+        if frameView.subviews.first !== vibrancy {
+            vibrancy.removeFromSuperview()
+            frameView.addSubview(vibrancy, positioned: .below, relativeTo: nil)
         }
     }
 }
@@ -182,5 +213,15 @@ public enum WindowChrome {
     /// paints over the whole app (a blank window with a full accessibility tree).
     public static func applyShellBackdrop(to window: NSWindow) {
         ShellBackdropView.apply(to: window)
+    }
+
+    /// Re-applies the shell to every window that has one, after
+    /// `BlissAppearance.translucentSidebar` changes.
+    static func reapplyShellBackdrops() {
+        for window in NSApp?.windows ?? [] {
+            guard let frameView = window.contentView?.superview,
+                  frameView.subviews.contains(where: { $0 is ShellBackdropView || $0 is ShellVibrancyView }) else { continue }
+            ShellBackdropView.apply(to: window)
+        }
     }
 }

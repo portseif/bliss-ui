@@ -158,7 +158,11 @@ public struct SidebarToggleButton: View {
             Image(systemName: "sidebar.left")
         }
         .buttonStyle(ToolbarIconButtonStyle())
-        .tooltip(position: .below) { label.font(Typography.labelSmall) }
+        // macOS's standard Toggle Sidebar shortcut.
+        .keyboardShortcut("s", modifiers: [.control, .command])
+        .tooltip(position: .below) {
+            (label + Text(verbatim: " (⌃⌘S)")).font(Typography.labelSmall)
+        }
         .accessibilityLabel(label)
     }
 
@@ -193,7 +197,7 @@ public struct SidebarSection<Content: View>: View {
                     .font(Typography.labelXSmall)
                     // Secondary, not tertiary: the smaller size already ranks it
                     // under the rows, and tertiary faded out under High Contrast.
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.textSecondary)
                     .padding(.horizontal, Spacing.sm)
                     .padding(.bottom, Spacing.xxs)
                     .accessibilityAddTraits(.isHeader)
@@ -301,7 +305,7 @@ public struct SidebarRow: View {
                 SidebarRowIcon(name: icon)
                     .font(Typography.labelMedium)
                     .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .foregroundStyle(isSelected ? Color.textPrimary : Color.textSecondary)
                     // Collapsed, a count is a dot on the icon.
                     .overlay(alignment: .topTrailing) {
                         if isCollapsed && count > 0 {
@@ -315,7 +319,7 @@ public struct SidebarRow: View {
                 HStack(spacing: Spacing.sm) {
                     Text(title)
                         .font(Typography.bodySmall)
-                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                        .foregroundStyle(isSelected ? Color.textPrimary : Color.textSecondary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
                     // Holding ⌘ swaps the count for the row's shortcut. The compact
@@ -413,7 +417,7 @@ public struct SidebarFilterRow: View {
                 HStack(spacing: Spacing.sm) {
                     Text(title)
                         .font(Typography.bodySmall)
-                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                        .foregroundStyle(isSelected ? Color.textPrimary : Color.textSecondary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
                 }

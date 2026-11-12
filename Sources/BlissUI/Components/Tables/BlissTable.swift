@@ -390,8 +390,8 @@ public struct BlissTableHeader<Row>: View {
             }
         }
         .font(Typography.caption)
-        // Secondary, not tertiary: tertiary was hard to read on the header band.
-        .foregroundStyle(.secondary)
+        // 4.5:1 on the band; SwiftUI's tertiary (and, in light mode, secondary) fall short.
+        .foregroundStyle(Color.textSecondary)
         // The rows' content inset (outer inset + each row's own padding), so
         // the labels line up over their columns.
         .padding(.horizontal, contentInset + Spacing.sm)

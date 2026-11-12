@@ -107,7 +107,7 @@ public struct SelectionBarButton: View {
                 }
             }
             .font(Typography.labelSmall)
-            .foregroundStyle(isHovering ? Color.primary : Color.secondary)
+            .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
             .background {
@@ -132,7 +132,7 @@ private struct SelectionBarClearButton: View {
         Button(action: action) {
             Image(systemName: "xmark")
                 .font(Typography.labelSmallBold)
-                .foregroundStyle(isHovering ? Color.primary : Color.secondary)
+                .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
                 .frame(width: 24, height: 24)
                 .background {
                     Circle().fill(isHovering ? RowTint.hover(scheme) : Color.clear)

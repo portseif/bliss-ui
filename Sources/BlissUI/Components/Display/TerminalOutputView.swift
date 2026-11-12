@@ -45,6 +45,7 @@ public struct TerminalOutputView: View {
     var contentInset: CGFloat = 12
 
     @State private var isExpanded = true
+    @Environment(\.colorScheme) private var colorScheme
     @State private var scrollProxy: ScrollViewProxy?
 
     public init(
@@ -83,12 +84,15 @@ public struct TerminalOutputView: View {
                     ))
             }
         }
-        // The theme's surfaces, like a read-only `CodeField`: a faint wash over
-        // whatever it sits on, and the shared hairline — around the card, or
-        // along the top edge when docked.
+        // Docked, no fill: the pane it's docked in shows through, so the log
+        // reads on the regular content background. As a card, the theme's row
+        // tint over whatever it sits on. A hairline around the card, or along
+        // the top edge when docked.
         .background {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.primary.opacity(0.04))
+            if !isDocked {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(RowTint.hover(colorScheme))
+            }
         }
         .overlay {
             if isDocked {
@@ -114,7 +118,7 @@ public struct TerminalOutputView: View {
 
             Text(title)
                 .font(Typography.captionSmallSemibold)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textSecondary)
 
             Spacer()
 
@@ -122,7 +126,8 @@ public struct TerminalOutputView: View {
             if !lines.isEmpty {
                 Text("\(lines.count) line\(lines.count == 1 ? "" : "s")", bundle: .module)
                     .font(Typography.captionTiny)
-                    .foregroundStyle(.tertiary)
+                    // Secondary: tertiary is under 4.5:1 on a tinted header.
+                    .foregroundStyle(Color.textSecondary)
             }
 
             // Expand/collapse button
@@ -149,8 +154,8 @@ public struct TerminalOutputView: View {
         .padding(.horizontal, contentInset)
         .padding(.vertical, 8)
         .background {
-            // A step above the body's wash.
-            Color.primary.opacity(0.04)
+            // A step above the body: the theme's tint (gray under System).
+            RowTint.hover(colorScheme)
         }
         .clipShape(
             UnevenRoundedRectangle(
@@ -206,7 +211,7 @@ public struct TerminalOutputView: View {
             if showTimestamps {
                 Text(line.timestamp, format: .dateTime.hour().minute().second())
                     .font(Typography.codeTiny)
-                    .foregroundStyle(.quaternary)
+                    .foregroundStyle(Color.textTertiary)
                     .frame(width: 60, alignment: .leading)
             }
 
@@ -227,7 +232,7 @@ public struct TerminalOutputView: View {
             Spacer()
             Text("Waiting for output...", bundle: .module)
                 .font(Typography.codeTiny)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Color.textTertiary)
             Spacer()
         }
         .padding(.vertical, 20)

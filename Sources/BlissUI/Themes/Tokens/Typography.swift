@@ -71,12 +71,17 @@ public enum FontSize {
 
 /// Semantic typography styles for consistent text styling.
 ///
+/// Every style is drawn in the user's fonts (`BlissAppearance.font(_:for:)`)
+/// and scaled from their base sizes (`BlissAppearance.uiFontSize` and
+/// `.codeFontSize`); the sizes below are at the defaults, 13 and 12.
+///
 /// ## Naming Convention
 /// - `display*` - Large hero/section headers (34-22px, bold/semibold)
 /// - `heading*` - Section headings (20-15px, semibold)
 /// - `body*` - Regular content text (16-13px, regular weight)
 /// - `label*` - UI labels, buttons, form labels (15-7px, regular weight)
 /// - `caption*` - Descriptions, metadata (12-10px, regular weight)
+/// - `content*` - Text the app shows rather than labels it, in the content font (14-11px)
 /// - `code*` - Monospace for code (14-12px)
 ///
 /// ## Usage
@@ -91,287 +96,305 @@ public enum Typography {
 
     /// Hero display (48px light) - for large decorative numbers/text
     public static var displayHero: Font {
-        .system(size: 48, weight: .light, design: .default)
+        FontResolver.font(.ui, size: 48, weight: .light)
     }
 
     /// Extra large display (40px light)
     public static var displayXLarge: Font {
-        .system(size: 40, weight: .light, design: .default)
+        FontResolver.font(.ui, size: 40, weight: .light)
     }
 
     /// Large display title for hero sections (34px semibold)
     public static var displayLarge: Font {
-        .system(size: FontSize.largeTitle, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.largeTitle, weight: .regular)
     }
 
     /// Large display medium variant (32px regular)
     public static var displayLargeMedium: Font {
-        .system(size: 32, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: 32, weight: .regular)
     }
 
     /// Medium display for section headers (28px semibold)
     public static var displayMedium: Font {
-        .system(size: FontSize.title, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.title, weight: .regular)
     }
 
     /// Medium display light variant (28px light)
     public static var displayMediumLight: Font {
-        .system(size: FontSize.title, weight: .light, design: .default)
+        FontResolver.font(.ui, size: FontSize.title, weight: .light)
     }
 
     /// Medium display medium variant (24px regular)
     public static var displayMediumMedium: Font {
-        .system(size: 24, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: 24, weight: .regular)
     }
 
     /// Medium display light variant (24px light)
     public static var displaySmallLight: Font {
-        .system(size: 24, weight: .light, design: .default)
+        FontResolver.font(.ui, size: 24, weight: .light)
     }
 
     /// Small display for subsection headers (22px medium)
     public static var displaySmall: Font {
-        .system(size: FontSize.title2, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.title2, weight: .regular)
     }
 
     // MARK: - Heading Styles
 
     /// Primary heading (20px medium)
     public static var headingLarge: Font {
-        .system(size: FontSize.title3, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.title3, weight: .regular)
     }
 
     /// Primary heading light variant (20px light) — large numeric readouts
     /// beside colored badges (e.g. the health panel score).
     public static var headingLargeLight: Font {
-        .system(size: FontSize.title3, weight: .light, design: .default)
+        FontResolver.font(.ui, size: FontSize.title3, weight: .light)
     }
 
     /// Primary heading medium weight (20px regular)
     public static var headingLargeMedium: Font {
-        .system(size: FontSize.title3, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.title3, weight: .regular)
     }
 
     /// Secondary heading (17px medium)
     public static var headingMedium: Font {
-        .system(size: FontSize.headline, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.headline, weight: .regular)
     }
 
     /// Heading 18px regular
     public static var heading18Medium: Font {
-        .system(size: 18, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: 18, weight: .regular)
     }
 
     /// Tertiary heading (15px medium)
     public static var headingSmall: Font {
-        .system(size: FontSize.callout, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.callout, weight: .regular)
     }
 
     // MARK: - Body Styles (Regular weight for reading)
 
     /// Large body text (16px regular)
     public static var bodyLarge: Font {
-        .system(size: FontSize.body, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.body, weight: .regular)
     }
 
     /// Default body text (14px regular)
     public static var bodyMedium: Font {
-        .system(size: FontSize.subheadline, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.subheadline, weight: .regular)
     }
 
     /// Small body text (13px regular)
     public static var bodySmall: Font {
-        .system(size: FontSize.footnote, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.footnote, weight: .regular)
     }
 
     // MARK: - Label Styles (Regular weight for UI elements)
 
     /// Extra large label - prominent buttons (15px regular)
     public static var labelXLarge: Font {
-        .system(size: FontSize.callout, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.callout, weight: .regular)
     }
 
     /// Large label - buttons, form labels (14px regular)
     public static var labelLarge: Font {
-        .system(size: FontSize.subheadline, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.subheadline, weight: .regular)
     }
 
     /// Medium label - default UI text (13px regular)
     public static var labelMedium: Font {
-        .system(size: FontSize.footnote, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.footnote, weight: .regular)
     }
 
     /// Small label - tags, badges, secondary UI (12px regular)
     public static var labelSmall: Font {
-        .system(size: FontSize.caption, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption, weight: .regular)
     }
 
     /// Extra small label - tiny badges, indicators (11px regular)
     public static var labelXSmall: Font {
-        .system(size: FontSize.caption2, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption2, weight: .regular)
     }
 
     /// Tiny label - minimal UI elements (10px regular)
     public static var labelTiny: Font {
-        .system(size: FontSize.tiny, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.tiny, weight: .regular)
     }
 
     /// Extra tiny label - compact badges (9px regular)
     public static var labelXTiny: Font {
-        .system(size: FontSize.xtiny, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.xtiny, weight: .regular)
     }
 
     /// Mini label - small indicators (8px regular)
     public static var labelMini: Font {
-        .system(size: FontSize.mini, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.mini, weight: .regular)
     }
 
     /// Micro label - rare, very small text (7px regular)
     public static var labelMicro: Font {
-        .system(size: FontSize.micro, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.micro, weight: .regular)
     }
 
     // MARK: - Caption Styles (Regular weight for descriptions)
 
     /// Caption text for descriptions (12px regular)
     public static var caption: Font {
-        .system(size: FontSize.caption, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption, weight: .regular)
     }
 
     /// Small caption for metadata (11px regular)
     public static var captionSmall: Font {
-        .system(size: FontSize.caption2, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption2, weight: .regular)
     }
 
     /// Tiny caption for fine print (10px regular)
     public static var captionTiny: Font {
-        .system(size: FontSize.tiny, weight: .regular, design: .default)
+        FontResolver.font(.ui, size: FontSize.tiny, weight: .regular)
+    }
+
+    // MARK: - Content Styles (text the app shows, in the content font)
+
+    /// Content text for reading (14px regular), in the content font.
+    public static var contentMedium: Font {
+        FontResolver.font(.content, size: FontSize.subheadline, weight: .regular)
+    }
+
+    /// Smaller content text (13px regular), in the content font.
+    public static var contentSmall: Font {
+        FontResolver.font(.content, size: FontSize.footnote, weight: .regular)
+    }
+
+    /// Content in a caption or a one-line summary (11px regular), in the
+    /// content font.
+    public static var contentCaption: Font {
+        FontResolver.font(.content, size: FontSize.caption2, weight: .regular)
     }
 
     // MARK: - Monospace Styles
 
     /// Large monospace for code blocks (14px)
     public static var codeLarge: Font {
-        .system(size: FontSize.subheadline, weight: .regular, design: .monospaced)
+        FontResolver.font(.code, size: FontSize.subheadline, weight: .regular)
     }
 
     /// Large monospace medium (14px regular)
     public static var codeLargeMedium: Font {
-        .system(size: FontSize.subheadline, weight: .regular, design: .monospaced)
+        FontResolver.font(.code, size: FontSize.subheadline, weight: .regular)
     }
 
     /// Monospace for code snippets (13px)
     public static var code: Font {
-        .system(size: FontSize.footnote, weight: .regular, design: .monospaced)
+        FontResolver.font(.code, size: FontSize.footnote, weight: .regular)
     }
 
     /// Small monospace for inline code (12px)
     public static var codeSmall: Font {
-        .system(size: FontSize.caption, weight: .regular, design: .monospaced)
+        FontResolver.font(.code, size: FontSize.caption, weight: .regular)
     }
 
     /// Small monospace medium (12px regular)
     public static var codeSmallMedium: Font {
-        .system(size: FontSize.caption, weight: .regular, design: .monospaced)
+        FontResolver.font(.code, size: FontSize.caption, weight: .regular)
     }
 
     /// Tiny monospace for keyboard shortcuts (11px regular)
     public static var codeTiny: Font {
-        .system(size: FontSize.caption2, weight: .regular, design: .monospaced)
+        FontResolver.font(.code, size: FontSize.caption2, weight: .regular)
     }
 
     /// Extra tiny monospace (10px regular)
     public static var codeXTiny: Font {
-        .system(size: FontSize.tiny, weight: .regular, design: .monospaced)
+        FontResolver.font(.code, size: FontSize.tiny, weight: .regular)
     }
 
     // MARK: - Medium Variants (for emphasis)
 
     /// Large body with emphasis (16px medium)
     public static var bodyLargeSemibold: Font {
-        .system(size: FontSize.body, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.body, weight: .medium)
     }
 
     /// Body text with emphasis (14px medium)
     public static var bodyMediumSemibold: Font {
-        .system(size: FontSize.subheadline, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.subheadline, weight: .medium)
     }
 
     /// Small body text with emphasis (13px medium)
     public static var bodySmallSemibold: Font {
-        .system(size: FontSize.footnote, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.footnote, weight: .medium)
     }
 
     /// Caption with emphasis (12px medium)
     public static var captionSemibold: Font {
-        .system(size: FontSize.caption, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption, weight: .medium)
     }
 
     /// Small caption with emphasis (11px medium)
     public static var captionSmallSemibold: Font {
-        .system(size: FontSize.caption2, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption2, weight: .medium)
     }
 
     /// Tiny with emphasis (10px medium)
     public static var labelTinySemibold: Font {
-        .system(size: FontSize.tiny, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.tiny, weight: .medium)
     }
 
     /// Extra tiny with emphasis (9px medium)
     public static var labelXTinySemibold: Font {
-        .system(size: FontSize.xtiny, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.xtiny, weight: .medium)
     }
 
     /// Mini with emphasis (8px medium)
     public static var labelMiniSemibold: Font {
-        .system(size: FontSize.mini, weight: .medium, design: .default)
+        FontResolver.font(.ui, size: FontSize.mini, weight: .medium)
     }
 
     // MARK: - Semibold Variants (for strong emphasis)
 
     /// Extra tiny semibold (9px semibold)
     public static var labelXTinyBold: Font {
-        .system(size: FontSize.xtiny, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.xtiny, weight: .semibold)
     }
 
     /// Tiny semibold (10px semibold)
     public static var labelTinyBold: Font {
-        .system(size: FontSize.tiny, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.tiny, weight: .semibold)
     }
 
     /// Label semibold (13px semibold) — a strong row title
     public static var labelMediumBold: Font {
-        .system(size: FontSize.footnote, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.footnote, weight: .semibold)
     }
 
     /// Small label semibold (12px semibold)
     public static var labelSmallBold: Font {
-        .system(size: FontSize.caption, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption, weight: .semibold)
     }
 
     /// Small caption semibold (11px semibold) — the checkmark in a selection box
     public static var labelXSmallBold: Font {
-        .system(size: FontSize.caption2, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.caption2, weight: .semibold)
     }
 
     /// Mini semibold (8px semibold) — a ✓ / ✕ inside a small status dot
     public static var labelMiniBold: Font {
-        .system(size: FontSize.mini, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.mini, weight: .semibold)
     }
 
     /// Micro semibold (7px semibold) — the smallest inline ✕
     public static var labelMicroBold: Font {
-        .system(size: FontSize.micro, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.micro, weight: .semibold)
     }
 
     /// Heading semibold (20px semibold) — a status glyph in a large badge
     public static var headingLargeBold: Font {
-        .system(size: FontSize.title3, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.title3, weight: .semibold)
     }
 
     /// Display semibold (22px semibold) — a status glyph in a large badge
     public static var displaySmallBold: Font {
-        .system(size: FontSize.title2, weight: .semibold, design: .default)
+        FontResolver.font(.ui, size: FontSize.title2, weight: .semibold)
     }
 }
 

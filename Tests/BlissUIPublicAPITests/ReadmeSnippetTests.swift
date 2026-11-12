@@ -41,6 +41,9 @@ import BlissUI
             .blissWindowChrome()
             .persistsWindowFrame()
         _ = AppearanceSettings().blissTheme()
+        _ = AppearanceModePicker(selection: .constant(.system))
+        _ = ColorPickerButton(red: .constant(0.8), green: .constant(0.5), blue: .constant(0.4), label: .hexChip)
+        _ = BlissAppearance.reduceMotion
     }
 
     @Test func customThemeRegisters() {

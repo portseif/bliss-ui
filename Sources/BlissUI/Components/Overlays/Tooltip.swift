@@ -583,6 +583,13 @@ final class TooltipWindowController: NSObject {
 let tooltipShadowPadding: CGFloat = 16
 
 private struct TooltipContentView<Content: View>: View {
+    /// The theme's raised surface under a color theme; the vibrant material
+    /// otherwise.
+    private var tooltipSurface: AnyShapeStyle {
+        if let palette = ThemeColors.activePalette { return AnyShapeStyle(palette.elevatedBackground.color) }
+        return AnyShapeStyle(.thinMaterial)
+    }
+
     let content: Content
     let configuration: TooltipConfiguration
     let position: TooltipPosition
@@ -648,12 +655,15 @@ private struct TooltipContentView<Content: View>: View {
             }
         }
         .font(Typography.captionSmall)
+        // Its own window, so it doesn't inherit the app's text color: take the
+        // theme's here.
+        .foregroundStyle(Color.textPrimary)
         .textSelection(.enabled)
         .padding(.horizontal, configuration.horizontalPadding)
         .padding(.vertical, configuration.verticalPadding)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.thinMaterial)
+                .fill(tooltipSurface)
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         }
         .overlay {
@@ -867,7 +877,7 @@ private struct TooltipActionButton: View {
                 Text(confirmed ? (action.confirmation ?? action.label) : action.label)
             }
             .font(Typography.labelSmall)
-            .foregroundStyle(confirmed ? Success.success500 : Color.primary)
+            .foregroundStyle(confirmed ? Success.success500 : Color.textPrimary)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xxs)
             .background {
@@ -879,6 +889,7 @@ private struct TooltipActionButton: View {
         // The tooltip's panel never takes key focus, so a Tab stop here could
         // never be reached.
         .buttonStyle(.plain)
+        .interactiveCursor()
         .onHover { isHovered = $0 }
     }
 }

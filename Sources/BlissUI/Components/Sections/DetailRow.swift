@@ -38,7 +38,7 @@ public struct DetailRow: View {
         HStack(alignment: .center) {
             Text(label)
                 .font(Typography.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textSecondary)
                 .frame(width: 100, alignment: .leading)
 
             if isLink {

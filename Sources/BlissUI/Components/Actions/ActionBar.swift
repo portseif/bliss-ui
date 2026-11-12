@@ -18,6 +18,7 @@ public struct ActionBar: View {
     var isConfirmDisabled: Bool = false
     var isDestructive: Bool = false
     var material: Material = .ultraThinMaterial
+    @Environment(\.colorScheme) private var colorScheme
     var useKeyboardShortcuts: Bool = false
     /// Esc on the cancel button. Off when it reads "Back": the sheet's ✕ owns
     /// Esc, and two Esc bindings race (whichever is found first fires).
@@ -68,7 +69,15 @@ public struct ActionBar: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.lg)
-        .background(showBackground ? AnyShapeStyle(material) : AnyShapeStyle(.clear))
+        .background(barBackground)
+    }
+
+    /// Under a color theme, the theme's tint over the surface it sits on (a
+    /// system material reads as a gray band on a tinted sheet); else the material.
+    private var barBackground: AnyShapeStyle {
+        guard showBackground else { return AnyShapeStyle(.clear) }
+        if ThemeColors.activePalette != nil { return AnyShapeStyle(RowTint.hover(colorScheme)) }
+        return AnyShapeStyle(material)
     }
 
     @ViewBuilder

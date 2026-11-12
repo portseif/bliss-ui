@@ -63,15 +63,20 @@ public enum StatusTones {
     public static func invalidateCache() { cache.removeAll() }
 
     private static func activeTones() -> Tones? {
-        let theme = BlissTheme.active
-        if let cached = cache[theme.id] { return cached }
-        let tones = makeTones(for: theme)
-        cache[theme.id] = tones
+        // Each mode can have its own theme, and colors set over it.
+        let defaults = UserDefaults.standard
+        let key = [
+            BlissTheme.active(for: .light).id, BlissTheme.active(for: .dark).id,
+            defaults.string(forKey: BlissAppearance.Keys.surfaceOverrides) ?? "",
+        ].joined(separator: "|")
+        if let cached = cache[key] { return cached }
+        let tones = makeTones(for: BlissTheme.active)
+        cache[key] = tones
         return tones
     }
 
     private static func makeTones(for theme: BlissTheme) -> Tones? {
-        guard let dark = theme.palette(for: .dark), let light = theme.palette(for: .light) else { return nil }
+        guard let dark = ThemeColors.palette(for: .dark), let light = ThemeColors.palette(for: .light) else { return nil }
         var tones = Tones()
         for kind in StatusKind.allCases {
             // A status is themed only when the theme sets it for both schemes.
