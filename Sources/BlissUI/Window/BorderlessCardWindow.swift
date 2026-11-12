@@ -85,6 +85,6 @@ extension View {
     /// window gets its original chrome back. Draw the card's own rounded
     /// background in the content.
     public func borderlessCardWindow(isActive: Bool, size: CGSize = CGSize(width: 760, height: 600)) -> some View {
-        background(BorderlessCardWindowView(isActive: isActive, size: size))
+        background { BorderlessCardWindowView(isActive: isActive, size: size) }
     }
 }

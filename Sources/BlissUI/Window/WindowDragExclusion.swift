@@ -181,12 +181,12 @@ extension View {
     /// Marks the view's region non-draggable so a press here doesn't move the
     /// window. Use for custom title-bar controls.
     public func windowDragDisabled() -> some View {
-        background(WindowDragBlocker())
+        background { WindowDragBlocker() }
     }
 
     /// While `active`, keeps the window movable so the modal `appSheet` backdrop
     /// (a `WindowDragSurface`) can drag it, despite no-drag regions beneath it.
     public func windowModalDraggable(_ active: Bool) -> some View {
-        background(WindowModalDraggable(active: active))
+        background { WindowModalDraggable(active: active) }
     }
 }

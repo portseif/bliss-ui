@@ -12,19 +12,12 @@ import SwiftUI
 
 // MARK: - Plain (chrome-less) environment flag
 
-private struct RoundedSectionPlainKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
 extension EnvironmentValues {
     /// When true, `RoundedSection` drops its card chrome (fill + border + horizontal
     /// inset) and renders flat. Use it when embedding sections inside an outer
     /// card of your own so they don't nest card-in-card. Defaults to false, so
     /// every other call site is unchanged.
-    public var roundedSectionPlain: Bool {
-        get { self[RoundedSectionPlainKey.self] }
-        set { self[RoundedSectionPlainKey.self] = newValue }
-    }
+    @Entry public var roundedSectionPlain: Bool = false
 }
 
 // MARK: - Rounded Section

@@ -325,19 +325,12 @@ extension View {
 
 // MARK: - Settings Form Container
 
-private struct SettingsFormPlainKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
 extension EnvironmentValues {
     /// When true, `SettingsForm` drops its outer padding so its sections align
     /// flush with the host's own layout — for a host that provides the
     /// horizontal insets itself, like settings embedded in a larger page.
     /// Defaults to false, the padded form a Settings window wants.
-    public var settingsFormPlain: Bool {
-        get { self[SettingsFormPlainKey.self] }
-        set { self[SettingsFormPlainKey.self] = newValue }
-    }
+    @Entry public var settingsFormPlain: Bool = false
 }
 
 /// A container that provides proper spacing for RoundedSection items

@@ -20,18 +20,10 @@ import SwiftUI
 
     // MARK: - Loading State
 
-/// Set by `.buttonLoading(_:)` on the button.
-struct ButtonIsLoadingKey: EnvironmentKey {
-    static let defaultValue: Bool = false
-}
-
 extension EnvironmentValues {
     /// True while the button is busy (`.buttonLoading(true)`): the text button
     /// styles hide the label under a spinner at the label's size.
-    public var buttonIsLoading: Bool {
-        get { self[ButtonIsLoadingKey.self] }
-        set { self[ButtonIsLoadingKey.self] = newValue }
-    }
+    @Entry public var buttonIsLoading: Bool = false
 }
 
 extension View {

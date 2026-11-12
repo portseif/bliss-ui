@@ -20,31 +20,31 @@ import SwiftUI
 
 // MARK: - Dismiss environment
 
-private struct AppSheetDismissKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
+/// Dismisses the enclosing `appSheet`, called as `dismiss()`. It holds the
+/// sheet's id rather than a closure, so the environment can tell it hasn't
+/// changed and the sheet's content isn't redrawn for it.
+public struct AppSheetDismissAction: Equatable, Sendable {
+    let sheetID: UUID?
+
+    /// Closes the sheet through its own binding, as its ✕ does. Outside a sheet
+    /// it does nothing.
+    @MainActor public func callAsFunction() {
+        guard let sheetID else { return }
+        AppSheetPresenter.shared.requestDismiss(id: sheetID)
+    }
 }
 
 extension EnvironmentValues {
     /// Dismisses the enclosing `appSheet`. Replaces `\.dismiss` for content
     /// presented through the custom overlay (a real `DismissAction` only drives
     /// system presentations). Callable as `dismiss()`.
-    public var appSheetDismiss: () -> Void {
-        get { self[AppSheetDismissKey.self] }
-        set { self[AppSheetDismissKey.self] = newValue }
-    }
+    @Entry public var appSheetDismiss = AppSheetDismissAction(sheetID: nil)
 
     /// The max height the sheet card can occupy (window − margins). Sheets use it
     /// (via `AppSheetScaffold`) to cap their scrollable content so a fixed header
     /// and footer stay pinned and only the middle scrolls. A sheet presented with
     /// `scrollsItsOwnContent` reads it to size itself.
-    public var appSheetMaxHeight: CGFloat {
-        get { self[AppSheetMaxHeightKey.self] }
-        set { self[AppSheetMaxHeightKey.self] = newValue }
-    }
-}
-
-private struct AppSheetMaxHeightKey: EnvironmentKey {
-    static let defaultValue: CGFloat = 600
+    @Entry public var appSheetMaxHeight: CGFloat = 600
 }
 
 // MARK: - Presenter
@@ -133,6 +133,12 @@ final class AppSheetPresenter {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.exitDuration) { [weak self] in
             self?.stack.removeAll { $0.id == id }
         }
+    }
+
+    /// Closes one sheet through its own binding (so the presenting view's state
+    /// resets as if its ✕ were pressed). `AppSheetDismissAction` calls it.
+    func requestDismiss(id: UUID) {
+        stack.first { $0.id == id && !$0.isDismissing }?.onDismiss()
     }
 
     /// Closes every open sheet, topmost first, through each one's own binding
@@ -227,7 +233,7 @@ private struct AppSheetCard: View {
 
     private var sheetContent: some View {
         entry.make()
-            .environment(\.appSheetDismiss, entry.onDismiss)
+            .environment(\.appSheetDismiss, AppSheetDismissAction(sheetID: entry.id))
             .environment(\.appSheetMaxHeight, maxHeight)
     }
     /// Standard fill width, clamped to the window.
@@ -363,7 +369,7 @@ extension View {
 /// and footer never move. Build a sheet as:
 /// ```
 /// AppSheetScaffold {
-///     SheetHeader(title: …, onDismiss: dismiss)
+///     SheetHeader(title: …, onDismiss: { dismiss() })
 /// } content: {
 ///     // form sections
 /// } footer: {
@@ -454,7 +460,7 @@ private struct AppSheetHostModifier: ViewModifier {
             // as focus without the cost of a heavy full-window blur each frame.
             .blur(radius: hasActiveSheet ? 6 : 0)
             .animation(hasActiveSheet ? Animations.sheet : Animations.sheetClose, value: hasActiveSheet)
-            .overlay(AppSheetContainer(leadingInset: leadingInset))
+            .overlay { AppSheetContainer(leadingInset: leadingInset) }
             // The scrim blocks clicks behind the sheet, but we WANT the dimmed
             // backdrop to drag the window (nicer than a dead modal). This makes
             // the window movable by its background while a sheet is up, so a
@@ -592,7 +598,7 @@ private struct SheetContentPreview: View {
                 title: "App Sheet",
                 subtitle: "A centered card over a dim scrim with app-matching chrome",
                 icon: "rectangle.center.inset.filled",
-                onDismiss: dismiss
+                onDismiss: { dismiss() }
             )
 
             Text(

@@ -547,7 +547,7 @@ private struct CatalogSheet: View {
 
     var body: some View {
         AppSheetScaffold {
-            SheetHeader(title: "New Item", subtitle: "Give it a name to get started.", onDismiss: dismiss)
+            SheetHeader(title: "New Item", subtitle: "Give it a name to get started.", onDismiss: { dismiss() })
         } content: {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 TextField("Title", text: $title).textFieldStyle(.largePadded)
@@ -556,7 +556,7 @@ private struct CatalogSheet: View {
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, Spacing.md)
         } footer: {
-            ActionBar(confirmTitle: "Create", isConfirmDisabled: title.isEmpty, onCancel: dismiss) {
+            ActionBar(confirmTitle: "Create", isConfirmDisabled: title.isEmpty, onCancel: { dismiss() }) {
                 dismiss()
                 ToastService.shared.showSuccess(title: "Created", message: title)
             }

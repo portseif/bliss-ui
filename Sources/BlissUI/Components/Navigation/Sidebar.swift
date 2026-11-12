@@ -19,32 +19,30 @@ import SwiftUI
 // MARK: - Selection plumbing
 
 /// The enclosing `Sidebar`'s selection, as the rows see it.
+/// The sidebar's selection, as its rows read it: the selected value, and the
+/// writer a row uses to select itself. No closure: the environment compares
+/// this field by field, and a fresh closure on every render would read as a
+/// change and redraw every row.
 struct SidebarSelectionContext {
     let selection: AnyHashable
-    let select: (AnyHashable) -> Void
+    let writer: SidebarSelectionWriter
 }
 
-private struct SidebarSelectionKey: EnvironmentKey {
-    static let defaultValue: SidebarSelectionContext? = nil
+/// Writes a row's value into the sidebar's selection binding. The sidebar keeps
+/// one for its lifetime, so it compares by identity across renders.
+final class SidebarSelectionWriter {
+    fileprivate var write: (AnyHashable) -> Void = { _ in }
+
+    func select(_ value: AnyHashable) { write(value) }
 }
 
 extension EnvironmentValues {
-    var sidebarSelection: SidebarSelectionContext? {
-        get { self[SidebarSelectionKey.self] }
-        set { self[SidebarSelectionKey.self] = newValue }
-    }
-}
-
-private struct SidebarIsCollapsedKey: EnvironmentKey {
-    static let defaultValue: Bool = false
+    @Entry var sidebarSelection: SidebarSelectionContext? = nil
 }
 
 extension EnvironmentValues {
     /// Set by a collapsed `Sidebar`: rows draw their icon alone.
-    var sidebarIsCollapsed: Bool {
-        get { self[SidebarIsCollapsedKey.self] }
-        set { self[SidebarIsCollapsedKey.self] = newValue }
-    }
+    @Entry var sidebarIsCollapsed: Bool = false
 }
 
 // MARK: - Sidebar
@@ -85,6 +83,7 @@ public struct Sidebar<Selection: Hashable, Content: View, Footer: View>: View {
     private let isCollapsed: Bool
     private let content: Content
     private let footer: Footer
+    @State private var selectionWriter = SidebarSelectionWriter()
 
     /// - Parameters:
     ///   - selection: The selected row's value.
@@ -105,6 +104,11 @@ public struct Sidebar<Selection: Hashable, Content: View, Footer: View>: View {
     }
 
     public var body: some View {
+        // Points the writer at the current binding; the writer itself stays the
+        // same object, so rows aren't redrawn for it.
+        let _ = selectionWriter.write = { [selection = $selection] value in
+            if let typed = value.base as? Selection { selection.wrappedValue = typed }
+        }
         VStack(spacing: 0) {
             ScrollViewWithThinIndicator(showFadeMask: true, indicatorTopPadding: Spacing.xs, indicatorBottomPadding: Spacing.xs) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -122,12 +126,7 @@ public struct Sidebar<Selection: Hashable, Content: View, Footer: View>: View {
             .padding(.top, Spacing.xs)
             .padding(.bottom, Spacing.sm)
         }
-        .environment(\.sidebarSelection, SidebarSelectionContext(
-            selection: AnyHashable(selection),
-            select: { value in
-                if let typed = value.base as? Selection { selection = typed }
-            }
-        ))
+        .environment(\.sidebarSelection, SidebarSelectionContext(selection: AnyHashable(selection), writer: selectionWriter))
         .environment(\.sidebarIsCollapsed, isCollapsed)
     }
 }
@@ -440,7 +439,7 @@ extension SidebarRowRole {
 
     func perform(in context: SidebarSelectionContext?) {
         switch self {
-        case .value(let value): context?.select(value)
+        case .value(let value): context?.writer.select(value)
         case .action(_, let perform): perform()
         }
     }

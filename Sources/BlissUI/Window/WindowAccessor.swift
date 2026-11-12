@@ -35,6 +35,6 @@ extension View {
     /// Runs `configure` with the hosting window once it's attached, and again
     /// on updates. Keep it idempotent.
     public func onWindow(_ configure: @escaping (NSWindow) -> Void) -> some View {
-        background(WindowAccessor(configure: configure))
+        background { WindowAccessor(configure: configure) }
     }
 }

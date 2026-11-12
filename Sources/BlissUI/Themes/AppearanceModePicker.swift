@@ -123,10 +123,12 @@ private struct AppearanceModeThumbnail: View {
             ZStack {
                 WindowMiniature(colors: .forScheme(.light))
                 WindowMiniature(colors: .forScheme(.dark))
-                    .mask(HStack(spacing: 0) {
-                        Color.clear
-                        Color.black
-                    })
+                    .mask {
+                        HStack(spacing: 0) {
+                            Color.clear
+                            Color.black
+                        }
+                    }
             }
         }
     }

@@ -132,6 +132,6 @@ extension View {
     /// through resizes, key changes and full screen. For a window with
     /// `.windowStyle(.hiddenTitleBar)`; `.blissWindowChrome()` includes it.
     public func trafficLightOffset(_ offset: CGPoint = TrafficLightOffset.defaultOffset) -> some View {
-        background(TrafficLightOffsetView(offset: offset))
+        background { TrafficLightOffsetView(offset: offset) }
     }
 }

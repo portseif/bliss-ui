@@ -112,7 +112,7 @@ private struct SecondaryClickModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(SecondaryClickGesture(action: action, anchor: anchor))
+            .background { SecondaryClickGesture(action: action, anchor: anchor) }
             // The keyboard way in: while this view or something in it has focus,
             // ⌃Return or ⇧F10 opens the menu under its leading edge. A plain
             // Return passes on (to the focused control or the sheet).

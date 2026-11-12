@@ -200,7 +200,7 @@ extension View {
     /// `titlebarAppearsTransparent` yourself — they fight `.hiddenTitleBar`
     /// and bring back the opaque inactive title-bar material.
     public func blissWindowChrome(trafficLightOffset: CGPoint? = TrafficLightOffset.defaultOffset) -> some View {
-        background(WindowOpacityEnforcer(trafficLightOffset: trafficLightOffset))
+        background { WindowOpacityEnforcer(trafficLightOffset: trafficLightOffset) }
     }
 }
 

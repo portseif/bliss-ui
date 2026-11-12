@@ -12,18 +12,11 @@ import SwiftUI
 
 // MARK: - Environment
 
-struct FormFieldIsInvalidKey: EnvironmentKey {
-    static let defaultValue: Bool = false
-}
-
 extension EnvironmentValues {
     /// True inside a `FormField` that shows an error. The built-in text field
     /// styles and `.inputBox` turn their line red on it; read it in an input of
     /// your own to do the same.
-    public var formFieldIsInvalid: Bool {
-        get { self[FormFieldIsInvalidKey.self] }
-        set { self[FormFieldIsInvalidKey.self] = newValue }
-    }
+    @Entry public var formFieldIsInvalid: Bool = false
 }
 
 // MARK: - Form Field

@@ -14,17 +14,9 @@ import SwiftUI
 
 // MARK: - Environment Key for Menu Active State
 
-/// Environment key to indicate if a floating menu is currently open
-struct FloatingMenuActiveKey: EnvironmentKey {
-    static let defaultValue: Bool = false
-}
-
 extension EnvironmentValues {
     /// Whether the floating menu attached to this view is currently presented
-    public var floatingMenuActive: Bool {
-        get { self[FloatingMenuActiveKey.self] }
-        set { self[FloatingMenuActiveKey.self] = newValue }
-    }
+    @Entry public var floatingMenuActive: Bool = false
 }
 
 // MARK: - Menu Animation State
@@ -192,7 +184,7 @@ private struct FloatingMenuContentWrapper<Content: View>: View {
         if let maxScrollHeight {
             ScrollView(.vertical, showsIndicators: false) {
                 content
-                    .background(NativeScrollerSuppressor())
+                    .background { NativeScrollerSuppressor() }
             }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize)

@@ -87,7 +87,7 @@ extension View {
 
 /// Modifier that observes ToastService and displays its stack at the window level.
 struct GlobalToastModifier: ViewModifier {
-    @ObservedObject private var toastService = ToastService.shared
+    private let toastService = ToastService.shared
 
     func body(content: Content) -> some View {
         content
@@ -154,7 +154,7 @@ extension View {
 /// vertical list — newest at the bottom, every card the same width — and
 /// holds their auto-dismiss timers until the pointer leaves.
 private struct ToastStack: View {
-    @ObservedObject var toastService: ToastService
+    let toastService: ToastService
 
     @State private var isHovering = false
     @State private var heights: [UUID: CGFloat] = [:]

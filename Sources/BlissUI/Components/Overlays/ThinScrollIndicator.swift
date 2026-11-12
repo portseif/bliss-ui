@@ -158,8 +158,8 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
                 // Inflate to the viewport when `fillsViewport` is on so a short
                 // content view fills the visible scroll area.
                 .modifier(ViewportFill(isEnabled: fillsViewport && axes.contains(.vertical), metrics: metrics))
-                .background(NativeScrollerSuppressor())
-                .background(ScrollMetricsReader(metrics: metrics, coordinateSpace: scrollCoordinateSpace))
+                .background { NativeScrollerSuppressor() }
+                .background { ScrollMetricsReader(metrics: metrics, coordinateSpace: scrollCoordinateSpace) }
         }
         .scrollIndicators(.hidden)
         // No rubber-band when the content already fits. SwiftUI's default
@@ -168,7 +168,7 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
         // let the WHOLE modal bounce on scroll — reading as "the modal is
         // scrollable". Overflowing content still scrolls + bounces.
         .scrollBounceBehavior(.basedOnSize)
-        .coordinateSpace(name: scrollCoordinateSpace)
+        .coordinateSpace(.named(scrollCoordinateSpace))
         // Edge fades — an alpha MASK on the content, not a colored overlay, so
         // rows dissolve into whatever sits behind the scroll view. A colored
         // overlay needs an opaque color matching that surface, and none exists
@@ -467,7 +467,7 @@ public struct AutoHeightScroll<Content: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                     .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
             }
         }
         .padding()
@@ -483,7 +483,7 @@ public struct AutoHeightScroll<Content: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                     .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
             }
         }
         .padding()
@@ -499,7 +499,7 @@ public struct AutoHeightScroll<Content: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                     .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
             }
         }
         .padding()

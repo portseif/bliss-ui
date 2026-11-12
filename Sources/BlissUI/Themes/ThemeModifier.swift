@@ -10,18 +10,10 @@ import SwiftUI
 
 // MARK: - Accent Color Environment Key
 
-/// Environment key for the current accent color hue (used to force re-renders when accent changes)
-private struct AccentHueKey: EnvironmentKey {
-    static let defaultValue: Double = 217/360  // Default blue
-}
-
 extension EnvironmentValues {
     /// The current accent color hue (0.0 to 1.0)
     /// Views that use Primary colors should depend on this to re-render when accent changes
-    public var accentHue: Double {
-        get { self[AccentHueKey.self] }
-        set { self[AccentHueKey.self] = newValue }
-    }
+    @Entry public var accentHue: Double = 217/360
 }
 
 // MARK: - Theme Modifier
@@ -130,7 +122,6 @@ public struct ThemeModifier: ViewModifier {
             .modifier(ThemeForeground(color: themePalette?.foreground?.color, surfaceScheme: surfaceScheme))
             .preferredColorScheme(preferredScheme)
             .tint(accentColor)
-            .accentColor(accentColor)  // Also set accentColor for legacy support
             .environment(\.accentHue, accentHue)  // Inject accent hue for Primary colors
             .id(accentColorId)  // Force view refresh when accent color changes
             .onChange(of: colorSchemeSetting, initial: true) { _, _ in syncAppAppearance() }

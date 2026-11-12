@@ -10,16 +10,9 @@ import SwiftUI
 
 // MARK: - Environment Key for Disabling Tooltips
 
-private struct TooltipsDisabledKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
 extension EnvironmentValues {
     /// Whether `.tooltip` modifiers in this subtree stay quiet (see `tooltipsDisabled(_:)`).
-    public var tooltipsDisabled: Bool {
-        get { self[TooltipsDisabledKey.self] }
-        set { self[TooltipsDisabledKey.self] = newValue }
-    }
+    @Entry public var tooltipsDisabled: Bool = false
 }
 
 extension View {

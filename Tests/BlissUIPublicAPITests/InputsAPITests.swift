@@ -204,10 +204,10 @@ import BlissUI
         _ = SheetCloseButton(action: {}, verticalOffset: 0)
 
         var environment = EnvironmentValues()
-        var dismissed = false
-        environment.appSheetDismiss = { dismissed = true }
-        environment.appSheetDismiss()
-        #expect(dismissed)
+        // Outside a sheet the action does nothing; inside one it closes it.
+        let dismiss: AppSheetDismissAction = environment.appSheetDismiss
+        dismiss()
+        #expect(dismiss == EnvironmentValues().appSheetDismiss)
         environment.appSheetMaxHeight = 480
         #expect(environment.appSheetMaxHeight == 480)
     }

@@ -90,6 +90,6 @@ extension View {
     /// Restores this window's last frame and saves it as it moves and resizes.
     /// Give each kind of window its own `key`.
     public func persistsWindowFrame(key: String = BlissAppearance.Keys.mainWindowFrame) -> some View {
-        background(WindowFramePersistence(frameKey: key))
+        background { WindowFramePersistence(frameKey: key) }
     }
 }

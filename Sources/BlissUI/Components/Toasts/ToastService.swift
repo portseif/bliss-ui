@@ -6,7 +6,7 @@
 //  `.globalToast()` at the window root draws them.
 //
 
-import Combine
+import Observation
 import SwiftUI
 
 // MARK: - Global Toast Service
@@ -18,25 +18,27 @@ import SwiftUI
 /// dismisses its own toast when it ends (`dismiss(id:)`), usually from a
 /// `defer`, since its result arrives as a separate toast.
 @MainActor
-public class ToastService: ObservableObject {
+@Observable
+public class ToastService {
     public static let shared = ToastService()
 
     /// Newest first: index 0 is the front card of the stack.
-    @Published public private(set) var toasts: [ToastData] = []
+    public private(set) var toasts: [ToastData] = []
     /// Toasts whose underlying operation can be cancelled from their ×.
-    @Published private(set) var cancellableToastIDs: Set<UUID> = []
+    private(set) var cancellableToastIDs: Set<UUID> = []
 
     /// The most toasts kept at once. Past it the oldest finished one goes; a
     /// running operation's toast only goes when every toast is one.
     public static let maxToasts = 5
 
-    private var autoDismissTasks: [UUID: Task<Void, Never>] = [:]
+    // Bookkeeping no view reads, so it isn't observed.
+    @ObservationIgnored private var autoDismissTasks: [UUID: Task<Void, Never>] = [:]
     /// Actions that cancel the operation feeding a toast (e.g. an in-flight upload).
-    private var cancelHandlers: [UUID: () -> Void] = [:]
+    @ObservationIgnored private var cancelHandlers: [UUID: () -> Void] = [:]
     /// While the pointer is over the stack, toasts that run out of time wait
     /// here instead of leaving from under it.
-    private var isPaused = false
-    private var expiredWhilePaused: Set<UUID> = []
+    @ObservationIgnored private var isPaused = false
+    @ObservationIgnored private var expiredWhilePaused: Set<UUID> = []
 
     private init() {}
 

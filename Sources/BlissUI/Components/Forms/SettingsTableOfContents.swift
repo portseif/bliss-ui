@@ -291,7 +291,7 @@ public struct SettingsScrollView<ID: Hashable, Header: View, Content: View>: Vie
         .frame(maxHeight: .infinity, alignment: .top)
         // Scrolling anywhere in Settings scrolls the form (the rail itself
         // rarely overflows).
-        .background(ScrollWheelForwarder(target: formScrollTarget))
+        .background { ScrollWheelForwarder(target: formScrollTarget) }
     }
 
     private var form: some View {
@@ -301,9 +301,9 @@ public struct SettingsScrollView<ID: Hashable, Header: View, Content: View>: Vie
         ScrollViewWithThinIndicator(showFadeMask: true, fillsViewport: true) {
             content
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .background(EnclosingScrollViewBinder(target: formScrollTarget))
+                .background { EnclosingScrollViewBinder(target: formScrollTarget) }
         }
-        .coordinateSpace(name: SettingsScrollSpy.coordinateSpace)
+        .coordinateSpace(.named(SettingsScrollSpy.coordinateSpace))
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
         .onPreferenceChange(SettingsSectionFramesKey.self) { frames in
             updateActiveSection(frames: frames)

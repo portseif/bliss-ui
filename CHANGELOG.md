@@ -38,6 +38,11 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ### Changed
 
+- `ToastService` is `@Observable` instead of an `ObservableObject`: views that read its toasts update when they change, not on every `@Published` broadcast. Hold it as a plain property (`let toastService = ToastService.shared`); `@ObservedObject` no longer applies.
+- `\.appSheetDismiss` is an `AppSheetDismissAction` (call it as `dismiss()`) instead of a closure, so the environment can tell it hasn't changed and a sheet's content isn't redrawn for it. Where it was passed as a closure, write `{ dismiss() }`.
+- A `Sidebar`'s rows no longer all redraw whenever the sidebar does: its selection reaches them through a writer it keeps for its lifetime rather than a fresh closure in the environment.
+- Environment values are declared with `@Entry`. `.accentColor(_:)`, which is deprecated, is no longer set by `.blissTheme()`; it sets `.tint`, and `Color.accent` follows the theme. The view-argument forms of `.background`, `.overlay` and `.mask`, `.coordinateSpace(name:)` and `.cornerRadius(_:)` gave way to their current forms.
+
 - Text tooltips (`.tooltip("…")`) use the same tight 10/5 padding as every preset; `TooltipConfiguration`'s init defaults now match.
 - `AvatarStack`'s `+N` chip is a pill sized for `+99` at a fixed, larger font, so stacks in a column line up whatever the counts.
 - `ToolbarIconButtonStyle` buttons are square (28pt, 30pt before macOS 26, 24pt compact) whatever the glyph's shape.
