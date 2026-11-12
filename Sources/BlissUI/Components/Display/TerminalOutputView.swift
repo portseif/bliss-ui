@@ -32,13 +32,17 @@ public nonisolated struct TerminalOutputLine: Identifiable, Equatable, Sendable 
 // MARK: - Terminal Output View
 
 /// A terminal-like view that displays command output with monospace font,
-/// auto-scrolling, and error highlighting
+/// auto-scrolling, and error highlighting. A rounded card by default; `isDocked`
+/// makes it a flush panel with a hairline on top, for a console docked along
+/// the bottom of a pane (like Xcode's).
 public struct TerminalOutputView: View {
     let lines: [TerminalOutputLine]
     var title: String = String(localized: "Output", bundle: .module)
     var maxHeight: CGFloat = 200
     var isCollapsible: Bool = true
     var showTimestamps: Bool = false
+    var isDocked: Bool = false
+    var contentInset: CGFloat = 12
 
     @State private var isExpanded = true
     @State private var scrollProxy: ScrollViewProxy?
@@ -48,14 +52,21 @@ public struct TerminalOutputView: View {
         title: String = String(localized: "Output", bundle: .blissUI),
         maxHeight: CGFloat = 200,
         isCollapsible: Bool = true,
-        showTimestamps: Bool = false
+        showTimestamps: Bool = false,
+        isDocked: Bool = false,
+        contentInset: CGFloat = 12
     ) {
         self.lines = lines
         self.title = title
         self.maxHeight = maxHeight
         self.isCollapsible = isCollapsible
         self.showTimestamps = showTimestamps
+        self.isDocked = isDocked
+        self.contentInset = contentInset
     }
+
+    /// Square when docked: it meets the pane's edges.
+    private var cornerRadius: CGFloat { isDocked ? 0 : 8 }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -73,14 +84,22 @@ public struct TerminalOutputView: View {
             }
         }
         // The theme's surfaces, like a read-only `CodeField`: a faint wash over
-        // whatever it sits on, and the shared hairline.
+        // whatever it sits on, and the shared hairline — around the card, or
+        // along the top edge when docked.
         .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(Color.primary.opacity(0.04))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.menuBorder, lineWidth: 1)
+            if isDocked {
+                Rectangle()
+                    .fill(Color.menuBorder)
+                    .frame(height: 1)
+                    .frame(maxHeight: .infinity, alignment: .top)
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.menuBorder, lineWidth: 1)
+            }
         }
     }
 
@@ -127,7 +146,7 @@ public struct TerminalOutputView: View {
                 .accessibilityValue(isExpanded ? Text("Expanded", bundle: .module) : Text("Collapsed", bundle: .module))
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, contentInset)
         .padding(.vertical, 8)
         .background {
             // A step above the body's wash.
@@ -135,10 +154,10 @@ public struct TerminalOutputView: View {
         }
         .clipShape(
             UnevenRoundedRectangle(
-                topLeadingRadius: 8,
-                bottomLeadingRadius: isExpanded ? 0 : 8,
-                bottomTrailingRadius: isExpanded ? 0 : 8,
-                topTrailingRadius: 8
+                topLeadingRadius: cornerRadius,
+                bottomLeadingRadius: isExpanded ? 0 : cornerRadius,
+                bottomTrailingRadius: isExpanded ? 0 : cornerRadius,
+                topTrailingRadius: cornerRadius
             )
         )
     }
@@ -160,7 +179,8 @@ public struct TerminalOutputView: View {
                         }
                     }
                 }
-                .padding(12)
+                .padding(.horizontal, contentInset)
+                .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .onChange(of: lines.count) { _, newCount in
@@ -281,6 +301,22 @@ extension TerminalOutputView {
     )
     .frame(width: 500)
     .padding()
+}
+
+#Preview("Docked", traits: .fixedLayout(width: 520, height: 260)) {
+    VStack(spacing: 0) {
+        Color.clear
+        TerminalOutputView(
+            lines: [
+                TerminalOutputLine("Checking 6 skills for updates…", type: .system),
+                TerminalOutputLine("Everything is up to date.", type: .system),
+            ],
+            title: "Activity",
+            maxHeight: 120,
+            isDocked: true,
+            contentInset: Spacing.xl
+        )
+    }
 }
 
 #Preview("With Timestamps") {

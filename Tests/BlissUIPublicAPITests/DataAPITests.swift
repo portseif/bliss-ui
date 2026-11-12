@@ -24,6 +24,10 @@ import BlissUI
         _ = ProgressRing(value: 0.5, center: label)
     }
 
+    @Test func dockedTerminalOutputIsReachable() {
+        _ = TerminalOutputView(lines: [TerminalOutputLine("Done.", type: .system)], title: "Activity", maxHeight: 160, isDocked: true, contentInset: 24)
+    }
+
     @Test func verbatimWithCodeIsReachable() {
         _ = Text(LocalizedStringKey.verbatimWithCode("Runs `skills remove` for my_skill"))
     }

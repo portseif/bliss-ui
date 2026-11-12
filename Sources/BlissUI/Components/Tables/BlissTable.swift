@@ -390,24 +390,30 @@ public struct BlissTableHeader<Row>: View {
             }
         }
         .font(Typography.caption)
-        .foregroundStyle(.tertiary)
+        // Secondary, not tertiary: tertiary was hard to read on the header band.
+        .foregroundStyle(.secondary)
         // The rows' content inset (outer inset + each row's own padding), so
         // the labels line up over their columns.
         .padding(.horizontal, contentInset + Spacing.sm)
         .padding(.vertical, Spacing.sm)
-        // A darker band behind the labels, as wide as the rows' hover fill, so
-        // the header reads as its own strip above the rows.
+        // A band behind the labels, as wide as the rows' hover fill, so the
+        // header reads as its own strip above the rows. It must never look like
+        // a hovered or selected row (`RowTint`): in dark mode those lighten, so
+        // the band darkens; in light mode they darken, so the band takes the
+        // window's shell surface and a hairline instead, which no row has.
         .background {
-            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                .fill(bandFill)
-                .padding(.horizontal, contentInset)
+            let band = RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+            if scheme == .dark {
+                band
+                    .fill(Color.black.opacity(prefersIncreasedContrast ? 0.4 : 0.22))
+                    .padding(.horizontal, contentInset)
+            } else {
+                band
+                    .fill(Color.appShell)
+                    .overlay { band.strokeBorder(Color.menuBorder, lineWidth: 1) }
+                    .padding(.horizontal, contentInset)
+            }
         }
-    }
-
-    /// Black, not `RowTint`'s primary: primary would lighten it in dark mode.
-    private var bandFill: Color {
-        if prefersIncreasedContrast { return Color.black.opacity(scheme == .dark ? 0.4 : 0.1) }
-        return Color.black.opacity(scheme == .dark ? 0.22 : 0.05)
     }
 
     @ViewBuilder

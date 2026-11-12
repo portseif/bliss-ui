@@ -28,6 +28,11 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 - `CompactTextFieldStyle`, `SearchTextFieldStyle` and `ToolbarSearchTextFieldStyle` fill with the active color theme's raised surface and border instead of fixed greys (and `LargePaddedTextFieldStyle`'s underline takes the theme's border); System keeps the greys.
 - `TerminalOutputView` takes the theme's colors instead of a fixed dark terminal — the read-only `CodeField` surface and hairline, primary text, accent system lines, the danger mark for stderr — so it reads right in light mode and under every color theme.
 
+- `BlissTable`'s header band in light mode is the window's shell surface with a hairline (rows' hover and selection fills darken, so a darker band looked like a selected row); its labels are secondary instead of tertiary, readable on the band.
+- `RowTint.hover` and `.selected` are a faint wash of the theme's accent when a color theme is active, so list, table, sidebar and menu highlights take the theme's color; System keeps the neutral grays.
+- `Banner` puts its action under the message when it's narrower than 360pt, instead of squeezing the text into a column beside it.
+- `TerminalOutputView(isDocked:contentInset:)` — docked, it's a flush panel with a hairline on top for a console along the bottom of a pane; `contentInset` lines its text up with the content above.
+
 ### Fixed
 
 - `ScrollViewWithThinIndicator` keeps the system scroller hidden after its content grows past the viewport (a sidebar whose rows load after it appears showed the wide legacy scroller).

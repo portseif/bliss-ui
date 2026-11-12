@@ -254,18 +254,29 @@ public enum Info {
 
 // MARK: - Row Highlight Tints
 
-/// Shared neutral highlight fills for list/menu rows, so the sidebar selection and the
-/// floating-menu hover use the exact same gray — and tune in one place. Resolved against
-/// the caller's color scheme (callers pass their own `@Environment(\.colorScheme)`).
+/// Shared highlight fills for list/menu rows, so the sidebar selection and the
+/// floating-menu hover use the exact same fill — and tune in one place. Neutral
+/// under System; a faint wash of the theme's accent when a color theme is active,
+/// so hover and selection take the theme's color instead of reading as gray on
+/// a tinted surface. Resolved against the caller's color scheme (callers pass
+/// their own `@Environment(\.colorScheme)`).
 public enum RowTint {
     /// Subtle hover / menu-highlight fill.
     public static func hover(_ scheme: ColorScheme) -> Color {
+        if let accent = ThemeColors.activeAccent?.color {
+            if prefersIncreasedContrast { return accent.opacity(scheme == .dark ? 0.20 : 0.18) }
+            return accent.opacity(scheme == .dark ? 0.10 : 0.07)
+        }
         if prefersIncreasedContrast { return Color.primary.opacity(scheme == .dark ? 0.10 : 0.12) }
         return scheme == .dark ? Color.primary.opacity(0.04) : Color.primary.opacity(0.05)
     }
 
     /// Stronger fill for an active/selected sidebar row.
     public static func selected(_ scheme: ColorScheme) -> Color {
+        if let accent = ThemeColors.activeAccent?.color {
+            if prefersIncreasedContrast { return accent.opacity(scheme == .dark ? 0.34 : 0.30) }
+            return accent.opacity(scheme == .dark ? 0.20 : 0.15)
+        }
         if prefersIncreasedContrast { return Color.primary.opacity(scheme == .dark ? 0.18 : 0.20) }
         // Twice the hover, as in light — the same 0.04 made a selected row look hovered.
         return scheme == .dark ? Color.primary.opacity(0.08) : Color.primary.opacity(0.10)

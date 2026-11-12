@@ -33,7 +33,9 @@ public nonisolated enum BannerStyle: Sendable, Hashable, CaseIterable {
 /// The status shows in the icon (the `*500` mark) and a faint wash and edge of
 /// the palette's `tint`, never by flooding the surface; the title stays
 /// primary. The action is a text button — a filled one out-weighs the banner it
-/// sits in. Remove the banner inside `withAnimation` and it fades out.
+/// sits in — beside the text, or under it when the banner is narrower than
+/// 360pt (an inspector), so the message isn't squeezed into a column. Remove
+/// the banner inside `withAnimation` and it fades out.
 public struct Banner: View {
     private let title: LocalizedStringKey
     private let message: LocalizedStringKey?
@@ -44,6 +46,10 @@ public struct Banner: View {
     private let onDismiss: (() -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
+    /// Narrow enough that the action moves under the message.
+    @State private var isNarrow = false
+
+    private static let stackedActionWidth: CGFloat = 360
 
     /// - Parameters:
     ///   - title: What's going on. Looked up in your app's strings.
@@ -72,6 +78,7 @@ public struct Banner: View {
     }
 
     public var body: some View {
+        let stacksAction = isNarrow && actionTitle != nil && action != nil
         HStack(spacing: Spacing.sm) {
             // The icon rides the title's baseline, so it stays with the title
             // when the message wraps below it.
@@ -95,14 +102,15 @@ public struct Banner: View {
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    if stacksAction {
+                        actionButton
+                            .padding(.top, Spacing.xxs)
+                    }
                 }
             }
             Spacer(minLength: Spacing.sm)
-            if let actionTitle, let action {
-                Button(action: action) { Text(actionTitle) }
-                    .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 3))
-                    .font(Typography.labelSmall)
-                    .foregroundStyle(Color.accent)
+            if !stacksAction {
+                actionButton
             }
             if let onDismiss {
                 dismissButton(onDismiss)
@@ -119,8 +127,19 @@ public struct Banner: View {
             RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
                 .strokeBorder(style.tint.opacity(borderOpacity), lineWidth: 1)
         }
+        .onGeometryChange(for: Bool.self) { $0.size.width < Self.stackedActionWidth } action: { isNarrow = $0 }
         .accessibilityElement(children: .contain)
         .transition(.motion(.opacity.combined(with: .scale(scale: 0.98, anchor: .top))))
+    }
+
+    @ViewBuilder
+    private var actionButton: some View {
+        if let actionTitle, let action {
+            Button(action: action) { Text(actionTitle) }
+                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 3))
+                .font(Typography.labelSmall)
+                .foregroundStyle(Color.accent)
+        }
     }
 
     private var borderOpacity: Double {
@@ -198,4 +217,9 @@ extension BannerStyle {
         Banner("Couldn't connect", message: "The server didn't answer. Check your connection and try again.", style: .danger, actionTitle: "Retry", action: {})
     }
     .padding(Spacing.lg)
+}
+
+#Preview("Narrow", traits: .fixedLayout(width: 300, height: 200)) {
+    Banner("Not tracking a remote branch", message: "The clone doesn't follow a branch on its remote, so there's nothing to check against.", style: .warning, actionTitle: "Track Remote Branch…", action: {})
+        .padding(Spacing.lg)
 }
