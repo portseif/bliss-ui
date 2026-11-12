@@ -46,6 +46,11 @@ public struct ThemeModifier: ViewModifier {
     /// The appearance the window actually has. Under System it flips with the
     /// Mac's, and the themed tokens (read on access) must be re-read when it does.
     @Environment(\.colorScheme) private var appearanceScheme
+    /// Bumped after the app's appearance is changed to match the setting.
+    /// Leaving Light or Dark for System hands the window back to the Mac, but
+    /// SwiftUI's `colorScheme` can stay on the forced one, so nothing would
+    /// re-render; this does.
+    @State private var appearanceRevision = 0
 
     /// The theme in effect for the mode on screen (`.system` when none is selected).
     private var activeTheme: BlissTheme { BlissTheme.active }
@@ -74,14 +79,15 @@ public struct ThemeModifier: ViewModifier {
         }
     }
 
-    /// The scheme the theme's surfaces read as, when it isn't the mode's own: a
-    /// light background picked for dark mode (or a dark one for light). Views
-    /// get it as their color scheme, so system colors (`Color.primary`, control
-    /// labels, washes) turn dark on the light surfaces instead of staying white.
+    /// The scheme views should draw in, when SwiftUI's own differs: the one
+    /// the theme's surfaces read as (a light background picked for dark mode,
+    /// or a dark one for light), else the mode actually in effect (SwiftUI's
+    /// can lag behind it after leaving Light or Dark for System). Views get it
+    /// as their color scheme, so system colors (`Color.primary`, control
+    /// labels, washes) match the surfaces under them.
     private var surfaceScheme: ColorScheme? {
-        guard let palette = themePalette else { return nil }
-        let paletteScheme: ColorScheme = palette.isDark ? .dark : .light
-        return paletteScheme == appearanceScheme ? nil : paletteScheme
+        let scheme: ColorScheme = themePalette.map { $0.isDark ? .dark : .light } ?? ThemeColors.resolvedScheme
+        return scheme == appearanceScheme ? nil : scheme
     }
 
     /// Compute the accent hue for environment injection
@@ -124,7 +130,10 @@ public struct ThemeModifier: ViewModifier {
             .tint(accentColor)
             .environment(\.accentHue, accentHue)  // Inject accent hue for Primary colors
             .id(accentColorId)  // Force view refresh when accent color changes
-            .onChange(of: colorSchemeSetting, initial: true) { _, _ in syncAppAppearance() }
+            .onChange(of: colorSchemeSetting, initial: true) { previousSetting, setting in
+                syncAppAppearance()
+                if previousSetting != setting { appearanceRevision += 1 }
+            }
             // The shell backdrop is AppKit's: swap it for the blur (or back).
             .onChange(of: translucentSidebar) { _, _ in WindowChrome.reapplyShellBackdrops() }
     }
@@ -149,7 +158,7 @@ public struct ThemeModifier: ViewModifier {
     /// refresh when any of them change (themed surface tokens are read on access,
     /// so the tree must re-render to repick them).
     private var accentColorId: String {
-        "\(colorTheme)-\(colorSchemeSetting)-\(appearanceScheme)-\(accentColorOverride)-\(customRed)-\(customGreen)-\(customBlue)-\(themeAccentOverrides)-\(reduceMotion)-\(surfaceOverrides)-\(separateModes)-\(lightThemeID)-\(darkThemeID)-\(typography)-\(usesPointerCursors)-\(contrastSetting)-\(translucentSidebar)-\(contrast == .increased)"
+        "\(colorTheme)-\(colorSchemeSetting)-\(appearanceScheme)-\(accentColorOverride)-\(customRed)-\(customGreen)-\(customBlue)-\(themeAccentOverrides)-\(reduceMotion)-\(surfaceOverrides)-\(separateModes)-\(lightThemeID)-\(darkThemeID)-\(typography)-\(usesPointerCursors)-\(contrastSetting)-\(translucentSidebar)-\(appearanceRevision)-\(contrast == .increased)"
     }
 }
 

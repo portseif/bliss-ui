@@ -67,6 +67,8 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- Switching from Light or Dark back to System could leave a color theme's own colors on the forced mode (light cards in a dark window). The window went back to the Mac's appearance, but SwiftUI's `colorScheme` stayed on the forced one, so nothing re-rendered. `.blissTheme()` now re-renders after it syncs the appearance, and gives views the mode actually in effect when SwiftUI's lags behind.
+
 - Switching the color scheme from Light or Dark back to System no longer leaves a window half in each: `preferredColorScheme(nil)` doesn't hand a macOS window back to the system, so `.blissTheme()` now also sets the app's appearance and clears what each window was forced to. A System window whose appearance flips with the Mac re-reads the theme's palette too.
 - `ScrollViewWithThinIndicator` keeps the system scroller hidden after its content grows past the viewport (a sidebar whose rows load after it appears showed the wide legacy scroller).
 - `ScrollViewWithThinIndicator` no longer rebuilds its content on every resize and scroll frame. It sat in a `GeometryReader` and kept the scroll offset in its own state, so a sidebar collapse or a scroll re-ran `content()` each frame — seconds of main-thread work for a 100-row table. The thumb, fades and viewport fill now read the scroll metrics themselves.
