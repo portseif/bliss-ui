@@ -49,7 +49,7 @@ private struct AppearanceModeThumbnail: View {
 
     @State private var isHovering = false
 
-    static let size = CGSize(width: 96, height: 64)
+    static let size = CGSize(width: 84, height: 56)
     private static let cornerRadius: CGFloat = Sizing.radiusMedium
 
     var body: some View {
