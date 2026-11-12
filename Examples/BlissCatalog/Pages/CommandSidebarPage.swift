@@ -355,10 +355,11 @@ extension CatalogDestination {
 private struct TitleBarDemo: View {
     @State private var selection = CatalogDestination.today
     @State private var isCollapsed = true
+    @State private var sidebarWidth: Double = 220
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("A hidden-title-bar window's custom title bar: the toggle collapses the sidebar to its icons (hover one for its name), the title stays centered, and the empty bar drags the window. The traffic-light inset is off here, since this mock window has none.")
+            Text("A hidden-title-bar window's custom title bar: the toggle collapses the sidebar to its icons (hover one for its name), the title stays centered, and the empty bar drags the window. Expanded, drag the sidebar's edge to resize it. The traffic-light inset is off here, since this mock window has none.")
                 .font(Typography.bodySmall)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -379,7 +380,9 @@ private struct TitleBarDemo: View {
                     }
                     HStack(spacing: 0) {
                         CollapsibleSidebarSample(selection: $selection, isCollapsed: isCollapsed)
-                            .frame(width: isCollapsed ? Sizing.sidebarCollapsedWidth : 220)
+                            .frame(width: isCollapsed ? Sizing.sidebarCollapsedWidth : sidebarWidth)
+                            .sidebarResizeHandle(width: $sidebarWidth, in: 180...320, isEnabled: !isCollapsed)
+                            .zIndex(1)
                         VStack(alignment: .leading, spacing: Spacing.md) {
                             DemoPageRows(titles: ["Design review", "Write release notes", "Audit focus rings"])
                             Spacer(minLength: 0)

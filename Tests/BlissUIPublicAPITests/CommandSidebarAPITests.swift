@@ -111,6 +111,8 @@ import BlissUI
         }
         .frame(width: Sizing.sidebarCollapsedWidth)
         _ = Sidebar(selection: .constant(1), isCollapsed: false, content: { SidebarRow("Inbox", icon: "tray", value: 1) }, footer: { SidebarRow("Settings", icon: "gearshape", value: 9) })
+        _ = Sidebar(selection: .constant(1)) { SidebarRow("Inbox", icon: "tray", value: 1) }
+            .sidebarResizeHandle(width: .constant(220), in: 180...360, isEnabled: true)
         _ = SidebarToggleButton(isCollapsed: .constant(false))
     }
 

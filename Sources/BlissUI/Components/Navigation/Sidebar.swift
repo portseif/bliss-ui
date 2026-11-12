@@ -514,6 +514,96 @@ private struct SidebarRowButton<Label: View>: View {
     }
 }
 
+// MARK: - Resize handle
+
+extension View {
+    /// A grip on a sidebar's trailing edge: drag it to make the sidebar wider or
+    /// narrower. The same grip as `InspectorSplit`'s — shown on hover, a
+    /// column-resize pointer, adjustable with VoiceOver.
+    ///
+    /// ```swift
+    /// @AppStorage("sidebarWidth") private var sidebarWidth: Double = 220
+    ///
+    /// Sidebar(selection: $destination, isCollapsed: isCollapsed) { … }
+    ///     .frame(width: isCollapsed ? Sizing.sidebarCollapsedWidth : sidebarWidth)
+    ///     .sidebarResizeHandle(width: $sidebarWidth, in: 180...360, isEnabled: !isCollapsed)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - width: The sidebar's width; keep it in `@AppStorage` to remember it.
+    ///   - range: The narrowest and widest the grip goes.
+    ///   - isEnabled: Turn it off while the sidebar is collapsed to its icons.
+    public func sidebarResizeHandle(width: Binding<Double>, in range: ClosedRange<Double>, isEnabled: Bool = true) -> some View {
+        overlay(alignment: .trailing) {
+            if isEnabled {
+                SidebarResizeGrip(width: width, range: range)
+            }
+        }
+    }
+}
+
+/// The strip straddling the sidebar's trailing edge. The drag is measured in
+/// the window, not the strip: the strip moves with the edge it drags.
+private struct SidebarResizeGrip: View {
+    @Binding var width: Double
+    let range: ClosedRange<Double>
+
+    @Environment(\.layoutDirection) private var layoutDirection
+    @State private var isHovering = false
+    @State private var dragStartWidth: Double?
+
+    private static var gripWidth: CGFloat { Spacing.sm }
+    /// How far one VoiceOver increment moves the edge.
+    private static var keyboardStep: Double { Double(Spacing.xl) }
+
+    /// Right-to-left, the trailing edge is on the left, so dragging left widens.
+    private var trailingSign: Double { layoutDirection == .rightToLeft ? -1 : 1 }
+
+    var body: some View {
+        Color.clear
+            .frame(width: Self.gripWidth)
+            .frame(maxHeight: .infinity)
+            .overlay {
+                Capsule()
+                    .fill(Color.primary.opacity(0.25))
+                    .frame(width: 3, height: Sizing.controlLarge)
+                    .opacity(isHovering || dragStartWidth != nil ? 1 : 0)
+                    .animation(Animations.hover, value: isHovering || dragStartWidth != nil)
+            }
+            .contentShape(Rectangle())
+            .pointerStyle(.columnResize)
+            .onHover { isHovering = $0 }
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        let start = dragStartWidth ?? width
+                        if dragStartWidth == nil { dragStartWidth = width }
+                        width = clamped(start + Double(value.translation.width) * trailingSign)
+                    }
+                    .onEnded { _ in dragStartWidth = nil }
+            )
+            // Straddle the edge.
+            .offset(x: Self.gripWidth / 2)
+            // In a hidden-title-bar window the grip can reach up into the title
+            // bar band, where a press would drag the window instead.
+            .windowDragDisabled()
+            .accessibilityElement()
+            .accessibilityLabel(Text("Sidebar width", bundle: .module))
+            .accessibilityValue(Text(verbatim: "\(Int(width))"))
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: width = clamped(width + Self.keyboardStep)
+                case .decrement: width = clamped(width - Self.keyboardStep)
+                @unknown default: break
+                }
+            }
+    }
+
+    private func clamped(_ proposed: Double) -> Double {
+        min(max(proposed, range.lowerBound), range.upperBound).rounded()
+    }
+}
+
 // MARK: - Preview
 
 private enum SidebarPreviewDestination: Hashable {

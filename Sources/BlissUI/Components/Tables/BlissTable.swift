@@ -21,6 +21,7 @@ public enum BlissTableColumnWidth: Hashable, Sendable {
     /// Exactly this wide.
     case fixed(CGFloat)
     /// A share of the width left after fixed columns, never below `minimum`.
+    /// In a table with `autoSizeColumns`, its content's width instead — see there.
     case flexible(minimum: CGFloat = 0)
 }
 
@@ -95,7 +96,13 @@ public struct BlissTableSort: Hashable, Sendable {
 /// sub-pixel. Pass `isLazy: true` for long tables that never animate width.
 /// The table doesn't scroll on its own — put it in a `ScrollViewWithThinIndicator`.
 /// `pinsHeader: true` keeps the header at the top of that scroll view while the
-/// rows scroll under it.
+/// rows scroll under it. The rows stay eager there too, unless `isLazy`.
+///
+/// `autoSizeColumns: true` sizes the flexible columns to their content (the
+/// widest cell or header label) instead of splitting the room evenly. Short
+/// columns — badges, dates — hug their content; when the table runs out of
+/// room, the widest columns give way first and text truncates, so no column
+/// collapses to nothing.
 public struct BlissTable<Row: Identifiable, Cells: View>: View {
     private let rows: [Row]
     private let columns: [BlissTableColumn<Row>]
@@ -103,6 +110,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     private let externalSort: Binding<BlissTableSort?>?
     private let isLazy: Bool
     private let pinsHeader: Bool
+    private let autoSizeColumns: Bool
     private let contentInset: CGFloat
     private let onOpen: ((Row) -> Void)?
     private let onSecondaryClick: ((Row, NSPoint) -> Void)?
@@ -111,6 +119,8 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     @State private var internalSort: BlissTableSort?
     /// The row a shift-click range starts from.
     @State private var selectionAnchor: Row.ID?
+    /// Each column's widest cell, when `autoSizeColumns`.
+    @State private var columnSizer = BlissTableColumnSizer()
 
     /// - Parameters:
     ///   - rows: The rows, in their unsorted order.
@@ -121,10 +131,14 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     ///   - initialSort: The first sort when the table owns it.
     ///   - isLazy: Builds rows as they scroll into view.
     ///   - pinsHeader: Keeps the header at the top of the enclosing scroll view,
-    ///     on the content surface, while rows scroll under it. Rows are built
-    ///     lazily in this mode (a pinned header needs a lazy stack). Turn off the
-    ///     scroll view's `showFadeMask`: the mask would fade the header too, and
-    ///     the rows would show through it.
+    ///     on the content surface, while rows scroll under it. Only the header
+    ///     sits in a lazy stack (pinning needs one); the rows stay eager unless
+    ///     `isLazy`. Turn off the scroll view's `showFadeMask`: the mask would
+    ///     fade the header too, and the rows would show through it.
+    ///   - autoSizeColumns: Sizes flexible columns to their widest cell or
+    ///     header label: short ones hug their content, and when the table is
+    ///     too narrow the widest give way first (never below their minimum).
+    ///     Fixed columns keep their width.
     ///   - contentInset: Space on each side of the rows' hover fill.
     ///   - onOpen: A click on a row (outside its checkbox and buttons).
     ///   - onSecondaryClick: A right- or control-click on a row, with the screen point.
@@ -137,6 +151,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
         initialSort: BlissTableSort? = nil,
         isLazy: Bool = false,
         pinsHeader: Bool = false,
+        autoSizeColumns: Bool = false,
         contentInset: CGFloat = Spacing.xl,
         onOpen: ((Row) -> Void)? = nil,
         onSecondaryClick: ((Row, NSPoint) -> Void)? = nil,
@@ -148,6 +163,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
         self.externalSort = sortOrder
         self.isLazy = isLazy
         self.pinsHeader = pinsHeader
+        self.autoSizeColumns = autoSizeColumns
         self.contentInset = contentInset
         self.onOpen = onOpen
         self.onSecondaryClick = onSecondaryClick
@@ -156,11 +172,28 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     }
 
     public var body: some View {
+        tableBody
+            .onChange(of: autoSizeColumns ? rows.map(\.id) : []) { _, rowIDs in
+                // Rows that left (a filter, a deletion) stop counting toward the widths.
+                columnSizer.keep(only: Set(rowIDs.map(AnyHashable.init)).union([BlissTableColumnSizer.headerSource]))
+            }
+    }
+
+    @ViewBuilder
+    private var tableBody: some View {
         let sortedRows = self.sortedRows
         if pinsHeader {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 Section {
-                    rowList(sortedRows)
+                    // One eager child, not a lazy row each: lazy rows are
+                    // re-measured and rebuilt off screen on every frame of a
+                    // width animation, which stalled a sidebar collapse for
+                    // seconds on a 100-row table.
+                    if isLazy {
+                        rowList(sortedRows)
+                    } else {
+                        VStack(alignment: .leading, spacing: 0) { rowList(sortedRows) }
+                    }
                 } header: {
                     // Opaque, so rows scrolling under it don't show through. The
                     // content surface alone is a translucent wash on Tahoe dark;
@@ -187,13 +220,20 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     }
 
     private func header(_ sortedRows: [Row]) -> some View {
-        BlissTableHeader(
+        var header = BlissTableHeader(
             columns: columns,
             sortOrder: sortBinding,
             selectionState: selectionState(for: sortedRows),
             contentInset: contentInset,
             onToggleAll: { toggleAll(sortedRows) }
         )
+        if autoSizeColumns {
+            header.contentWidths = columnSizer.contentWidths
+            header.measureColumn = { [columnSizer] column, width in
+                columnSizer.record(width, column: column, from: BlissTableColumnSizer.headerSource)
+            }
+        }
+        return header
     }
 
     @ViewBuilder
@@ -203,6 +243,10 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
                 columns: columns,
                 isSelected: selection?.wrappedValue.contains(row.id) ?? false,
                 showsCheckbox: selection != nil,
+                contentWidths: autoSizeColumns ? columnSizer.contentWidths : nil,
+                measureColumn: autoSizeColumns ? { [columnSizer] column, width in
+                    columnSizer.record(width, column: column, from: AnyHashable(row.id))
+                } : nil,
                 onToggleSelection: { toggleSelection(row, in: sortedRows) },
                 onOpen: onOpen.map { handler in { handler(row) } },
                 onSecondaryClick: onSecondaryClick.map { handler in { point in handler(row, point) } }
@@ -280,7 +324,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
 // MARK: - Header
 
 /// The caption header over a `BlissTable`: a select-all checkbox, sortable
-/// titles with a chevron, and a hairline under it. `BlissTable` draws one;
+/// titles with a chevron, on a darker band. `BlissTable` draws one;
 /// use this directly to pin the header above a scroll view.
 public struct BlissTableHeader<Row>: View {
     public enum SelectionState: Sendable {
@@ -299,6 +343,12 @@ public struct BlissTableHeader<Row>: View {
     private let selectionState: SelectionState?
     private let contentInset: CGFloat
     private let onToggleAll: () -> Void
+    /// The table's measured column content, when it autosizes columns.
+    var contentWidths: [CGFloat]?
+    /// Reports each label's natural width, when the table autosizes columns.
+    var measureColumn: ((Int, CGFloat) -> Void)?
+
+    @Environment(\.colorScheme) private var scheme
 
     /// - Parameter selectionState: nil hides the checkbox column.
     public init(
@@ -329,10 +379,13 @@ public struct BlissTableHeader<Row>: View {
                 .accessibilityLabel(Text("Select all", bundle: .module))
                 .accessibilityAddTraits(selectionState == .allSelected ? [.isSelected] : [])
             }
-            BlissTableRowLayout(columns: columns.map(\.width)) {
+            BlissTableRowLayout(columns: columns.map(\.width), contentWidths: contentWidths) {
                 ForEach(columns) { column in
                     title(for: column)
                         .frame(maxWidth: .infinity, alignment: Alignment(horizontal: column.alignment, vertical: .center))
+                }
+                if let measureColumn {
+                    BlissTableColumnProbes(count: columns.count, report: measureColumn)
                 }
             }
         }
@@ -342,12 +395,19 @@ public struct BlissTableHeader<Row>: View {
         // the labels line up over their columns.
         .padding(.horizontal, contentInset + Spacing.sm)
         .padding(.vertical, Spacing.sm)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.menuBorder)
-                .frame(height: 1)
-                .padding(.horizontal, contentInset + Spacing.sm)
+        // A darker band behind the labels, as wide as the rows' hover fill, so
+        // the header reads as its own strip above the rows.
+        .background {
+            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                .fill(bandFill)
+                .padding(.horizontal, contentInset)
         }
+    }
+
+    /// Black, not `RowTint`'s primary: primary would lighten it in dark mode.
+    private var bandFill: Color {
+        if prefersIncreasedContrast { return Color.black.opacity(scheme == .dark ? 0.4 : 0.1) }
+        return Color.black.opacity(scheme == .dark ? 0.22 : 0.05)
     }
 
     @ViewBuilder
@@ -387,6 +447,8 @@ private struct BlissTableRow<Row, Cells: View>: View {
     let columns: [BlissTableColumn<Row>]
     let isSelected: Bool
     let showsCheckbox: Bool
+    let contentWidths: [CGFloat]?
+    let measureColumn: ((Int, CGFloat) -> Void)?
     let onToggleSelection: () -> Void
     let onOpen: (() -> Void)?
     let onSecondaryClick: ((NSPoint) -> Void)?
@@ -423,8 +485,15 @@ private struct BlissTableRow<Row, Cells: View>: View {
 
     @ViewBuilder
     private var cellArea: some View {
-        let layout = BlissTableRowLayout(columns: columns.map(\.width), alignments: columns.map(\.alignment)) {
+        let layout = BlissTableRowLayout(
+            columns: columns.map(\.width),
+            alignments: columns.map(\.alignment),
+            contentWidths: contentWidths
+        ) {
             cells()
+            if let measureColumn {
+                BlissTableColumnProbes(count: columns.count, report: measureColumn)
+            }
         }
         if let onOpen {
             layout
@@ -472,19 +541,28 @@ enum BlissTableMetrics {
 /// Places its subviews side by side at their column widths: fixed columns get
 /// their width, flexible ones split what's left (each at least its minimum).
 /// Subview N goes in column N; extra subviews get no room.
+///
+/// With `contentWidths` (a table's `autoSizeColumns`), each flexible column
+/// starts at its content's width instead: room to spare is shared evenly, and
+/// when there's too little, the widest columns are capped at one common width
+/// (never below their minimum) so the narrow ones keep their content.
 public struct BlissTableRowLayout: Layout {
     public var columns: [BlissTableColumnWidth]
     public var alignments: [HorizontalAlignment]
     public var spacing: CGFloat
+    /// The widest content per column; nil splits flexible columns evenly.
+    public var contentWidths: [CGFloat]?
 
     public init(
         columns: [BlissTableColumnWidth],
         alignments: [HorizontalAlignment] = [],
-        spacing: CGFloat = Spacing.md
+        spacing: CGFloat = Spacing.md,
+        contentWidths: [CGFloat]? = nil
     ) {
         self.columns = columns
         self.alignments = alignments
         self.spacing = spacing
+        self.contentWidths = contentWidths
     }
 
     /// Integer widths, so a row of equal columns lines up exactly with the
@@ -494,33 +572,75 @@ public struct BlissTableRowLayout: Layout {
         let gaps = spacing * CGFloat(columns.count - 1)
         var fixedTotal: CGFloat = 0
         var flexibleMinimums: [CGFloat] = []
-        for column in columns {
+        var flexibleContent: [CGFloat] = []
+        for (index, column) in columns.enumerated() {
             switch column {
-            case .fixed(let width): fixedTotal += width
-            case .flexible(let minimum): flexibleMinimums.append(minimum)
+            case .fixed(let width):
+                fixedTotal += width
+            case .flexible(let minimum):
+                flexibleMinimums.append(minimum)
+                flexibleContent.append(contentWidths.flatMap { index < $0.count ? $0[index] : nil } ?? 0)
             }
         }
         let remaining = max(0, totalWidth - fixedTotal - gaps)
-        let share = flexibleMinimums.isEmpty ? 0 : (remaining / CGFloat(flexibleMinimums.count)).rounded(.down)
+        let flexibleWidths: [CGFloat]
+        if contentWidths != nil {
+            flexibleWidths = Self.fittedWidths(content: flexibleContent, minimums: flexibleMinimums, available: remaining)
+        } else {
+            let share = flexibleMinimums.isEmpty ? 0 : (remaining / CGFloat(flexibleMinimums.count)).rounded(.down)
+            flexibleWidths = flexibleMinimums.map { max($0, share) }
+        }
+        var nextFlexible = flexibleWidths.makeIterator()
         return columns.map { column in
             switch column {
             case .fixed(let width): return width
-            case .flexible(let minimum): return max(minimum, share)
+            case .flexible: return nextFlexible.next() ?? 0
             }
         }
     }
 
-    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let naturalWidth = columns.reduce(CGFloat(0)) { total, column in
-            switch column {
-            case .fixed(let width): return total + width
-            case .flexible(let minimum): return total + minimum
+    /// Flexible widths from their content: content plus an even share of any
+    /// room left, or — when the content doesn't fit — the widest capped at the
+    /// one width that makes the total fit, each kept at its minimum.
+    static func fittedWidths(content: [CGFloat], minimums: [CGFloat], available: CGFloat) -> [CGFloat] {
+        guard !content.isEmpty else { return [] }
+        let wanted = zip(content, minimums).map { max($0, $1) }
+        let wantedTotal = wanted.reduce(0, +)
+        if wantedTotal <= available {
+            let extra = ((available - wantedTotal) / CGFloat(wanted.count)).rounded(.down)
+            return wanted.map { ($0 + extra).rounded(.down) }
+        }
+        func total(cappedAt cap: CGFloat) -> CGFloat {
+            zip(wanted, minimums).reduce(0) { $0 + max($1.1, min($1.0, cap)) }
+        }
+        var low: CGFloat = 0
+        var high = wanted.max() ?? 0
+        for _ in 0..<30 {
+            let middle = (low + high) / 2
+            if total(cappedAt: middle) <= available { low = middle } else { high = middle }
+        }
+        // The search closes in from below; snap to the whole point when it fits.
+        let cap = total(cappedAt: low.rounded(.up)) <= available ? low.rounded(.up) : low.rounded(.down)
+        return zip(wanted, minimums).map { max($1, min($0, cap)).rounded(.down) }
+    }
+
+    private func naturalWidth() -> CGFloat {
+        columns.enumerated().reduce(CGFloat(0)) { total, entry in
+            switch entry.element {
+            case .fixed(let width):
+                return total + width
+            case .flexible(let minimum):
+                let content = contentWidths.flatMap { entry.offset < $0.count ? $0[entry.offset] : nil } ?? 0
+                return total + max(minimum, content)
             }
         } + spacing * CGFloat(max(columns.count - 1, 0))
-        let width = proposal.width ?? naturalWidth
+    }
+
+    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? naturalWidth()
         let columnWidths = widths(for: width)
         var height: CGFloat = 0
-        for (index, subview) in subviews.enumerated() where index < columnWidths.count {
+        for (index, subview) in subviews.filter({ $0[ColumnProbeKey.self] == nil }).enumerated() where index < columnWidths.count {
             let size = subview.sizeThatFits(ProposedViewSize(width: columnWidths[index], height: proposal.height))
             height = max(height, size.height)
         }
@@ -528,9 +648,10 @@ public struct BlissTableRowLayout: Layout {
     }
 
     public func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let cells = subviews.filter { $0[ColumnProbeKey.self] == nil }
         let columnWidths = widths(for: bounds.width)
         var x = bounds.minX
-        for (index, subview) in subviews.enumerated() {
+        for (index, subview) in cells.enumerated() {
             guard index < columnWidths.count else {
                 subview.place(at: CGPoint(x: bounds.maxX, y: bounds.midY), anchor: .leading, proposal: .zero)
                 continue
@@ -551,6 +672,85 @@ public struct BlissTableRowLayout: Layout {
             )
             x += width + spacing
         }
+        // Each probe is as wide as its cell would like to be, so it can report
+        // that width (see `BlissTableColumnProbes`).
+        for probe in subviews {
+            guard let column = probe[ColumnProbeKey.self] else { continue }
+            var idealWidth = column < cells.count ? cells[column].sizeThatFits(.unspecified).width : 0
+            if !idealWidth.isFinite { idealWidth = 0 }
+            probe.place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(width: min(idealWidth, 4000), height: 0))
+        }
+    }
+}
+
+// MARK: - Column autosizing
+
+/// Marks a `BlissTableColumnProbes` subview with its column.
+private nonisolated struct ColumnProbeKey: LayoutValueKey {
+    static let defaultValue: Int? = nil
+}
+
+/// Zero-height views that `BlissTableRowLayout` sizes to each cell's natural
+/// width, so the width can be read back with `onGeometryChange` (a layout
+/// can't report values itself).
+struct BlissTableColumnProbes: View {
+    let count: Int
+    let report: (Int, CGFloat) -> Void
+
+    var body: some View {
+        ForEach(0..<count, id: \.self) { column in
+            Color.clear
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { report(column, $0) }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .layoutValue(key: ColumnProbeKey.self, value: column)
+        }
+    }
+}
+
+/// The widest cell per column, across the header and every row that reported.
+/// Ideal widths don't change with the table's width, so a resize or a sidebar
+/// animation reports nothing new.
+@Observable
+final class BlissTableColumnSizer {
+    static let headerSource = AnyHashable("BlissTableColumnSizer.header")
+
+    private(set) var contentWidths: [CGFloat] = []
+    @ObservationIgnored private var widthsBySource: [AnyHashable: [Int: CGFloat]] = [:]
+
+    func record(_ width: CGFloat, column: Int, from source: AnyHashable) {
+        let rounded = width.rounded(.up)
+        let previous = widthsBySource[source]?[column]
+        guard previous != rounded else { return }
+        widthsBySource[source, default: [:]][column] = rounded
+        let currentMaximum = column < contentWidths.count ? contentWidths[column] : 0
+        if rounded > currentMaximum {
+            var widths = contentWidths
+            while widths.count <= column { widths.append(0) }
+            widths[column] = rounded
+            contentWidths = widths
+        } else if previous == currentMaximum {
+            // The widest cell got narrower: find the new widest.
+            recompute()
+        }
+    }
+
+    /// Forgets sources (rows) no longer in the table.
+    func keep(only sources: Set<AnyHashable>) {
+        let countBefore = widthsBySource.count
+        widthsBySource = widthsBySource.filter { sources.contains($0.key) }
+        if widthsBySource.count != countBefore { recompute() }
+    }
+
+    private func recompute() {
+        var maxima: [CGFloat] = []
+        for widths in widthsBySource.values {
+            for (column, width) in widths {
+                while maxima.count <= column { maxima.append(0) }
+                maxima[column] = max(maxima[column], width)
+            }
+        }
+        if maxima != contentWidths { contentWidths = maxima }
     }
 }
 

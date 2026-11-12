@@ -13,18 +13,25 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 - `DropZone` — a file drop target that doubles as a Browse button, with the same rules for both.
 - `CommitGraph` — a git history as a graph: colored lanes, merge rings, rounded elbows where branches leave and rejoin, and ref pills, with an optional trailing accessory per row.
 - `RoundedSection(insetsHeader:)` — `false` puts the section's title flush with the card's edge instead of in line with its content.
-- `BlissTable(pinsHeader:)` — the header stays at the top of the enclosing scroll view while the rows scroll under it.
+- `BlissTable(pinsHeader:)` — the header stays at the top of the enclosing scroll view while the rows scroll under it. Rows stay eager unless `isLazy`, so a width animation doesn't rebuild them off screen.
 - `AvatarStack(overflowStyle: .plain)` — `+N` as plain text after the avatars instead of a filled chip.
+- `BlissTable(autoSizeColumns:)` — flexible columns size to their widest cell or header label instead of splitting the room evenly. Badges and dates hug their content; when the table is too narrow, the widest columns give way first (never below their minimum) and text truncates, so no column collapses or overflows. `BlissTableRowLayout(contentWidths:)` is the layout side of it.
+- `.sidebarResizeHandle(width:in:isEnabled:)` — a grip on a sidebar's trailing edge that drags it wider or narrower, like `InspectorSplit`'s, adjustable with VoiceOver.
+- `LocalizedStringKey.verbatimWithCode(_:)` — like `.verbatim(_:)`, but `backticked` spans show as inline code (monospaced on a faint tint). Nothing else is parsed, so names with `_` or `*` still show as-is.
 
 ### Changed
 
 - Text tooltips (`.tooltip("…")`) use the same tight 10/5 padding as every preset; `TooltipConfiguration`'s init defaults now match.
 - `AvatarStack`'s `+N` chip is a pill sized for `+99` at a fixed, larger font, so stacks in a column line up whatever the counts.
 - `ToolbarIconButtonStyle` buttons are square (28pt, 30pt before macOS 26, 24pt compact) whatever the glyph's shape.
+- `BlissTable`'s header sits on a darker rounded band, as wide as the rows' hover fill, in place of the hairline under it, so it reads as its own strip.
+- `CompactTextFieldStyle`, `SearchTextFieldStyle` and `ToolbarSearchTextFieldStyle` fill with the active color theme's raised surface and border instead of fixed greys (and `LargePaddedTextFieldStyle`'s underline takes the theme's border); System keeps the greys.
+- `TerminalOutputView` takes the theme's colors instead of a fixed dark terminal — the read-only `CodeField` surface and hairline, primary text, accent system lines, the danger mark for stderr — so it reads right in light mode and under every color theme.
 
 ### Fixed
 
 - `ScrollViewWithThinIndicator` keeps the system scroller hidden after its content grows past the viewport (a sidebar whose rows load after it appears showed the wide legacy scroller).
+- `ScrollViewWithThinIndicator` no longer rebuilds its content on every resize and scroll frame. It sat in a `GeometryReader` and kept the scroll offset in its own state, so a sidebar collapse or a scroll re-ran `content()` each frame — seconds of main-thread work for a 100-row table. The thumb, fades and viewport fill now read the scroll metrics themselves.
 
 ## [1.0.0] — 2026-11-09
 

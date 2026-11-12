@@ -72,13 +72,15 @@ public struct TerminalOutputView: View {
                     ))
             }
         }
+        // The theme's surfaces, like a read-only `CodeField`: a faint wash over
+        // whatever it sits on, and the shared hairline.
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.terminalBackground)
+                .fill(Color.primary.opacity(0.04))
         }
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.separator.opacity(0.5), lineWidth: 1)
+                .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
     }
 
@@ -128,7 +130,8 @@ public struct TerminalOutputView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background {
-            Color.terminalHeaderBackground
+            // A step above the body's wash.
+            Color.primary.opacity(0.04)
         }
         .clipShape(
             UnevenRoundedRectangle(
@@ -174,7 +177,6 @@ public struct TerminalOutputView: View {
                 }
             }
         }
-        .background(Color.terminalBackground)
     }
 
     // MARK: - Line View
@@ -216,32 +218,13 @@ public struct TerminalOutputView: View {
     private func colorForLineType(_ type: TerminalOutputLine.OutputType) -> Color {
         switch type {
         case .stdout:
-            return .terminalText
+            return .primary
         case .stderr:
-            return .terminalError
+            return Danger.danger500
         case .system:
-            return .terminalSystem
+            return .accent
         }
     }
-}
-
-// MARK: - Terminal Colors Extension
-
-extension Color {
-    /// Dark terminal background color
-    static let terminalBackground = Color(red: 0.1, green: 0.1, blue: 0.12)
-
-    /// Slightly lighter header background
-    static let terminalHeaderBackground = Color(red: 0.13, green: 0.13, blue: 0.15)
-
-    /// Standard terminal text (light gray/white)
-    static let terminalText = Color(red: 0.85, green: 0.85, blue: 0.85)
-
-    /// Error text (red)
-    static let terminalError = Color(red: 1.0, green: 0.4, blue: 0.4)
-
-    /// System message text (cyan/blue)
-    static let terminalSystem = Color(red: 0.4, green: 0.7, blue: 1.0)
 }
 
 // MARK: - Convenience Initializer

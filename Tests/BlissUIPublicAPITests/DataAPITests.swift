@@ -24,6 +24,10 @@ import BlissUI
         _ = ProgressRing(value: 0.5, center: label)
     }
 
+    @Test func verbatimWithCodeIsReachable() {
+        _ = Text(LocalizedStringKey.verbatimWithCode("Runs `skills remove` for my_skill"))
+    }
+
     @Test func usageBarsAreReachable() {
         let segments = [
             UsageBar.Segment("Apps", value: 48, color: .accent),

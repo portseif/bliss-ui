@@ -10,6 +10,24 @@
 
 import SwiftUI
 
+// MARK: - Filled field colors
+
+/// The compact, search and toolbar search fields' fill and border: the active
+/// color theme's raised surface and border, or the built-in greys under System
+/// (fixed greys read as a grey box on a tinted theme).
+private enum FilledFieldColors {
+    static func background(_ scheme: ColorScheme) -> Color {
+        if let palette = ThemeColors.activePalette { return palette.elevatedBackground.color }
+        return scheme == .dark ? Grey.grey800 : Grey.grey50
+    }
+
+    static func border(_ scheme: ColorScheme) -> Color {
+        if let palette = ThemeColors.activePalette { return palette.border.color }
+        // grey300 in light mode for visibility against light backgrounds.
+        return scheme == .dark ? Grey.grey700 : Grey.grey300
+    }
+}
+
 // MARK: - Large Padded Text Field Style
 
 /// Linear-style form text field — minimal underline that turns accent on focus.
@@ -29,6 +47,7 @@ public struct LargePaddedTextFieldStyle: TextFieldStyle {
         if isFocused {
             return Color.accent
         }
+        if let palette = ThemeColors.activePalette { return palette.border.color }
         return colorScheme == .dark ? Grey.grey600 : Grey.grey300
     }
 
@@ -76,12 +95,11 @@ public struct CompactTextFieldStyle: TextFieldStyle {
         if isFocused {
             return Color.accent
         }
-        // Use grey300 in light mode for better visibility against light backgrounds
-        return colorScheme == .dark ? Grey.grey700 : Grey.grey300
+        return FilledFieldColors.border(colorScheme)
     }
 
     private var backgroundColor: Color {
-        colorScheme == .dark ? Grey.grey800 : Grey.grey50
+        FilledFieldColors.background(colorScheme)
     }
 
     public func _body(configuration: TextField<Self._Label>) -> some View {
@@ -125,12 +143,11 @@ public struct SearchTextFieldStyle: TextFieldStyle {
         if isFocused {
             return Color.accent
         }
-        // Use grey300 in light mode for better visibility against light backgrounds
-        return colorScheme == .dark ? Grey.grey700 : Grey.grey300
+        return FilledFieldColors.border(colorScheme)
     }
 
     private var backgroundColor: Color {
-        colorScheme == .dark ? Grey.grey800 : Grey.grey50
+        FilledFieldColors.background(colorScheme)
     }
 
     private var iconColor: Color {
@@ -188,12 +205,11 @@ public struct ToolbarSearchTextFieldStyle: TextFieldStyle {
         if isFocused {
             return Color.accent
         }
-        // Use grey300 in light mode for better visibility against light backgrounds
-        return colorScheme == .dark ? Grey.grey700 : Grey.grey300
+        return FilledFieldColors.border(colorScheme)
     }
 
     private var backgroundColor: Color {
-        colorScheme == .dark ? Grey.grey800 : Grey.grey50
+        FilledFieldColors.background(colorScheme)
     }
 
     private var iconColor: Color {

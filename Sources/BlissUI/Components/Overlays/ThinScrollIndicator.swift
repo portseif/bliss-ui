@@ -123,12 +123,11 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
     let indicatorBottomPadding: CGFloat
     @ViewBuilder let content: () -> Content
 
-    @State private var scrollOffset: CGFloat = 0
-    @State private var contentHeight: CGFloat = 0
-    @State private var viewportHeight: CGFloat = 0
-    @State private var isScrolling = false
-    @State private var isHovering = false
-    @State private var scrollEndTask: Task<Void, Never>?
+    /// The scroll position and sizes. Only the pieces that draw from them (the
+    /// thumb, the fades, the viewport fill) read it, so a scroll or a resize
+    /// redraws those and never re-runs `content()`: re-running it rebuilt
+    /// every row of a long table on each frame of a sidebar collapse.
+    @State private var metrics = ThinScrollMetrics()
 
     private let indicatorWidth: CGFloat = 6
     private let indicatorMinHeight: CGFloat = 30
@@ -153,154 +152,193 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
         self.content = content
     }
 
-    private var needsIndicator: Bool {
+    public var body: some View {
+        ScrollView(axes, showsIndicators: false) {
+            content()
+                // Inflate to the viewport when `fillsViewport` is on so a short
+                // content view fills the visible scroll area.
+                .modifier(ViewportFill(isEnabled: fillsViewport && axes.contains(.vertical), metrics: metrics))
+                .background(NativeScrollerSuppressor())
+                .background(ScrollMetricsReader(metrics: metrics, coordinateSpace: scrollCoordinateSpace))
+        }
+        .scrollIndicators(.hidden)
+        // No rubber-band when the content already fits. SwiftUI's default
+        // (.automatic) bounces macOS scroll views even at exact fit, so an
+        // auto-heighted sheet card (AutoHeightScroll hugs content exactly)
+        // let the WHOLE modal bounce on scroll — reading as "the modal is
+        // scrollable". Overflowing content still scrolls + bounces.
+        .scrollBounceBehavior(.basedOnSize)
+        .coordinateSpace(name: scrollCoordinateSpace)
+        // Edge fades — an alpha MASK on the content, not a colored overlay, so
+        // rows dissolve into whatever sits behind the scroll view. A colored
+        // overlay needs an opaque color matching that surface, and none exists
+        // for the macOS 26 dark content pane (a 25% black wash) or a themed one.
+        // The thumb overlay below sits outside the mask, so it never fades.
+        .modifier(ScrollEdgeFade(isEnabled: showFadeMask, metrics: metrics, height: fadeMaskHeight))
+        .overlay(alignment: .trailing) {
+            ThinScrollThumb(
+                metrics: metrics,
+                width: indicatorWidth,
+                minimumHeight: indicatorMinHeight,
+                trailingPadding: indicatorPadding,
+                topPadding: indicatorTopPadding,
+                bottomPadding: indicatorBottomPadding
+            )
+        }
+        // Fills the space offered, content at the top leading corner, as the
+        // `GeometryReader` this used to sit in did.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { metrics.viewportHeight = $0 }
+        .onHover { hovering in
+            metrics.isHovering = hovering
+        }
+    }
+}
+
+// MARK: - Scroll metrics
+
+/// Where a `ScrollViewWithThinIndicator` is scrolled to and how big it is.
+@Observable
+private final class ThinScrollMetrics {
+    var scrollOffset: CGFloat = 0
+    var contentHeight: CGFloat = 0
+    var viewportHeight: CGFloat = 0
+    var isScrolling = false
+    var isHovering = false
+    @ObservationIgnored var scrollEndTask: Task<Void, Never>?
+
+    var needsIndicator: Bool {
         contentHeight > viewportHeight + 1
     }
 
-    private var isIndicatorVisible: Bool {
-        needsIndicator && (isHovering || isScrolling)
-    }
-
-    /// Opacity for top fade mask - fades in as user scrolls down
-    private var topFadeOpacity: Double {
-        guard showFadeMask, needsIndicator else { return 0 }
-        // Fade in over first 20 pixels of scroll
+    /// Top fade strength: grows over the first 20pt scrolled.
+    var topFadeOpacity: Double {
+        guard needsIndicator else { return 0 }
         let fadeDistance: CGFloat = 20
         return min(max(scrollOffset / fadeDistance, 0), 1)
     }
 
-    /// Opacity for bottom fade mask - fades out as user approaches bottom
-    private var bottomFadeOpacity: Double {
-        guard showFadeMask, needsIndicator else { return 0 }
+    /// Bottom fade strength: shrinks over the last 20pt before the end.
+    var bottomFadeOpacity: Double {
+        guard needsIndicator else { return 0 }
         let maxScroll = contentHeight - viewportHeight
         guard maxScroll > 0 else { return 0 }
-        // Fade out over last 20 pixels of scroll
         let fadeDistance: CGFloat = 20
         let distanceFromBottom = maxScroll - scrollOffset
         return min(max(distanceFromBottom / fadeDistance, 0), 1)
     }
 
-    private var indicatorHeight: CGFloat {
-        guard contentHeight > 0, viewportHeight > 0 else { return indicatorMinHeight }
+    /// Records a new offset, shows the thumb, and hides it 0.8s after scrolling stops.
+    func scrolled(to newOffset: CGFloat) {
+        guard abs(newOffset - scrollOffset) > 0.5 else { return }
+        scrollOffset = newOffset
+        isScrolling = true
+        scrollEndTask?.cancel()
+        scrollEndTask = Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            withAnimation(Animations.scrollIndicator) {
+                self.isScrolling = false
+            }
+        }
+    }
+}
+
+/// Feeds the content's height and scroll position into the metrics.
+private struct ScrollMetricsReader: View {
+    let metrics: ThinScrollMetrics
+    let coordinateSpace: String
+
+    var body: some View {
+        GeometryReader { innerGeometry in
+            Color.clear
+                .onAppear {
+                    metrics.contentHeight = innerGeometry.size.height
+                }
+                .onChange(of: innerGeometry.size.height) { _, newHeight in
+                    metrics.contentHeight = newHeight
+                }
+                .onChange(of: innerGeometry.frame(in: .named(coordinateSpace)).minY) { _, newY in
+                    metrics.scrolled(to: -newY)
+                }
+        }
+    }
+}
+
+/// `minHeight` of the viewport on the content, when enabled.
+private struct ViewportFill: ViewModifier {
+    let isEnabled: Bool
+    let metrics: ThinScrollMetrics
+
+    func body(content: Content) -> some View {
+        content.frame(minHeight: isEnabled ? metrics.viewportHeight : nil, alignment: .top)
+    }
+}
+
+/// The thin rounded thumb, shown while hovering or scrolling.
+private struct ThinScrollThumb: View {
+    let metrics: ThinScrollMetrics
+    let width: CGFloat
+    let minimumHeight: CGFloat
+    let trailingPadding: CGFloat
+    let topPadding: CGFloat
+    let bottomPadding: CGFloat
+
+    private var isVisible: Bool {
+        metrics.needsIndicator && (metrics.isHovering || metrics.isScrolling)
+    }
+
+    private var height: CGFloat {
+        let contentHeight = metrics.contentHeight
+        let viewportHeight = metrics.viewportHeight
+        guard contentHeight > 0, viewportHeight > 0 else { return minimumHeight }
         let ratio = viewportHeight / contentHeight
-        let calculatedHeight = viewportHeight * ratio - (indicatorTopPadding + indicatorBottomPadding)
-        return max(indicatorMinHeight, min(calculatedHeight, viewportHeight - (indicatorTopPadding + indicatorBottomPadding)))
+        let calculatedHeight = viewportHeight * ratio - (topPadding + bottomPadding)
+        return max(minimumHeight, min(calculatedHeight, viewportHeight - (topPadding + bottomPadding)))
     }
 
-    private var indicatorOffset: CGFloat {
-        guard contentHeight > viewportHeight, viewportHeight > 0 else { return indicatorTopPadding }
+    private var offset: CGFloat {
+        let contentHeight = metrics.contentHeight
+        let viewportHeight = metrics.viewportHeight
+        guard contentHeight > viewportHeight, viewportHeight > 0 else { return topPadding }
         let scrollableHeight = contentHeight - viewportHeight
-        let trackHeight = viewportHeight - indicatorHeight - (indicatorTopPadding + indicatorBottomPadding)
-        guard scrollableHeight > 0, trackHeight > 0 else { return indicatorTopPadding }
-        let progress = min(max(scrollOffset / scrollableHeight, 0), 1)
-        return indicatorTopPadding + (progress * trackHeight)
+        let trackHeight = viewportHeight - height - (topPadding + bottomPadding)
+        guard scrollableHeight > 0, trackHeight > 0 else { return topPadding }
+        let progress = min(max(metrics.scrollOffset / scrollableHeight, 0), 1)
+        return topPadding + (progress * trackHeight)
     }
 
-    public var body: some View {
-        GeometryReader { outerGeometry in
-            ScrollView(axes, showsIndicators: false) {
-                content()
-                    // Inflate to viewport when `fillsViewport` is on so a
-                    // short content view fills the visible scroll area.
-                    // `outerGeometry.size.height` is the live viewport size
-                    // from the surrounding `GeometryReader`.
-                    .frame(
-                        minHeight: fillsViewport && axes.contains(.vertical) ? outerGeometry.size.height : nil,
-                        alignment: .top
-                    )
-                    .background(NativeScrollerSuppressor())
-                    .background(
-                        GeometryReader { innerGeometry in
-                            Color.clear
-                                .onAppear {
-                                    contentHeight = innerGeometry.size.height
-                                }
-                                .onChange(of: innerGeometry.size.height) { _, newHeight in
-                                    contentHeight = newHeight
-                                }
-                                .onChange(of: innerGeometry.frame(in: .named(scrollCoordinateSpace)).minY) { _, newY in
-                                    let newOffset = -newY
-                                    let previousOffset = scrollOffset
-
-                                    if abs(newOffset - previousOffset) > 0.5 {
-                                        scrollOffset = newOffset
-                                        isScrolling = true
-                                        scrollEndTask?.cancel()
-                                        scrollEndTask = Task {
-                                            try? await Task.sleep(for: .milliseconds(800))
-                                            guard !Task.isCancelled else { return }
-                                            await MainActor.run {
-                                                withAnimation(Animations.scrollIndicator) {
-                                                    isScrolling = false
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                        }
-                    )
-            }
-            .scrollIndicators(.hidden)
-            // No rubber-band when the content already fits. SwiftUI's default
-            // (.automatic) bounces macOS scroll views even at exact fit, so an
-            // auto-heighted sheet card (AutoHeightScroll hugs content exactly)
-            // let the WHOLE modal bounce on scroll — reading as "the modal is
-            // scrollable". Overflowing content still scrolls + bounces.
-            .scrollBounceBehavior(.basedOnSize)
-            .coordinateSpace(name: scrollCoordinateSpace)
-            .onChange(of: outerGeometry.size.height) { _, newHeight in
-                viewportHeight = newHeight
-            }
-            .onAppear {
-                viewportHeight = outerGeometry.size.height
-            }
-            // Edge fades — an alpha MASK on the content, not a colored overlay, so
-            // rows dissolve into whatever sits behind the scroll view. A colored
-            // overlay needs an opaque color matching that surface, and none exists
-            // for the macOS 26 dark content pane (a 25% black wash) or a themed one.
-            // The thumb overlay below sits outside the mask, so it never fades.
-            .modifier(ScrollEdgeFade(
-                isEnabled: showFadeMask,
-                topOpacity: topFadeOpacity,
-                bottomOpacity: bottomFadeOpacity,
-                height: fadeMaskHeight
-            ))
-            .overlay(alignment: .trailing) {
-                // Thin scroll indicator — outside the fade mask so it never dims
-                RoundedRectangle(cornerRadius: indicatorWidth / 2)
-                    .fill(Color.primary.opacity(0.35))
-                    .frame(width: indicatorWidth, height: indicatorHeight)
-                    .padding(.top, indicatorOffset)
-                    .padding(.trailing, indicatorPadding)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .opacity(isIndicatorVisible ? 1 : 0)
-                    .animation(Animations.scrollIndicator, value: isIndicatorVisible)
-                    .allowsHitTesting(false)
-                    .zIndex(1)
-            }
-        }
-        .onHover { hovering in
-            isHovering = hovering
-        }
+    var body: some View {
+        RoundedRectangle(cornerRadius: width / 2)
+            .fill(Color.primary.opacity(0.35))
+            .frame(width: width, height: height)
+            .padding(.top, offset)
+            .padding(.trailing, trailingPadding)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .opacity(isVisible ? 1 : 0)
+            .animation(Animations.scrollIndicator, value: isVisible)
+            .allowsHitTesting(false)
+            .zIndex(1)
     }
 }
 
 // MARK: - Edge fade
 
 /// Fades a scroll view's top and bottom edges by masking the content's alpha.
-/// `topOpacity` / `bottomOpacity` (0…1) are how strong each fade is right now —
+/// The metrics' `topFadeOpacity` / `bottomFadeOpacity` (0…1) are how strong each fade is now —
 /// the top one grows as you scroll away from the top, the bottom one shrinks as
 /// you reach the end — so an edge with nothing hidden past it stays crisp. The
 /// mask is only applied when enabled, so a scroll without fades pays no
 /// offscreen-compositing cost.
 private struct ScrollEdgeFade: ViewModifier {
     let isEnabled: Bool
-    let topOpacity: Double
-    let bottomOpacity: Double
+    let metrics: ThinScrollMetrics
     let height: CGFloat
 
     func body(content: Content) -> some View {
         if isEnabled {
+            let topOpacity = metrics.topFadeOpacity
+            let bottomOpacity = metrics.bottomFadeOpacity
             // Never animated: the strengths already follow the scroll position,
             // and an animated mask is re-rendered into a new texture on every
             // frame at every size of a live resize — ~230MB of graphics memory
