@@ -92,6 +92,11 @@ public nonisolated struct TooltipConfiguration: Equatable, Sendable {
 final class TooltipWindowController: NSObject {
     static let shared = TooltipWindowController()
 
+    /// The app-wide click and scroll monitors, kept for the app's lifetime.
+    /// Held so they're owned (a dropped token reads as a leak).
+    private var globalClickMonitor: Any?
+    private var localEventMonitor: Any?
+
     private var tooltipWindow: NSPanel?
     private var hostingView: NSHostingView<AnyView>?
     private var pendingShow: DispatchWorkItem?
@@ -166,14 +171,14 @@ final class TooltipWindowController: NSObject {
         )
 
         // Hide tooltips on any mouse click (left, right, or other)
-        NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
             self?.hide()
         }
 
         // Also monitor local mouse events within our app. Scrolling dismisses
         // too — the content under the tooltip is about to move, which is how
         // tooltips end up floating detached from their target.
-        NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]) { [weak self] event in
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]) { [weak self] event in
             guard let self else { return event }
             // Events inside an interactive tooltip drive its action buttons /
             // its own scroll view — don't dismiss on those. Everything else
