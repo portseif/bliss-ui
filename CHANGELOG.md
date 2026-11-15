@@ -8,6 +8,7 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 - `WindowTitleBar` — the custom title bar for a hidden-title-bar window: leading and trailing controls around a centered title, room for the traffic lights (dropped in full screen), and the empty bar drags the window.
 - `Sidebar(isCollapsed:)` and `SidebarToggleButton` — the sidebar collapses to its icons (titles in tooltips, counts as dots) at `Sizing.sidebarCollapsedWidth`.
+- `SidebarRow(_:image:value:)` — a row whose icon is an `Image` (a logo, or one your app draws), shown as a template in the row's text color like the symbol icons.
 - `OutlineList` — a tree with disclosure chevrons and one indent per level; one Tab stop with a roving row.
 - `ReorderableList` — rows with a grip handle that drag into a new order; ⌥↑ / ⌥↓ move the focused row.
 - `DropZone` — a file drop target that doubles as a Browse button, with the same rules for both.

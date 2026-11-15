@@ -232,7 +232,7 @@ private enum SidebarRowRole {
 /// that turns into its shortcut while ⌘ is held.
 public struct SidebarRow: View {
     private let title: LocalizedStringKey
-    private let icon: String
+    private let icon: SidebarRowIconSource
     private let count: Int
     private let shortcut: String?
     private let role: SidebarRowRole
@@ -263,7 +263,31 @@ public struct SidebarRow: View {
         shortcut: String? = nil
     ) {
         self.title = title
-        self.icon = icon
+        self.icon = .named(icon)
+        self.count = count
+        self.shortcut = shortcut
+        self.role = .value(AnyHashable(value))
+    }
+
+    /// A row that selects `value`, with an image for its icon — a logo, or
+    /// anything else that isn't in your app's catalog.
+    ///
+    /// - Parameters:
+    ///   - title: Looked up in your app's strings like `Text("…")`.
+    ///   - image: Drawn as a template, like the symbol icons: its alpha is the
+    ///     shape, in the row's text color.
+    ///   - value: What the row selects.
+    ///   - count: A trailing badge; hidden at 0.
+    ///   - shortcut: Shown in place of the count while ⌘ is held.
+    public init<Value: Hashable>(
+        _ title: LocalizedStringKey,
+        image: Image,
+        value: Value,
+        count: Int = 0,
+        shortcut: String? = nil
+    ) {
+        self.title = title
+        self.icon = .image(image)
         self.count = count
         self.shortcut = shortcut
         self.role = .value(AnyHashable(value))
@@ -288,7 +312,7 @@ public struct SidebarRow: View {
         action: @escaping () -> Void
     ) {
         self.title = title
-        self.icon = icon
+        self.icon = .named(icon)
         self.count = count
         self.shortcut = shortcut
         self.role = .action(isSelected: isSelected, perform: action)
@@ -301,7 +325,7 @@ public struct SidebarRow: View {
     public var body: some View {
         SidebarRowButton(isSelected: isSelected, action: { role.perform(in: sidebarSelection) }) {
             HStack(spacing: isCollapsed ? 0 : Spacing.sm) {
-                SidebarRowIcon(name: icon)
+                SidebarRowIcon(source: icon)
                     .font(Typography.labelMedium)
                     .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
                     .foregroundStyle(isSelected ? Color.textPrimary : Color.textSecondary)
@@ -465,18 +489,32 @@ extension View {
     }
 }
 
-/// A row's icon: an `icon-` asset from the app's catalog, else an SF Symbol.
+/// What a row's icon is drawn from.
+private enum SidebarRowIconSource {
+    /// An `icon-` asset from the app's catalog, else an SF Symbol.
+    case named(String)
+    /// An image the app made or loaded, drawn as a template.
+    case image(Image)
+}
+
+/// A row's icon, in the row's text color.
 private struct SidebarRowIcon: View {
-    let name: String
+    let source: SidebarRowIconSource
 
     var body: some View {
-        if name.hasPrefix("icon-") {
+        switch source {
+        case .named(let name) where name.hasPrefix("icon-"):
             Image(name)
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-        } else {
+        case .named(let name):
             Image(systemName: name)
+        case .image(let image):
+            image
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
         }
     }
 }

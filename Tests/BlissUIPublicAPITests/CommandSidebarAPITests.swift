@@ -90,6 +90,7 @@ import BlissUI
 
         _ = Sidebar(selection: .constant(Optional<Destination>.none)) {
             SidebarRow("Inbox", icon: "tray", value: Optional(Destination.inbox))
+            SidebarRow(.verbatim("Logo"), image: Image(systemName: "seal"), value: Optional(Destination.today), count: 1, shortcut: "⌘3")
         }
     }
 
