@@ -4,6 +4,10 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-11-15
+
+A title bar, a collapsible sidebar, a commit graph and theme-aware everything. Two changes break source compatibility: `ToastService` is `@Observable` (drop `@ObservedObject`), and `\.appSheetDismiss` is an `AppSheetDismissAction` (where it was passed as a closure, write `{ dismiss() }`). Both are under Changed.
+
 ### Added
 
 - `WindowTitleBar` — the custom title bar for a hidden-title-bar window: leading and trailing controls around a centered title, room for the traffic lights (dropped in full screen), and the empty bar drags the window.
@@ -88,5 +92,6 @@ The first tagged release — the StackMe component set, extracted into a package
 - The library's own strings in 10 languages (de, en, es, fr, it, ja, ko, pt-BR, ru, zh-Hans).
 - `BlissCatalog`, a demo app of every component built on the public API, and `scripts/screenshots.sh`, which regenerates the README images from it.
 
-[Unreleased]: https://github.com/portseif/bliss-ui/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/portseif/bliss-ui/compare/2.0.0...HEAD
+[2.0.0]: https://github.com/portseif/bliss-ui/releases/tag/2.0.0
 [1.0.0]: https://github.com/portseif/bliss-ui/releases/tag/1.0.0
