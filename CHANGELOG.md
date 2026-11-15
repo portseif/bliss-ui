@@ -64,6 +64,7 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 - Toasts sit on the theme's raised surface with its border (like menus), and their close button's hover takes the theme's wash.
 - `SidebarToggleButton` answers ⌃⌘S, macOS's Toggle Sidebar shortcut, and its tooltip shows it.
 - `AppearanceModePicker` names a hovered mode on the preview itself, blurring it behind a centered label, instead of a tooltip under it.
+- `AppearanceSettings`' switches are the compact size (`.controlSize(.small)`), like `SettingsToggleRow`'s.
 
 ### Fixed
 

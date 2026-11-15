@@ -188,6 +188,7 @@ public struct AppearanceSettings: View {
                     ) {
                         Toggle(isOn: separateModesBinding) { EmptyView() }
                             .toggleStyle(.flatSwitch)
+                            .controlSize(.small)
                             .labelsHidden()
                     }
                 }
@@ -212,6 +213,7 @@ public struct AppearanceSettings: View {
                     SettingsRow(.verbatim(String(localized: "Translucent sidebar", bundle: .module))) {
                         Toggle(isOn: $translucentSidebar) { EmptyView() }
                             .toggleStyle(.flatSwitch)
+                            .controlSize(.small)
                             .labelsHidden()
                     }
                     SettingsRow(.verbatim(String(localized: "Contrast", bundle: .module))) {
@@ -227,6 +229,7 @@ public struct AppearanceSettings: View {
                     ) {
                         Toggle(isOn: $usesPointerCursors) { EmptyView() }
                             .toggleStyle(.flatSwitch)
+                            .controlSize(.small)
                             .labelsHidden()
                     }
                     if dockIcons.count > 1 {
