@@ -4,6 +4,10 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [2.4.1] — 2026-11-17
+
+Memory fixes found while profiling Skills Buddy.
+
 ### Fixed
 
 - `BlissTable(isLazy: true)` builds rows as they scroll into view. Its rows sat inside `DividedForEach`'s one `VStack`, which a lazy stack builds whole, so the flag built every row at once. Each row is now its own child of the lazy stack, with the divider above it.
@@ -164,7 +168,8 @@ The first tagged release — the StackMe component set, extracted into a package
 - The library's own strings in 10 languages (de, en, es, fr, it, ja, ko, pt-BR, ru, zh-Hans).
 - `BlissCatalog`, a demo app of every component built on the public API, and `scripts/screenshots.sh`, which regenerates the README images from it.
 
-[Unreleased]: https://github.com/portseif/bliss-ui/compare/2.4.0...HEAD
+[Unreleased]: https://github.com/portseif/bliss-ui/compare/2.4.1...HEAD
+[2.4.1]: https://github.com/portseif/bliss-ui/releases/tag/2.4.1
 [2.4.0]: https://github.com/portseif/bliss-ui/releases/tag/2.4.0
 [2.3.0]: https://github.com/portseif/bliss-ui/releases/tag/2.3.0
 [2.2.0]: https://github.com/portseif/bliss-ui/releases/tag/2.2.0
