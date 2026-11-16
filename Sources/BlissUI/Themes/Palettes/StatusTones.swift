@@ -58,6 +58,9 @@ public enum StatusTones {
 
     /// Built once per theme; nil when the theme sets no status colors.
     private static var cache: [String: Tones?] = [:]
+    /// The key holds the colors set over the themes, which change on every tick
+    /// of a Settings slider: keep the last few, not every color ever tried.
+    private static let maximumCachedTones = 8
 
     /// Drops the built tones (a registered theme may have replaced one).
     public static func invalidateCache() { cache.removeAll() }
@@ -71,6 +74,7 @@ public enum StatusTones {
         ].joined(separator: "|")
         if let cached = cache[key] { return cached }
         let tones = makeTones(for: BlissTheme.active)
+        if cache.count >= maximumCachedTones { cache.removeAll() }
         cache[key] = tones
         return tones
     }
