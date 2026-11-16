@@ -4,6 +4,15 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+
+- `InputField` — the boxed text field with a leading icon, a clear button, a keyboard hint, a loading spinner and a trailing slot.
+- `OneTimeCodeField` — a verification code typed into a row of boxes over one hidden field.
+- `Pagination` — page controls for a table or list, 1-based, with an ellipsis for skipped runs.
+- `Timeline` and `TimelineItem` — an activity feed with dot or icon marks on one connector line.
+- `PersonRow` — avatar, name and detail with a trailing slot.
+- `LabeledDivider` — a hairline with a label set into it.
+
 ## [2.0.0] — 2026-11-15
 
 A title bar, a collapsible sidebar, a commit graph and theme-aware everything. Two changes break source compatibility: `ToastService` is `@Observable` (drop `@ObservedObject`), and `\.appSheetDismiss` is an `AppSheetDismissAction` (where it was passed as a closure, write `{ dismiss() }`). Both are under Changed.

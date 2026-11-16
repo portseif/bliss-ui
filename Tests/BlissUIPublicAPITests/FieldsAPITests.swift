@@ -35,4 +35,21 @@ import BlissUI
         let name = "Notes"
         _ = TextArea("\(name)", text: .constant(""))
     }
+
+    @Test func inputFieldIsReachable() {
+        _ = InputField("Search", text: .constant(""))
+        _ = InputField("Search", text: .constant("ring"), prompt: Text("Search components"), systemImage: "magnifyingglass", isClearable: true, keyboardHint: "⌘K")
+        _ = InputField("Domain", text: .constant("bliss"), isLoading: true) {
+            Text(verbatim: ".dev")
+        }
+        _ = FormField("Email", error: "Required") {
+            InputField("Email", text: .constant(""), systemImage: "envelope")
+        }
+    }
+
+    @Test func oneTimeCodeFieldIsReachable() {
+        _ = OneTimeCodeField(code: .constant("42"))
+        _ = OneTimeCodeField("Pairing code", code: .constant(""), length: 4, groupSize: nil, allowsLetters: true) { code in _ = code }
+        _ = OneTimeCodeField(code: .constant(""), length: 8, groupSize: 4)
+    }
 }

@@ -37,6 +37,19 @@ extension Gallery {
                 }
             }
         },
+        GalleryEntry("input-field", width: 420, height: 120) {
+            VStack(spacing: Spacing.md) {
+                InputField("Search", text: .constant("focus ring"), systemImage: "magnifyingglass", isClearable: true, keyboardHint: "⌘K")
+                InputField("Domain", text: .constant("bliss"), isLoading: true) {
+                    Text(verbatim: ".dev")
+                        .font(Typography.bodySmall)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        },
+        GalleryEntry("one-time-code", width: 360, height: 90) {
+            OneTimeCodeField(code: .constant("4271"))
+        },
         GalleryEntry("text-area", width: 460, height: 168) {
             VStack(spacing: Spacing.md) {
                 TextArea("Notes", text: .constant(""), prompt: Text("Add a note…"), lineLimit: 2...4)

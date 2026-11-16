@@ -204,6 +204,22 @@ struct InputsPage: View {
 
 // MARK: - Display
 
+/// An event in the timeline demo.
+private struct CatalogEvent: Identifiable {
+    let id: Int
+    let title: String
+    let detail: String?
+    let mark: TimelineMark
+    let date: Date
+
+    static let feed = [
+        CatalogEvent(id: 1, title: "Deploy finished", detail: "Build 412 is live on production.", mark: .icon("checkmark", Success.success500), date: .now.addingTimeInterval(-240)),
+        CatalogEvent(id: 2, title: "Tests passed", detail: nil, mark: .dot(Success.success500), date: .now.addingTimeInterval(-540)),
+        CatalogEvent(id: 3, title: "Build started", detail: "Triggered by a push to main.", mark: .dot(.secondary), date: .now.addingTimeInterval(-720)),
+        CatalogEvent(id: 4, title: "Migration warning", detail: "Two columns were dropped without a backup.", mark: .icon("exclamationmark.triangle", Warning.warning500), date: .now.addingTimeInterval(-1_800)),
+    ]
+}
+
 struct DisplayPage: View {
     @State private var count = 7
     @State private var isRevealed = false
@@ -254,6 +270,21 @@ struct DisplayPage: View {
                     TerminalOutputLine("Build complete!"),
                 ], title: "Build", maxHeight: 140)
             }
+            DemoBlock(title: "Timeline") {
+                Timeline(CatalogEvent.feed) { event in
+                    TimelineItem(mark: event.mark, time: Text(event.date, style: .relative)) {
+                        VStack(alignment: .leading, spacing: Spacing.hairline) {
+                            Text(verbatim: event.title)
+                            if let detail = event.detail {
+                                Text(verbatim: detail)
+                                    .font(Typography.captionSmall)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: 480)
+            }
             DemoBlock(title: "Empty state") {
                 EmptyState(icon: "tray", title: "Nothing here yet", subtitle: "Items you add show up here.") {
                     Button("Add Item") {}.buttonStyle(PrimaryButtonStyle(compact: true))
@@ -272,6 +303,16 @@ struct SectionsPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
+            DemoBlock(title: "Labeled divider") {
+                VStack(spacing: Spacing.lg) {
+                    LabeledDivider("or")
+                    LabeledDivider("Yesterday", alignment: .leading)
+                    LabeledDivider(alignment: .trailing) {
+                        Text("3 more").font(Typography.captionSmallSemibold)
+                    }
+                }
+                .frame(maxWidth: 420)
+            }
             UnderlineTabBar(
                 items: [
                     UnderlineTabItem(value: 0, title: "Overview"),
@@ -324,6 +365,7 @@ private struct CatalogStep: Identifiable {
 
 struct TablePage: View {
     @State private var selection: Set<UUID> = []
+    @State private var page = 6
     @State private var steps = [
         CatalogStep(id: 1, title: "Install dependencies", icon: "shippingbox"),
         CatalogStep(id: 2, title: "Run migrations", icon: "cylinder.split.1x2"),
@@ -359,6 +401,13 @@ struct TablePage: View {
                     }
                 }
                 .frame(maxWidth: 420)
+            }
+            DemoBlock(title: "Pagination") {
+                Text("The first and last page always show; skipped runs fold into an ellipsis. Previous and next disable at the ends.")
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(.secondary)
+                Pagination(page: $page, pageCount: 24)
+                Pagination(page: $page, pageCount: 24, siblingCount: 2)
             }
         }
     }

@@ -35,17 +35,17 @@ Sources/BlissUI/
     ├── Actions/     ActionBar, HoverIconButton, quick-action menu rows
     ├── Calendar/    MonthCalendar, DatePickerField, DateRangePickerField, DateRangeCalendar
     ├── Data/        ProgressBar, ProgressRing, UsageBar, TickStrip, ChangeBlocks, Sparkline, CommitGraph
-    ├── Display/     Badge, EmptyState, ThinkingSpinner, InfoButton, PathHoverChip, SlidingNumber, StatusPill, KeyHintPill, …
+    ├── Display/     Badge, EmptyState, ThinkingSpinner, InfoButton, PathHoverChip, SlidingNumber, StatusPill, KeyHintPill, Timeline, …
     ├── Feedback/    Banner, DisclosureSection, ConfirmationSheet, skeleton loading
     ├── Filters/     FilterBar + FilterCondition matching, filter menu rows, FilterMenuButton
     ├── Forms/       SettingsRow family, settings table of contents, FormField, OptionCard, RadioGlyph, wizard rows
-    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, NumberField, BlissSlider, TextArea, SecretField, TokenField, ComboBox, ShortcutRecorder, DropZone
-    ├── Layout/      Avatar, AvatarStack, Breadcrumbs, InspectorSplit, CodeField + highlighters
+    ├── Inputs/      FloatingMenuPicker, SegmentedPills, color + icon pickers, checkbox, NumberField, BlissSlider, TextArea, SecretField, TokenField, ComboBox, ShortcutRecorder, DropZone, InputField, OneTimeCodeField
+    ├── Layout/      Avatar, AvatarStack, PersonRow, Breadcrumbs, InspectorSplit, CodeField + highlighters
     ├── Navigation/  UnderlineTabBar, StepIndicator, CommandPalette, Sidebar, OutlineList, SlideoutPanel
     ├── Overlays/    FloatingMenu, context menu, Tooltip, ScrollViewWithThinIndicator, ProgressOverlay
-    ├── Sections/    RoundedSection, SectionHeader, DetailRow, InfoList
+    ├── Sections/    RoundedSection, SectionHeader, LabeledDivider, DetailRow, InfoList
     ├── Sheets/      AppSheet, SheetHeader, SheetCloseButton
-    ├── Tables/      BlissTable, SelectionBar, ReorderableList, DividedForEach, list-row hover
+    ├── Tables/      BlissTable, SelectionBar, Pagination, ReorderableList, DividedForEach, list-row hover
     ├── Grids/       FlowLayout
     └── Toasts/      ToastData, ToastService, ToastNotification, .globalToast()
 Examples/BlissCatalog/  Demo app of every component, public API only (Gallery.swift feeds the README index)
@@ -118,6 +118,7 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 - `TextField(...).textFieldStyle(.largePadded)`. A hand-built input wraps its chrome in `.inputBox(isFocused:cornerRadius:)` — don't hand-roll the box.
 - `FormField(title, hint:, error:, isRequired:) { control }` puts the title above and the hint or error below; while `error` is set it sets `\.formFieldIsInvalid`, which the text field styles and `.inputBox` draw as a red line (read it in your own input). The control keeps its own label for VoiceOver; the hint or error becomes its accessibility hint.
+- `InputField(title, text:, systemImage:, isClearable:, keyboardHint:, isLoading:) { trailing }` is the boxed field with accessories on `.inputBox`: the clear button is mounted but disabled while hidden (so Tab never lands on it unseen), Esc clears, the keyboard hint hides on focus. `OneTimeCodeField(code:length:groupSize:)` draws one hidden `TextField` as a row of boxes — typing, Backspace, paste and the Tab stop are the field's; only digits (or letters with `allowsLetters`) survive `sanitize`, and `onComplete` fires once the last box fills.
 - `DropZone(title, hint:, allowedContentTypes:, …) { urls in … }` is the file drop target: a dashed card, accent while a drag hovers, and the whole card is one button that opens an `NSOpenPanel` with the same rules (the Browse text is drawn, not a nested button, so Tab stops once). Folders count only with `canChooseDirectories`.
 - `SecretField` for keys, tokens and passwords: masked until revealed, copy through `SecretClipboard`. Both fields stay mounted (one hidden) so the reveal keeps focus — a `SecureField` ↔ `TextField` swap drops it. Revealing asks `SecretClipboard.authorize`, and the value re-masks when the app resigns active.
 - Toggles are `.toggleStyle(.flatSwitch)`, never the native `.switch` (a Tab stop with the shared ring that Space flips, real switch semantics for VoiceOver).
@@ -131,11 +132,11 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 
 ### Display
 
-`Badge` (one badge, many styles: `.badgeStyle(.success)`, `Badge(count:)`, `.dot(_:)`), `EmptyState` (fills its container; `.contained()` for a section-level empty), `ThinkingSpinner` (the one indeterminate spinner — `ProgressView` can't be tinted on macOS), `TextLink` (URLs only), `TimeAgoLabel`, `DividedForEach`, `DetailRow`, `ShortcutKey`, `SectionHeader`, `UnderlineTabBar`, `FlowLayout`, `ShimmerTextOverlay`, `SlidingNumber`, `RoundedSection` (settings/form card; `insetsHeader: false` puts its title flush with the card's edge).
+`Badge` (one badge, many styles: `.badgeStyle(.success)`, `Badge(count:)`, `.dot(_:)`), `EmptyState` (fills its container; `.contained()` for a section-level empty), `ThinkingSpinner` (the one indeterminate spinner — `ProgressView` can't be tinted on macOS), `TextLink` (URLs only), `TimeAgoLabel`, `DividedForEach`, `DetailRow`, `ShortcutKey`, `SectionHeader`, `UnderlineTabBar`, `FlowLayout`, `ShimmerTextOverlay`, `SlidingNumber`, `RoundedSection` (settings/form card; `insetsHeader: false` puts its title flush with the card's edge), `LabeledDivider("or")` / `LabeledDivider(alignment: .leading) { view }` (a `menuBorder` hairline with a caption label set in; `.leading` / `.trailing` keep a `Spacing.md` stub on the near side), `Timeline(events) { TimelineItem(mark:, time:) { … } }` (an activity feed: a dot or icon mark on one continuous connector that stops at the first and last marks, the time trailing on the first line).
 
 - **Semantic badges** fill with a wash of their status tint in both schemes (`X.tint.opacity(0.1)` light / `0.2` dark, hairline `0.3` / `0.4`). The light ramp's `*50` / `*200` steps are near-full saturation; never fill a badge with them.
 - **Data views** are shape-based and dependency-free: `ProgressBar` / `ProgressRing` (determinate; `nil` value is the indeterminate sweep, still under Reduce Motion — `ThinkingSpinner` stays the one indeterminate spinner), `UsageBar` (stacked segments in whole points, largest-remainder split, or a meter that turns amber past 75% and red past 90%), `TickStrip`, `ChangeBlocks`, `Sparkline` (gaps draw dashed, never interpolated), `CommitGraph` (git history: `CommitGraphLayout` assigns lanes from the parent links — a commit takes the leftmost lane waiting for it, its first parent continues that lane, a lane keeps its color until it ends — and each row draws its own slice in a `Canvas` flush with the next; text starts after that row's lanes). Strokes and text use the status marks; washes use `.statusTint`.
-- **People & layout:** `Avatar` (initials on a name-hashed color held to the theme's contrast, optional status with a shape per state), `AvatarStack` (`+N` as a fixed-width chip, or `overflowStyle: .plain` text), `Breadcrumbs` (middle segments fold into a "…" floating menu), `InspectorSplit` (pinned shrinks the content, unpinned is a drawer with a dim; drag grip, width clamped and optionally persisted), `CodeField` (clear editor under a colored overlay; `.shell` / `.yaml` / your own `CodeHighlighter`).
+- **People & layout:** `Avatar` (initials on a name-hashed color held to the theme's contrast, optional status with a shape per state), `PersonRow(name:, detail:, size:, status:) { trailing }` (avatar + name over a detail + a trailing slot; no hover of its own, the avatar hidden from VoiceOver and the status read as the row's value), `AvatarStack` (`+N` as a fixed-width chip, or `overflowStyle: .plain` text), `Breadcrumbs` (middle segments fold into a "…" floating menu), `InspectorSplit` (pinned shrinks the content, unpinned is a drawer with a dim; drag grip, width clamped and optionally persisted), `CodeField` (clear editor under a colored overlay; `.shell` / `.yaml` / your own `CodeHighlighter`).
 
 ### Navigation
 
@@ -153,6 +154,8 @@ Linear-inspired: `radiusMedium` corners, hairline borders, `RowTint` hover/press
 ### Tables
 
 `BlissTable(rows, columns:, selection:, onOpen:) { row in cell; cell; cell }` — the `cells` closure returns one view per column and `BlissTableRowLayout` gives each its column width, so the header and rows always line up. Columns are `.fixed(_)` or `.flexible(minimum:)`; a column sorts when given a comparator or key path. `pinsHeader: true` pins the header to the top of the enclosing scroll view (a lazy section header on the content surface). Rows are an eager `VStack` by default — a `LazyVStack` shimmers by a sub-pixel during width animations. Bulk actions go in `.selectionBar(count:onClear:) { SelectionBarButton(…) }`, which lifts toasts above it.
+
+`Pagination(page:pageCount:siblingCount:)` — the compact secondary icon buttons as page controls, 1-based; first and last always show with an ellipsis for a skipped run (a single skipped page shows instead), `page` clamps on appear and when `pageCount` changes, and one page renders nothing.
 
 `ReorderableList($items, gripPlacement:, divided:) { row }` — flat rows with a grip that drags them into a new order (the others slide as the dragged row's center crosses theirs); ⌥↑ / ⌥↓ move the focused grip's row, VoiceOver gets Move up / Move down. Only the grip drags, so the row's text stays selectable.
 

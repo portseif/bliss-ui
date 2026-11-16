@@ -205,6 +205,20 @@ enum Gallery {
                 TerminalOutputLine("Build complete!"),
             ], title: "Build", maxHeight: 140)
         },
+        GalleryEntry("timeline", width: 420, height: 240) {
+            Timeline(GalleryEvent.feed) { event in
+                TimelineItem(mark: event.mark, time: Text(verbatim: event.time)) {
+                    VStack(alignment: .leading, spacing: Spacing.hairline) {
+                        Text(verbatim: event.title)
+                        if let detail = event.detail {
+                            Text(verbatim: detail)
+                                .font(Typography.captionSmall)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        },
         GalleryEntry("empty-state", height: 300) {
             EmptyState(icon: "tray", title: "Nothing here yet", subtitle: "Items you add show up here.") {
                 Button("Add Item") {}.buttonStyle(PrimaryButtonStyle(compact: true))
@@ -218,6 +232,12 @@ enum Gallery {
                 Toggle("Save automatically", isOn: .constant(true)).toggleStyle(.flatSwitch(showsLabel: true))
                 DetailRow(label: "Version", value: "1.0.0", copyable: true)
                 DetailRow(label: "Location", value: "~/Library/Application Support/Bliss", isPath: true)
+            }
+        },
+        GalleryEntry("labeled-divider", width: 420, height: 100) {
+            VStack(spacing: Spacing.lg) {
+                LabeledDivider("or")
+                LabeledDivider("Yesterday", alignment: .leading)
             }
         },
         GalleryEntry("section-header", height: 64) {
@@ -262,6 +282,9 @@ enum Gallery {
                         .frame(width: Sizing.iconDefault)
                 }
             }
+        },
+        GalleryEntry("pagination", width: 420, height: 76) {
+            Pagination(page: .constant(6), pageCount: 24)
         },
         GalleryEntry("selection-bar", width: 520, height: 92) {
             SelectionBar(count: 3, onClear: {}) {
@@ -428,16 +451,20 @@ private struct GalleryMenuCard: View {
 // MARK: - Exporter
 
 /// Shows each entry in turn, sizes the window to it, and captures the window.
+///
+/// The loop lives in `GalleryExporter`, not in this view's `.task`:
+/// `.blissTheme()` re-IDs the tree when a forced Light or Dark differs from the
+/// Mac's appearance, which would recreate this view, cancel its task and drop
+/// its window reference, so a Light run on a dark Mac captured nothing.
 struct GalleryExportView: View {
     let outputDirectory: URL
 
-    @State private var current: GalleryEntry?
-    @State private var window: NSWindow?
+    private let exporter = GalleryExporter.shared
 
     var body: some View {
         ZStack {
             Color.contentAreaBackground
-            if let current {
+            if let current = exporter.current {
                 current.content()
                     .padding(Spacing.xl)
                     .frame(width: current.size.width, height: current.size.height)
@@ -448,34 +475,44 @@ struct GalleryExportView: View {
         }
         .ignoresSafeArea()
         .onWindow { hostWindow in
-            guard window !== hostWindow else { return }
-            window = hostWindow
             for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
                 hostWindow.standardWindowButton(button)?.isHidden = true
             }
         }
-        .task { await export() }
+        .onAppear { exporter.startIfNeeded(outputDirectory: outputDirectory) }
+    }
+}
+
+/// Walks the entries once, whatever happens to the view showing them.
+@MainActor
+@Observable
+final class GalleryExporter {
+    static let shared = GalleryExporter()
+
+    private(set) var current: GalleryEntry?
+    @ObservationIgnored private var hasStarted = false
+
+    private init() {}
+
+    func startIfNeeded(outputDirectory: URL) {
+        guard !hasStarted else { return }
+        hasStarted = true
+        Task { await export(to: outputDirectory) }
     }
 
-    private func export() async {
+    private func export(to outputDirectory: URL) async {
         try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
         // Give the window a moment to land.
         try? await Task.sleep(for: .milliseconds(800))
         for entry in Gallery.entries {
             current = entry
-            if let window {
-                window.setContentSize(entry.size)
-            }
+            WindowCapture.catalogWindow?.setContentSize(entry.size)
             // Past every entrance animation.
             try? await Task.sleep(for: .milliseconds(700))
-            guard let window else { continue }
-            capture(window: window, to: outputDirectory.appendingPathComponent("\(entry.id).png"))
+            guard let window = WindowCapture.catalogWindow else { continue }
+            WindowCapture.capture(window, to: outputDirectory.appendingPathComponent("\(entry.id).png"))
         }
         NSApplication.shared.terminate(nil)
-    }
-
-    private func capture(window: NSWindow, to file: URL) {
-        WindowCapture.capture(window, to: file)
     }
 }
 
@@ -487,6 +524,12 @@ enum WindowCapture {
     /// settled, then quits.
     static var requestedFile: URL? {
         UserDefaults.standard.string(forKey: "capture").map { URL(fileURLWithPath: $0) }
+    }
+
+    /// The catalog's window (not a menu or tooltip panel), found through AppKit
+    /// so a capture doesn't depend on a view that may have been re-created.
+    static var catalogWindow: NSWindow? {
+        NSApplication.shared.windows.first { $0.isVisible && !($0 is NSPanel) }
     }
 
     static func capture(_ window: NSWindow, to file: URL) {
@@ -511,5 +554,21 @@ private struct GalleryStep: Identifiable {
         GalleryStep(id: 3, title: "Build", icon: "hammer"),
         GalleryStep(id: 4, title: "Run tests", icon: "checkmark.seal"),
         GalleryStep(id: 5, title: "Deploy", icon: "paperplane"),
+    ]
+}
+
+/// An event in the timeline picture.
+private struct GalleryEvent: Identifiable {
+    let id: Int
+    let title: String
+    let detail: String?
+    let mark: TimelineMark
+    let time: String
+
+    static let feed = [
+        GalleryEvent(id: 1, title: "Deploy finished", detail: "Build 412 is live on production.", mark: .icon("checkmark", Success.success500), time: "4m ago"),
+        GalleryEvent(id: 2, title: "Tests passed", detail: nil, mark: .dot(Success.success500), time: "9m ago"),
+        GalleryEvent(id: 3, title: "Build started", detail: "Triggered by a push to main.", mark: .dot(.secondary), time: "12m ago"),
+        GalleryEvent(id: 4, title: "Migration warning", detail: "Two columns were dropped without a backup.", mark: .icon("exclamationmark.triangle", Warning.warning500), time: "30m ago"),
     ]
 }

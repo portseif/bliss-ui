@@ -19,6 +19,11 @@ struct FieldsPage: View {
     @State private var notes = ""
     @State private var bio = "Designer and tinkerer. Builds small tools for people who make things."
     @State private var ignoreFile = "/node_modules\n/dist\n.env"
+    @State private var query = ""
+    @State private var domain = "bliss"
+    @State private var isCheckingDomain = false
+    @State private var code = ""
+    @State private var pairingCode = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -68,6 +73,36 @@ struct FieldsPage: View {
                     }
                 }
                 .frame(maxWidth: 480)
+            }
+
+            DemoBlock(title: "Input field") {
+                FieldsCaption("The boxed field with accessories: a leading icon, a clear button while there's text (Esc clears too), a keyboard hint that hides on focus, a loading spinner and a trailing slot.")
+                VStack(spacing: Spacing.md) {
+                    InputField("Search", text: $query, prompt: Text("Search components"), systemImage: "magnifyingglass", isClearable: true, keyboardHint: "⌘K")
+                    InputField("Domain", text: $domain, isLoading: isCheckingDomain) {
+                        Text(verbatim: ".dev")
+                            .font(Typography.bodySmall)
+                            .foregroundStyle(.secondary)
+                    }
+                    .onChange(of: domain) { _, _ in
+                        isCheckingDomain = true
+                        Task {
+                            try? await Task.sleep(for: .seconds(1))
+                            isCheckingDomain = false
+                        }
+                    }
+                }
+                .frame(maxWidth: 420)
+            }
+
+            DemoBlock(title: "One-time code") {
+                FieldsCaption("Type or paste the code; Backspace steps back. The second takes letters too.")
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    OneTimeCodeField(code: $code) { code in
+                        ToastService.shared.showSuccess(title: "Verified", message: code)
+                    }
+                    OneTimeCodeField("Pairing code", code: $pairingCode, length: 4, groupSize: nil, allowsLetters: true)
+                }
             }
 
             DemoBlock(title: "Text area") {

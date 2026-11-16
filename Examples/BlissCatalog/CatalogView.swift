@@ -79,7 +79,10 @@ struct CatalogView: View {
     private func captureIfRequested() async {
         guard let file = WindowCapture.requestedFile else { return }
         try? await Task.sleep(for: .milliseconds(2_000))
-        if let window { WindowCapture.capture(window, to: file) }
+        // A cancelled sleep returns at once: the theme modifier re-IDs the tree
+        // when a forced scheme differs from the Mac's, restarting this task.
+        guard !Task.isCancelled else { return }
+        if let window = window ?? WindowCapture.catalogWindow { WindowCapture.capture(window, to: file) }
         NSApplication.shared.terminate(nil)
     }
 

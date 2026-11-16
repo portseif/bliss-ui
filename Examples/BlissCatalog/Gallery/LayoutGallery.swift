@@ -39,6 +39,17 @@ extension Gallery {
                 AvatarStack(names: ["Design", "Platform", "Growth"], size: .large, shape: .rounded)
             }
         },
+        GalleryEntry("person-row", width: 420, height: 150) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                PersonRow(name: "Ada Lovelace", detail: "ada@example.com", status: .online) {
+                    Badge("Owner").badgeStyle(.primary).badgeSize(.small)
+                }
+                PersonRow(name: "Grace Hopper", detail: "Reviewer", status: .away)
+                PersonRow(name: "Alan Turing", detail: "Invited") {
+                    Button("Resend") {}.buttonStyle(SecondaryButtonStyle(compact: true))
+                }
+            }
+        },
         GalleryEntry("breadcrumbs", width: 560, height: 110) {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 Breadcrumbs(["Projects", "BlissUI", "Sources", "Layout"], title: { $0 }) { _ in }

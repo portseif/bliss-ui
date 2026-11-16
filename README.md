@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 85 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 91 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -193,6 +193,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/drop-zone-dark.webp"><img src="docs/images/components/drop-zone-light.webp" alt="Drop zone" width="360"></picture><br><b>Drop zone</b><br><code>DropZone</code><br><sub>A dashed target that lights up in the accent while files hover; click it or press Space for an open panel with the same rules.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/input-field-dark.webp"><img src="docs/images/components/input-field-light.webp" alt="Input field" width="315"></picture><br><b>Input field</b><br><code>InputField</code><br><sub>The boxed field with a leading icon, a clear button, a keyboard hint that hides on focus, a loading spinner and a trailing slot.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/one-time-code-dark.webp"><img src="docs/images/components/one-time-code-light.webp" alt="One-time code" width="270"></picture><br><b>One-time code</b><br><code>OneTimeCodeField</code><br><sub>A verification code in boxes over one real field: typing, Backspace and paste work as usual, and the next box carries the ring.</sub></td>
     <td width="50%"></td>
   </tr>
 </table>
@@ -257,7 +261,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/empty-state-dark.webp"><img src="docs/images/components/empty-state-light.webp" alt="Empty state" width="420"></picture><br><b>Empty state</b><br><code>EmptyState</code> · <code>.contained()</code><br><sub>One empty state everywhere; <code>.contained()</code> for a section inside a page.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/timeline-dark.webp"><img src="docs/images/components/timeline-light.webp" alt="Timeline" width="315"></picture><br><b>Timeline</b><br><code>Timeline</code> · <code>TimelineItem</code><br><sub>An activity feed: dots or icons on one connector line, with the time trailing on each first line.</sub></td>
   </tr>
 </table>
 
@@ -312,7 +316,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/form-field-dark.webp"><img src="docs/images/components/form-field-light.webp" alt="Form field" width="315"></picture><br><b>Form field</b><br><code>FormField</code> · <code>\.formFieldIsInvalid</code><br><sub>A title above the control and a hint or error under it; the error turns the field's line red.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/labeled-divider-dark.webp"><img src="docs/images/components/labeled-divider-light.webp" alt="Labeled divider" width="315"></picture><br><b>Labeled divider</b><br><code>LabeledDivider</code><br><sub>A hairline with "or", a date or any view set into it, centered or near one end.</sub></td>
   </tr>
 </table>
 
@@ -376,7 +380,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/reorderable-list-dark.webp"><img src="docs/images/components/reorderable-list-light.webp" alt="Reorderable list" width="270"></picture><br><b>Reorderable list</b><br><code>ReorderableList</code><br><sub>Drag a row by its grip and the others slide out of the way; ⌥↑ / ⌥↓ move it from the keyboard.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/pagination-dark.webp"><img src="docs/images/components/pagination-light.webp" alt="Pagination" width="315"></picture><br><b>Pagination</b><br><code>Pagination</code><br><sub>Previous, the page numbers and next as compact buttons; the current page is the filled one, skipped runs fold into an ellipsis.</sub></td>
   </tr>
 </table>
 
@@ -393,6 +397,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/inspector-split-dark.webp"><img src="docs/images/components/inspector-split-light.webp" alt="Inspector split" width="420"></picture><br><b>Inspector split</b><br><code>InspectorSplit</code><br><sub>A resizable inspector, pinned beside the content or as a drawer.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/code-field-dark.webp"><img src="docs/images/components/code-field-light.webp" alt="Code field" width="420"></picture><br><b>Code field</b><br><code>CodeField</code> · <code>CodeHighlighter</code><br><sub>Syntax-highlighted input for shell and YAML, or your own rules.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/person-row-dark.webp"><img src="docs/images/components/person-row-light.webp" alt="Person row" width="315"></picture><br><b>Person row</b><br><code>PersonRow</code><br><sub>Avatar, name and a detail line with a trailing slot for a badge, a role or a button.</sub></td>
+    <td width="50%"></td>
   </tr>
 </table>
 

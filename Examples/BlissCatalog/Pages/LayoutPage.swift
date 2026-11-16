@@ -13,6 +13,7 @@ struct LayoutPage: View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             AvatarDemo()
             AvatarStackDemo()
+            PersonRowDemo()
             BreadcrumbsDemo()
             InspectorSplitDemo()
             CodeFieldDemo()
@@ -25,6 +26,25 @@ private enum LayoutSamples {
         "Ada Lovelace", "Grace Hopper", "Alan Turing", "Katherine Johnson", "Edsger Dijkstra",
         "Barbara Liskov", "Donald Knuth", "山田太郎", "Анна Каренина", "김민준",
     ]
+}
+
+// MARK: - Person row
+
+private struct PersonRowDemo: View {
+    var body: some View {
+        DemoBlock(title: "Person row") {
+            RoundedSection(divided: true) {
+                PersonRow(name: "Ada Lovelace", detail: "ada@example.com", status: .online) {
+                    Badge("Owner").badgeStyle(.primary).badgeSize(.small)
+                }
+                PersonRow(name: "Grace Hopper", detail: "Reviewer", status: .away)
+                PersonRow(name: "Alan Turing", detail: "Invited") {
+                    Button("Resend") {}.buttonStyle(SecondaryButtonStyle(compact: true))
+                }
+            }
+            .frame(maxWidth: 480)
+        }
+    }
 }
 
 // MARK: - Avatar
