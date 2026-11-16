@@ -224,6 +224,7 @@ A value-keyed `.animation(_:value:)` on a big subtree retimes everything that ch
 | A focused Button loses focus to the first text field | Its label switched between view types (`if` / `else`); keep one structure and change its contents |
 | `.accessibilityLabel` on a hosted `NSTextView` does nothing | Set the AppKit view's label from a resolved string (`TextArea` takes a `LocalizedStringResource`) |
 | `ForEach(weekdaySymbols, id: \.self)` drops or duplicates days | Initials repeat ("S", "T"); identify by position |
+| Toggling a control spikes memory ~240 MB for a second or two | It swapped its SF Symbol (`isExpanded ? "chevron.up" : "chevron.down"`): RenderBox allocates shared GPU surfaces to draw the new symbol (`footprint` shows them as "Owned physical footprint (unmapped) (graphics)") and prunes them ~1.6s later. Turn one glyph with `.rotationEffect` instead |
 | A dragged row's measured frame never settles | Its geometry includes its own `.offset`; measure row frames only while nothing is dragged (`ReorderableList`) |
 | A `Chart { … }` body takes forever to type-check (or fails on Swift 6.3) | Keep it to `ForEach` plus one `@ChartContentBuilder` mark function per series |
 | `proxy.value(atX:)` snaps to the wrong sample | Its x is plot-relative: subtract `geometry[proxy.plotFrame].minX` from the hover location |

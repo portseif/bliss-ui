@@ -169,8 +169,12 @@ public struct TerminalOutputView<HeaderAccessory: View>: View {
 
             // Expand/collapse button
             if isCollapsible {
+                // One chevron, turned. Swapping `chevron.up` for `chevron.down`
+                // renders a new symbol, and RenderBox takes ~240 MB of shared
+                // GPU surfaces for it on every toggle (freed ~1.6s later) —
+                // measured in Skills Buddy; a rotation draws nothing new.
                 HoverIconButton(
-                    systemImage: isExpanded.wrappedValue ? "chevron.up" : "chevron.down",
+                    systemImage: "chevron.down",
                     help: isExpanded.wrappedValue
                         ? String(localized: "Collapse output", bundle: .module)
                         : String(localized: "Expand output", bundle: .module)
@@ -179,6 +183,10 @@ public struct TerminalOutputView<HeaderAccessory: View>: View {
                         isExpanded.wrappedValue.toggle()
                     }
                 }
+                .rotationEffect(.degrees(isExpanded.wrappedValue ? 180 : 0))
+                // The turn is a small affordance, but still motion: under
+                // Reduce Motion it snaps.
+                .animation(prefersReducedMotion ? nil : Animations.accordion, value: isExpanded.wrappedValue)
                 .accessibilityValue(isExpanded.wrappedValue ? Text("Expanded", bundle: .module) : Text("Collapsed", bundle: .module))
             }
         }
