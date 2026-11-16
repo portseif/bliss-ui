@@ -126,6 +126,12 @@ enum Gallery {
             }
             .font(Typography.bodySmall)
         },
+        GalleryEntry("rating", width: 360, height: 100) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Rating("Quality", value: .constant(4))
+                Rating("Priority", value: .constant(2), maximum: 3, systemImage: "flame", color: Danger.danger500, allowsClear: false)
+            }
+        },
         GalleryEntry("segmented-pills", height: 104) {
             VStack(spacing: Spacing.md) {
                 SegmentedPills(options: ["Day", "Week", "Month"], selection: .constant("Week"), title: { $0 })
@@ -204,6 +210,9 @@ enum Gallery {
                 TerminalOutputLine("warning: unused variable 'count'", type: .stderr),
                 TerminalOutputLine("Build complete!"),
             ], title: "Build", maxHeight: 140)
+        },
+        GalleryEntry("markdown-view", width: 520, height: 360) {
+            MarkdownView(CatalogMarkdown.releaseNotes)
         },
         GalleryEntry("carousel", width: 520, height: 300) {
             Carousel(GalleryTourPage.pages, selection: .constant(1), showsArrows: false) { page in

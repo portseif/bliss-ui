@@ -11,6 +11,12 @@ import SwiftUI
 
 extension Gallery {
     static let data: [GalleryEntry] = [
+        GalleryEntry("stat-card", width: 560, height: 150) {
+            HStack(spacing: Spacing.md) {
+                StatCard("Active users", value: "1,284", change: StatChange("12%", direction: .up), detail: "vs last week", systemImage: "person.2", sparkline: [12, 14, 13, 17, 19, 18, 23, 26])
+                StatCard("Error rate", value: "0.4%", change: StatChange("0.1 pt", direction: .up, isPositive: false), detail: "vs last week", systemImage: "exclamationmark.triangle", sparkline: [3, 2, 2, 4, 3, 5, 4, 6])
+            }
+        },
         GalleryEntry("progress-bar", height: 132) {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 ProgressBar(value: 0.62, label: "Uploading", showsPercentage: true)

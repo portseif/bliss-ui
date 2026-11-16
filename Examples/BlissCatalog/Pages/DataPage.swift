@@ -25,6 +25,7 @@ struct DataPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
+            statCardsBlock
             progressBlock
             ringBlock
             usageBlock
@@ -34,6 +35,19 @@ struct DataPage: View {
             chartsBlock
             commitGraphBlock
             pillsBlock
+        }
+    }
+
+    // MARK: - Stat cards
+
+    private var statCardsBlock: some View {
+        DemoBlock(title: "Stat cards") {
+            HStack(spacing: Spacing.md) {
+                StatCard("Active users", value: "1,284", change: StatChange("12%", direction: .up), detail: "vs last week", systemImage: "person.2", sparkline: [12, 14, 13, 17, 19, 18, 23, 26])
+                StatCard("Error rate", value: "0.4%", change: StatChange("0.1 pt", direction: .up, isPositive: false), detail: "vs last week", systemImage: "exclamationmark.triangle", sparkline: [3, 2, 2, 4, 3, 5, 4, 6])
+                StatCard("Builds today", value: "48", change: StatChange("0", direction: .flat), detail: "same as yesterday", systemImage: "hammer")
+            }
+            .frame(maxWidth: 760)
         }
     }
 

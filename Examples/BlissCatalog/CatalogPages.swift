@@ -144,6 +144,8 @@ struct InputsPage: View {
     @State private var agreed = false
     @State private var apiKey = "sk-live-4f8a2c9e1b7d6a3f"
     @State private var droppedFiles: [String] = []
+    @State private var stars = 3
+    @State private var priority = 2
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -175,6 +177,17 @@ struct InputsPage: View {
                     }
                 }
                 .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 3))
+            }
+            DemoBlock(title: "Rating") {
+                Text("Hover to preview, click to set, click the same star to clear. Tab to it and use ← / →, Home / End, or ↓ to clear.")
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    Rating("Quality", value: $stars)
+                    Rating("Priority", value: $priority, maximum: 3, systemImage: "flame", color: Danger.danger500, allowsClear: false)
+                    Rating("Average", value: .constant(4))
+                        .disabled(true)
+                }
             }
             DemoBlock(title: "Segmented pills") {
                 SegmentedPills(options: CatalogPeriod.allCases, selection: $period, title: { $0.rawValue })
@@ -309,6 +322,14 @@ struct DisplayPage: View {
                     TerminalOutputLine("warning: unused variable 'count'", type: .stderr),
                     TerminalOutputLine("Build complete!"),
                 ], title: "Build", maxHeight: 140)
+            }
+            DemoBlock(title: "Markdown view") {
+                Text("A whole document: headings, lists, quotes, links and fenced code. Text alone renders inline markdown only.")
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                MarkdownView(CatalogMarkdown.releaseNotes)
+                    .frame(maxWidth: 560)
             }
             DemoBlock(title: "Carousel") {
                 Text("Swipe, click the arrows that appear on hover, or focus it and press ← / → (Home / End jump). The dots are a Tab stop too. Autoplay pauses under the pointer and never runs with Reduce Motion on.")

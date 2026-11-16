@@ -63,6 +63,9 @@ extension Gallery {
                 }
             }
         },
+        GalleryEntry("resizable-split", width: 560, height: 260) {
+            GalleryResizableSplit()
+        },
         GalleryEntry("breadcrumbs", width: 560, height: 110) {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 Breadcrumbs(["Projects", "BlissUI", "Sources", "Layout"], title: { $0 }) { _ in }
@@ -75,6 +78,9 @@ extension Gallery {
                 GalleryInspectorSplit(isPinned: true)
                 GalleryInspectorSplit(isPinned: false)
             }
+        },
+        GalleryEntry("code-block", width: 520, height: 180) {
+            CodeBlock(CatalogMarkdown.shellSnippet, highlighter: .shell, showsLineNumbers: true)
         },
         GalleryEntry("code-field", width: 560, height: 350) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -182,5 +188,39 @@ private struct GalleryKanbanTask: Identifiable {
                 GalleryKanbanTask(id: 6, title: "Fix the table shimmer", tag: "Bug", assignee: "Grace Hopper"),
             ], color: Success.success500),
         ]
+    }
+}
+
+/// A sidebar and content with the divider between them.
+private struct GalleryResizableSplit: View {
+    @State private var sidebarWidth: CGFloat = 200
+
+    var body: some View {
+        ResizableSplit(width: $sidebarWidth, in: 160...320) {
+            Sidebar(selection: .constant(CatalogDestination.today)) {
+                SidebarSection {
+                    SidebarRow("Inbox", icon: "tray", value: CatalogDestination.inbox, count: 4)
+                    SidebarRow("Today", icon: "sun.max", value: CatalogDestination.today)
+                    SidebarRow("Projects", icon: "folder", value: CatalogDestination.projects)
+                }
+            }
+            .background(Color.appShell)
+        } trailing: {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text(verbatim: "Today").font(Typography.headingMedium)
+                Text(verbatim: "Drag the divider, or Tab to it and use the arrow keys.")
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.contentAreaBackground)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
+                .strokeBorder(Color.menuBorder, lineWidth: 1)
+        }
     }
 }

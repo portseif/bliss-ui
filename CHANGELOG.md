@@ -4,6 +4,14 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+
+- `ResizableSplit` — two panes with a divider you drag, nudge from the keyboard or double-click to reset; the width is clamped and can persist.
+- `MarkdownView` — a document's blocks (headings, lists, quotes, links, fenced code) at the library's sizes.
+- `CodeBlock` — a read-only snippet in `CodeField`'s colors with line numbers and a copy button.
+- `StatCard` and `StatChange` — the metric tile with a change pill and a sparkline.
+- `Rating` — stars or any symbol, clicked, hovered or arrowed through.
+
 ## [2.2.0] — 2026-11-16
 
 The three large pieces from the web-kit comparison: a board, an editor and a carousel.

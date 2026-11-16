@@ -15,9 +15,11 @@ struct LayoutPage: View {
             AvatarStackDemo()
             PersonRowDemo()
             KanbanDemo()
+            ResizableSplitDemo()
             BreadcrumbsDemo()
             InspectorSplitDemo()
             CodeFieldDemo()
+            CodeBlockDemo()
         }
     }
 }
@@ -44,6 +46,63 @@ private struct PersonRowDemo: View {
                 }
             }
             .frame(maxWidth: 480)
+        }
+    }
+}
+
+// MARK: - Code block
+
+private struct CodeBlockDemo: View {
+    var body: some View {
+        DemoBlock(title: "Code block") {
+            Text("Read-only code in the editor's colors; long lines scroll sideways. Select to copy a piece, or use the button for the whole snippet.")
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            CodeBlock(CatalogMarkdown.shellSnippet, highlighter: .shell, showsLineNumbers: true)
+                .frame(maxWidth: 560)
+        }
+    }
+}
+
+// MARK: - Resizable split
+
+private struct ResizableSplitDemo: View {
+    @State private var splitWidth: CGFloat = 220
+    @State private var splitDestination = CatalogDestination.today
+
+    var body: some View {
+        DemoBlock(title: "Resizable split") {
+            Text("Drag the divider, double-click it to reset, or Tab to it and press ← / → (⇧ for ten times the step; Home / End jump). The width persists under a key.")
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ResizableSplit(width: $splitWidth, in: 160...320, persistenceKey: "blissCatalog.splitWidth") {
+                Sidebar(selection: $splitDestination) {
+                    SidebarSection {
+                        SidebarRow("Inbox", icon: "tray", value: CatalogDestination.inbox, count: 4)
+                        SidebarRow("Today", icon: "sun.max", value: CatalogDestination.today)
+                        SidebarRow("Projects", icon: "folder", value: CatalogDestination.projects)
+                    }
+                }
+                .background(Color.appShell)
+            } trailing: {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(verbatim: "\(Int(splitWidth)) pt")
+                        .font(Typography.captionSmall)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.contentAreaBackground)
+            }
+            .frame(height: 260)
+            .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
+                    .strokeBorder(Color.menuBorder, lineWidth: 1)
+            }
         }
     }
 }
@@ -393,4 +452,29 @@ extension CodeHighlighter {
         CodeHighlightRule(#"\b\d+(\.\d+)?\b"#, kind: .number),
         CodeHighlightRule(#"[=<>!]+|,"#, kind: .operator),
     ])
+}
+
+/// Sample text for the code block and markdown demos and pictures.
+enum CatalogMarkdown {
+    static let shellSnippet = """
+    # Build and test
+    swift build --build-tests
+    swift test --filter BlissUIPublicAPITests
+    """
+
+    static let releaseNotes = """
+    ## What changed
+
+    The **Low Glare** theme ships this week. Read the [design notes](https://example.com/notes) before you change a `token`.
+
+    - Status marks hold 7:1 on both surfaces
+      - The light ramp's `*50` steps are near-full saturation
+    - Badges fill with a wash of their tint
+
+    > A theme's accent is its default; a pick is kept per theme.
+
+    ```sh
+    swift build --build-tests && swift test
+    ```
+    """
 }

@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 100 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 105 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -203,6 +203,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/message-composer-dark.webp"><img src="docs/images/components/message-composer-light.webp" alt="Message composer" width="360"></picture><br><b>Message composer</b><br><code>MessageComposer</code> · <code>ComposerAttachment</code><br><sub>A growing message field with attachment chips, an attach button, room for your own actions and a send button; Return sends, ⇧Return adds a line.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/rich-text-editor-dark.webp"><img src="docs/images/components/rich-text-editor-light.webp" alt="Rich text editor" width="420"></picture><br><b>Rich text editor</b><br><code>RichTextEditor</code><br><sub>Bold, italic, headings, lists, links, code and quotes in a toolbar over an <code>AttributedString</code>; ⌘B, ⌘I, ⌘U and ⌘K work in the text.</sub></td>
   </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/rating-dark.webp"><img src="docs/images/components/rating-light.webp" alt="Rating" width="270"></picture><br><b>Rating</b><br><code>Rating</code><br><sub>Stars (or any symbol) you click, hover or arrow through; clicking the current value clears it.</sub></td>
+    <td width="50%"></td>
+  </tr>
 </table>
 
 </details>
@@ -269,7 +273,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/carousel-dark.webp"><img src="docs/images/components/carousel-light.webp" alt="Carousel" width="390"></picture><br><b>Carousel</b><br><code>Carousel</code> · <code>PageControl</code><br><sub>Pages side by side that swipe, snap and page from the keyboard, with hover arrows, dots and optional autoplay that stays out of the way.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/markdown-view-dark.webp"><img src="docs/images/components/markdown-view-light.webp" alt="Markdown view" width="390"></picture><br><b>Markdown view</b><br><code>MarkdownView</code><br><sub>A document with headings, lists, quotes, links and fenced code, rendered at the library's sizes.</sub></td>
   </tr>
 </table>
 
@@ -297,6 +301,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/time-series-chart-dark.webp"><img src="docs/images/components/time-series-chart-light.webp" alt="Time series chart" width="390"></picture><br><b>Time series chart</b><br><code>TimeSeriesChart</code> · <code>ChartSample</code><br><sub>Line or area on Swift Charts, one per series in the theme's marks, with a hover cursor and a card of the values under it.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/bar-chart-dark.webp"><img src="docs/images/components/bar-chart-light.webp" alt="Bar chart" width="390"></picture><br><b>Bar chart</b><br><code>BarChart</code> · <code>ChartBar</code> · <code>ChartLegend</code> · <code>.blissChartStyle()</code><br><sub>Rounded bars side by side or stacked, with the library's axes, grid and legend; the style modifier dresses any chart you build.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/stat-card-dark.webp"><img src="docs/images/components/stat-card-light.webp" alt="Stat card" width="420"></picture><br><b>Stat card</b><br><code>StatCard</code> · <code>StatChange</code><br><sub>A metric tile: title, value, a change pill that knows whether up was good, and a sparkline of recent readings.</sub></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
@@ -413,6 +421,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/person-row-dark.webp"><img src="docs/images/components/person-row-light.webp" alt="Person row" width="315"></picture><br><b>Person row</b><br><code>PersonRow</code><br><sub>Avatar, name and a detail line with a trailing slot for a badge, a role or a button.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/kanban-board-dark.webp"><img src="docs/images/components/kanban-board-light.webp" alt="Kanban board" width="420"></picture><br><b>Kanban board</b><br><code>KanbanBoard</code> · <code>KanbanColumn</code><br><sub>Columns of cards that drag within a column or into another, the rest sliding to make room; ⌥ arrows move a card from the keyboard.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/resizable-split-dark.webp"><img src="docs/images/components/resizable-split-light.webp" alt="Resizable split" width="420"></picture><br><b>Resizable split</b><br><code>ResizableSplit</code><br><sub>Two panes and a divider you drag, nudge with the arrow keys or double-click to reset; the width is clamped and can persist.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/code-block-dark.webp"><img src="docs/images/components/code-block-light.webp" alt="Code block" width="390"></picture><br><b>Code block</b><br><code>CodeBlock</code><br><sub>A read-only snippet in the editor's colors, with line numbers and a copy button; long lines scroll sideways.</sub></td>
   </tr>
 </table>
 
