@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 96 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 100 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -201,7 +201,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/message-composer-dark.webp"><img src="docs/images/components/message-composer-light.webp" alt="Message composer" width="360"></picture><br><b>Message composer</b><br><code>MessageComposer</code> · <code>ComposerAttachment</code><br><sub>A growing message field with attachment chips, an attach button, room for your own actions and a send button; Return sends, ⇧Return adds a line.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/rich-text-editor-dark.webp"><img src="docs/images/components/rich-text-editor-light.webp" alt="Rich text editor" width="420"></picture><br><b>Rich text editor</b><br><code>RichTextEditor</code><br><sub>Bold, italic, headings, lists, links, code and quotes in a toolbar over an <code>AttributedString</code>; ⌘B, ⌘I, ⌘U and ⌘K work in the text.</sub></td>
   </tr>
 </table>
 
@@ -266,6 +266,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/empty-state-dark.webp"><img src="docs/images/components/empty-state-light.webp" alt="Empty state" width="420"></picture><br><b>Empty state</b><br><code>EmptyState</code> · <code>.contained()</code><br><sub>One empty state everywhere; <code>.contained()</code> for a section inside a page.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/timeline-dark.webp"><img src="docs/images/components/timeline-light.webp" alt="Timeline" width="315"></picture><br><b>Timeline</b><br><code>Timeline</code> · <code>TimelineItem</code><br><sub>An activity feed: dots or icons on one connector line, with the time trailing on each first line.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/carousel-dark.webp"><img src="docs/images/components/carousel-light.webp" alt="Carousel" width="390"></picture><br><b>Carousel</b><br><code>Carousel</code> · <code>PageControl</code><br><sub>Pages side by side that swipe, snap and page from the keyboard, with hover arrows, dots and optional autoplay that stays out of the way.</sub></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
@@ -408,7 +412,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/person-row-dark.webp"><img src="docs/images/components/person-row-light.webp" alt="Person row" width="315"></picture><br><b>Person row</b><br><code>PersonRow</code><br><sub>Avatar, name and a detail line with a trailing slot for a badge, a role or a button.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/kanban-board-dark.webp"><img src="docs/images/components/kanban-board-light.webp" alt="Kanban board" width="420"></picture><br><b>Kanban board</b><br><code>KanbanBoard</code> · <code>KanbanColumn</code><br><sub>Columns of cards that drag within a column or into another, the rest sliding to make room; ⌥ arrows move a card from the keyboard.</sub></td>
   </tr>
 </table>
 

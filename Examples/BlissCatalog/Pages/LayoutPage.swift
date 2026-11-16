@@ -14,6 +14,7 @@ struct LayoutPage: View {
             AvatarDemo()
             AvatarStackDemo()
             PersonRowDemo()
+            KanbanDemo()
             BreadcrumbsDemo()
             InspectorSplitDemo()
             CodeFieldDemo()
@@ -44,6 +45,74 @@ private struct PersonRowDemo: View {
             }
             .frame(maxWidth: 480)
         }
+    }
+}
+
+// MARK: - Kanban board
+
+/// A task card for the kanban demo.
+private struct CatalogKanbanTask: Identifiable {
+    let id: Int
+    let title: String
+    let tag: String
+    let assignee: String
+}
+
+private struct KanbanDemo: View {
+    @State private var board: [KanbanColumn<CatalogKanbanTask>] = [
+        KanbanColumn(id: "todo", title: "To do", cards: [
+            CatalogKanbanTask(id: 1, title: "Write the release notes", tag: "Docs", assignee: "Ada Lovelace"),
+            CatalogKanbanTask(id: 2, title: "Audit focus rings", tag: "A11y", assignee: "Grace Hopper"),
+            CatalogKanbanTask(id: 3, title: "Tune the sheet spring", tag: "Motion", assignee: "Alan Turing"),
+        ], color: Grey.grey500),
+        KanbanColumn(id: "doing", title: "In progress", cards: [
+            CatalogKanbanTask(id: 4, title: "Ship the Low Glare theme", tag: "Themes", assignee: "Katherine Johnson"),
+        ], color: Warning.warning500),
+        KanbanColumn(id: "done", title: "Done", cards: [
+            CatalogKanbanTask(id: 5, title: "Polish the onboarding card", tag: "Design", assignee: "Ada Lovelace"),
+        ], color: Success.success500),
+    ]
+    @State private var lastMove = ""
+
+    var body: some View {
+        DemoBlock(title: "Kanban board") {
+            Text("Drag a card within its column or into another; the rest slide to make room. Tab to a card and press ⌥ with an arrow to move it.")
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            KanbanBoard(columns: $board, columnWidth: 240, onMove: { task, from, to in
+                lastMove = "\(task.title): \(from) → \(to)"
+            }) { task in
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(verbatim: task.title)
+                        .font(Typography.bodySmall)
+                    HStack(spacing: Spacing.sm) {
+                        Badge(.verbatim(task.tag)).badgeStyle(.secondary).badgeSize(.small)
+                        Spacer(minLength: 0)
+                        Avatar(name: task.assignee, size: .small)
+                    }
+                }
+            } columnFooter: { column in
+                Button {
+                    addCard(to: column)
+                } label: {
+                    Label { Text("Add card") } icon: { Image(systemName: "plus") }
+                }
+                .buttonStyle(GhostButtonStyle(compact: true))
+            }
+            .frame(height: 360)
+            if !lastMove.isEmpty {
+                Text(verbatim: lastMove)
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func addCard(to column: KanbanColumn<CatalogKanbanTask>) {
+        let nextID = (board.flatMap(\.cards).map(\.id).max() ?? 0) + 1
+        guard let index = board.firstIndex(where: { $0.id == column.id }) else { return }
+        board[index].cards.append(CatalogKanbanTask(id: nextID, title: "New card \(nextID)", tag: "Todo", assignee: "Ada Lovelace"))
     }
 }
 

@@ -205,6 +205,23 @@ enum Gallery {
                 TerminalOutputLine("Build complete!"),
             ], title: "Build", maxHeight: 140)
         },
+        GalleryEntry("carousel", width: 520, height: 300) {
+            Carousel(GalleryTourPage.pages, selection: .constant(1), showsArrows: false) { page in
+                VStack(spacing: Spacing.sm) {
+                    Image(systemName: page.systemImage)
+                        .font(Typography.displaySmall)
+                        .foregroundStyle(.secondary)
+                    Text(verbatim: page.title)
+                        .font(Typography.headingMedium)
+                    Text(verbatim: page.detail)
+                        .font(Typography.bodySmall)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(page.wash)
+            }
+            .frame(height: 220)
+        },
         GalleryEntry("timeline", width: 420, height: 240) {
             Timeline(GalleryEvent.feed) { event in
                 TimelineItem(mark: event.mark, time: Text(verbatim: event.time)) {
@@ -571,4 +588,22 @@ private struct GalleryEvent: Identifiable {
         GalleryEvent(id: 3, title: "Build started", detail: "Triggered by a push to main.", mark: .dot(.secondary), time: "12m ago"),
         GalleryEvent(id: 4, title: "Migration warning", detail: "Two columns were dropped without a backup.", mark: .icon("exclamationmark.triangle", Warning.warning500), time: "30m ago"),
     ]
+}
+
+/// The pages of the carousel picture.
+private struct GalleryTourPage: Identifiable {
+    let id: Int
+    let title: String
+    let detail: String
+    let systemImage: String
+    let wash: Color
+
+    static var pages: [GalleryTourPage] {
+        [
+            GalleryTourPage(id: 1, title: "Welcome", detail: "A tour of what's new in this release.", systemImage: "sparkles", wash: Success.tint.opacity(0.15)),
+            GalleryTourPage(id: 2, title: "Sync", detail: "Your projects follow you to every Mac.", systemImage: "arrow.triangle.2.circlepath", wash: Info.tint.opacity(0.15)),
+            GalleryTourPage(id: 3, title: "Shortcuts", detail: "Hold ⌘ to see every row's key.", systemImage: "command", wash: Warning.tint.opacity(0.15)),
+            GalleryTourPage(id: 4, title: "Themes", detail: "Four built in, and room for your own.", systemImage: "paintpalette", wash: Danger.tint.opacity(0.15)),
+        ]
+    }
 }

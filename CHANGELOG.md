@@ -4,6 +4,12 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+
+- `KanbanBoard` and `KanbanColumn` — columns of cards that drag within a column or into another, with keyboard moves.
+- `RichTextEditor` — a formatting toolbar over a hosted text view, bound to `AttributedString`.
+- `Carousel` and `PageControl` — paged content with hover arrows, dots, keyboard paging and optional autoplay.
+
 ## [2.1.0] — 2026-11-16
 
 Nine components that close most of the gap to a web kit's component list: the inputs an app needs in its first week, plus charts.

@@ -50,6 +50,19 @@ extension Gallery {
                 }
             }
         },
+        GalleryEntry("kanban-board", width: 800, height: 360) {
+            KanbanBoard(columns: .constant(GalleryKanbanTask.board), columnWidth: 232) { task in
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(verbatim: task.title)
+                        .font(Typography.bodySmall)
+                    HStack(spacing: Spacing.sm) {
+                        Badge(.verbatim(task.tag)).badgeStyle(.secondary).badgeSize(.small)
+                        Spacer(minLength: 0)
+                        Avatar(name: task.assignee, size: .small)
+                    }
+                }
+            }
+        },
         GalleryEntry("breadcrumbs", width: 560, height: 110) {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 Breadcrumbs(["Projects", "BlissUI", "Sources", "Layout"], title: { $0 }) { _ in }
@@ -144,5 +157,30 @@ private struct GalleryInspectorSplit: View {
             RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
                 .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
+    }
+}
+
+/// A task card for the board picture.
+private struct GalleryKanbanTask: Identifiable {
+    let id: Int
+    let title: String
+    let tag: String
+    let assignee: String
+
+    static var board: [KanbanColumn<GalleryKanbanTask>] {
+        [
+            KanbanColumn(id: "todo", title: "To do", cards: [
+                GalleryKanbanTask(id: 1, title: "Write the release notes", tag: "Docs", assignee: "Ada Lovelace"),
+                GalleryKanbanTask(id: 2, title: "Audit focus rings", tag: "A11y", assignee: "Grace Hopper"),
+                GalleryKanbanTask(id: 3, title: "Tune the sheet spring", tag: "Motion", assignee: "Alan Turing"),
+            ], color: Grey.grey500),
+            KanbanColumn(id: "doing", title: "In progress", cards: [
+                GalleryKanbanTask(id: 4, title: "Ship the Low Glare theme", tag: "Themes", assignee: "Katherine Johnson"),
+            ], color: Warning.warning500),
+            KanbanColumn(id: "done", title: "Done", cards: [
+                GalleryKanbanTask(id: 5, title: "Polish the onboarding card", tag: "Design", assignee: "Ada Lovelace"),
+                GalleryKanbanTask(id: 6, title: "Fix the table shimmer", tag: "Bug", assignee: "Grace Hopper"),
+            ], color: Success.success500),
+        ]
     }
 }

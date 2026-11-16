@@ -38,6 +38,9 @@ extension Gallery {
                     .accessibilityLabel(Text("Emoji"))
             }
         },
+        GalleryEntry("rich-text-editor", width: 560, height: 300) {
+            RichTextEditor("Release notes", text: .constant(CatalogRichText.article))
+        },
         GalleryEntry("bliss-slider", width: 420, height: 134) {
             VStack(spacing: Spacing.lg) {
                 GalleryFieldRow("Volume") {

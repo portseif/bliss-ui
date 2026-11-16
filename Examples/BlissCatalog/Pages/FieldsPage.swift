@@ -5,6 +5,7 @@
 //  The "Number & Text Fields" page.
 //
 
+import AppKit
 import BlissUI
 import SwiftUI
 
@@ -27,6 +28,7 @@ struct FieldsPage: View {
     @State private var draft = ""
     @State private var draftAttachments = [ComposerAttachment(name: "Onboarding.png", systemImage: "photo")]
     @State private var isSendingDraft = false
+    @State private var releaseNotes = CatalogRichText.article
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -119,6 +121,12 @@ struct FieldsPage: View {
                 .frame(maxWidth: 520)
             }
 
+            DemoBlock(title: "Rich text editor") {
+                FieldsCaption("Select text and use the toolbar, or ⌘B, ⌘I, ⌘U and ⌘K. Return in a list item starts the next; Return in an empty item ends the list.")
+                RichTextEditor("Release notes", text: $releaseNotes, prompt: Text("Write the notes…"))
+                    .frame(maxWidth: 560)
+            }
+
             DemoBlock(title: "One-time code") {
                 FieldsCaption("Type or paste the code; Backspace steps back. The second takes letters too.")
                 VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -175,5 +183,36 @@ private struct FieldsCaption: View {
             .font(Typography.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// A heading, bold, a link, a list and inline code, built with AppKit
+/// attributes. Shared by the Fields page and its gallery entry.
+enum CatalogRichText {
+    static var article: AttributedString {
+        let text = NSMutableAttributedString()
+        func append(_ string: String, font: NSFont, extra: [NSAttributedString.Key: Any] = [:]) {
+            var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.labelColor]
+            attributes.merge(extra) { _, new in new }
+            text.append(NSAttributedString(string: string, attributes: attributes))
+        }
+        let body = NSFont.systemFont(ofSize: 13)
+        append("Release notes\n", font: .systemFont(ofSize: 17, weight: .semibold))
+        append("The ", font: body)
+        append("Low Glare", font: .systemFont(ofSize: 13, weight: .bold))
+        append(" theme ships this week, with a dim warm shell and cream surfaces. Read the ", font: body)
+        append("design notes", font: body, extra: [.link: URL(string: "https://example.com/notes")!])
+        append(" before you change a token.\n", font: body)
+        let bullets = NSTextList(markerFormat: .disc, options: 0)
+        let list = NSMutableParagraphStyle()
+        list.textLists = [bullets]
+        list.headIndent = 28
+        list.tabStops = [NSTextTab(textAlignment: .right, location: 18), NSTextTab(textAlignment: .left, location: 28)]
+        append("\t\(bullets.marker(forItemNumber: 1))\tStatus marks hold 7:1 on both surfaces\n", font: body, extra: [.paragraphStyle: list])
+        append("\t\(bullets.marker(forItemNumber: 2))\tBadges fill with a wash of their tint\n", font: body, extra: [.paragraphStyle: list])
+        append("Run ", font: body)
+        append("swift test", font: .monospacedSystemFont(ofSize: 12, weight: .regular), extra: [.backgroundColor: NSColor.labelColor.withAlphaComponent(0.08)])
+        append(" before you push.", font: body)
+        return AttributedString(text)
     }
 }

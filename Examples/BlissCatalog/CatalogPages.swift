@@ -204,6 +204,44 @@ struct InputsPage: View {
 
 // MARK: - Display
 
+/// The pages of the carousel demo.
+private struct CatalogTourPage: Identifiable {
+    let id: Int
+    let title: String
+    let detail: String
+    let systemImage: String
+    let wash: Color
+
+    static var pages: [CatalogTourPage] {
+        [
+            CatalogTourPage(id: 1, title: "Welcome", detail: "A tour of what's new in this release.", systemImage: "sparkles", wash: Success.tint.opacity(0.15)),
+            CatalogTourPage(id: 2, title: "Sync", detail: "Your projects follow you to every Mac.", systemImage: "arrow.triangle.2.circlepath", wash: Info.tint.opacity(0.15)),
+            CatalogTourPage(id: 3, title: "Shortcuts", detail: "Hold ⌘ to see every row's key.", systemImage: "command", wash: Warning.tint.opacity(0.15)),
+            CatalogTourPage(id: 4, title: "Themes", detail: "Four built in, and room for your own.", systemImage: "paintpalette", wash: Danger.tint.opacity(0.15)),
+        ]
+    }
+}
+
+/// One tour page: an icon, a title and a line on a colored wash.
+private struct CatalogTourPageView: View {
+    let page: CatalogTourPage
+
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            Image(systemName: page.systemImage)
+                .font(Typography.displaySmall)
+                .foregroundStyle(.secondary)
+            Text(verbatim: page.title)
+                .font(Typography.headingMedium)
+            Text(verbatim: page.detail)
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(page.wash)
+    }
+}
+
 /// An event in the timeline demo.
 private struct CatalogEvent: Identifiable {
     let id: Int
@@ -223,6 +261,8 @@ private struct CatalogEvent: Identifiable {
 struct DisplayPage: View {
     @State private var count = 7
     @State private var isRevealed = false
+    @State private var tourPage = 1
+    @State private var tourAutoplays = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -269,6 +309,19 @@ struct DisplayPage: View {
                     TerminalOutputLine("warning: unused variable 'count'", type: .stderr),
                     TerminalOutputLine("Build complete!"),
                 ], title: "Build", maxHeight: 140)
+            }
+            DemoBlock(title: "Carousel") {
+                Text("Swipe, click the arrows that appear on hover, or focus it and press ← / → (Home / End jump). The dots are a Tab stop too. Autoplay pauses under the pointer and never runs with Reduce Motion on.")
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Toggle("Autoplay every 4 seconds", isOn: $tourAutoplays)
+                    .toggleStyle(.flatSwitch(showsLabel: true))
+                Carousel(CatalogTourPage.pages, selection: $tourPage, autoplayInterval: tourAutoplays ? 4 : nil) { page in
+                    CatalogTourPageView(page: page)
+                }
+                .frame(maxWidth: 560)
+                .frame(height: 240)
             }
             DemoBlock(title: "Timeline") {
                 Timeline(CatalogEvent.feed) { event in
