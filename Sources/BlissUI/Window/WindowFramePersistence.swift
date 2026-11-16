@@ -8,8 +8,9 @@
 import AppKit
 import SwiftUI
 
-/// Notification observers removed together (when their window closes).
-private nonisolated final class WindowObserverTokens: @unchecked Sendable {
+/// Notification observers removed together (when their window closes, or
+/// their view leaves it).
+nonisolated final class WindowObserverTokens: @unchecked Sendable {
     private let lock = NSLock()
     private var tokens: [NSObjectProtocol] = []
 

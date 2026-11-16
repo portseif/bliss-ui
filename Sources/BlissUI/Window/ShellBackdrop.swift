@@ -134,7 +134,12 @@ struct WindowOpacityEnforcer: NSViewRepresentable {
 }
 
 private final class WindowConfiguratorView: NSView {
-    private var observersInstalled = false
+    /// The window the observers watch. Their tokens go when the view leaves it
+    /// or is freed: block observers dropped on the floor stay registered for
+    /// the life of the app, one set for every window ever opened.
+    private weak var observedWindow: NSWindow?
+    private let observers = WindowObserverTokens()
+
     var trafficLightOffset: CGPoint? = TrafficLightOffset.defaultOffset {
         didSet {
             guard oldValue != trafficLightOffset, let window else { return }
@@ -152,14 +157,19 @@ private final class WindowConfiguratorView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard let window = window else { return }
+        guard let window = window else {
+            observers.removeAll()
+            observedWindow = nil
+            return
+        }
         window.titlebarSeparatorStyle = .none
         window.titleVisibility = .hidden
         ShellBackdropView.apply(to: window)
         applyTrafficLights(to: window)
 
-        guard !observersInstalled else { return }
-        observersInstalled = true
+        guard observedWindow !== window else { return }
+        observers.removeAll()
+        observedWindow = window
         let triggers: [NSNotification.Name] = [
             NSWindow.didBecomeKeyNotification,
             NSWindow.didResignKeyNotification,
@@ -170,7 +180,7 @@ private final class WindowConfiguratorView: NSView {
             NSWindow.didExitFullScreenNotification
         ]
         for name in triggers {
-            NotificationCenter.default.addObserver(
+            observers.add(NotificationCenter.default.addObserver(
                 forName: name, object: window, queue: .main
             ) { [weak window] notification in
                 MainActor.assumeIsolated {
@@ -182,8 +192,12 @@ private final class WindowConfiguratorView: NSView {
                         TrafficLightOffset.placeButtons(in: window)
                     }
                 }
-            }
+            })
         }
+    }
+
+    deinit {
+        observers.removeAll()
     }
 }
 
