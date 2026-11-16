@@ -99,8 +99,10 @@ private enum FilterDemoFields {
 // MARK: - Filter bar
 
 private struct FilterBarDemo: View {
+    // The status chip is locked: a saved view's pinned condition, with no ✕
+    // and an inert operator.
     @State private var conditions = [
-        FilterCondition(fieldID: "status", operator: .is, values: ["todo", "progress"]),
+        FilterCondition(fieldID: "status", operator: .is, values: ["todo", "progress"], isLocked: true),
     ]
     @State private var matchMode: FilterMatchMode = .all
 
@@ -116,20 +118,8 @@ private struct FilterBarDemo: View {
         let fields = FilterDemoFields.all
         let matching = matchingTasks
         VStack(alignment: .leading, spacing: Spacing.md) {
-            FilterBar(conditions: $conditions, fields: fields)
+            FilterBar(conditions: $conditions, fields: fields, matchMode: $matchMode)
             HStack(spacing: Spacing.sm) {
-                // The all / any choice only matters with two or more chips.
-                if conditions.count > 1 {
-                    Text("Match")
-                    SegmentedPills(
-                        options: FilterMatchMode.allCases,
-                        selection: $matchMode,
-                        style: .compact,
-                        title: { $0 == .all ? "all" : "any" }
-                    )
-                    .fixedSize()
-                    Text("of the conditions")
-                }
                 Spacer()
                 Text("\(matching.count) of \(tasks.count) tasks match")
                     .monospacedDigit()
@@ -253,7 +243,7 @@ private struct FacetMenusDemo: View {
                     )
                 }
                 Spacer()
-                FilterMenuButton("Display", systemImage: "slider.horizontal.3") {
+                FilterMenuButton("Display", systemImage: "slider.horizontal.3", showsChevron: true) {
                     showingDisplay.toggle()
                 }
                 .floatingMenu(
@@ -329,7 +319,9 @@ private struct FacetMenuContent: View {
                     .verbatim(facet.option.title),
                     count: counts[facet],
                     isOn: selected.contains(facet),
-                    isFocused: focusedIndex == index
+                    isFocused: focusedIndex == index,
+                    color: facet.option.color,
+                    systemImage: facet.option.icon
                 ) {
                     selected.formSymmetricDifference([facet])
                 }
@@ -361,7 +353,7 @@ private struct DisplayMenuContent: View {
         VStack(alignment: .leading, spacing: 2) {
             FilterMenuSectionHeader("Sort by")
             ForEach(Array(DemoSort.allCases.enumerated()), id: \.element) { index, option in
-                DisplayRadioRow(LocalizedStringKey(option.rawValue), isOn: sort == option, isFocused: focusedIndex == index) {
+                DisplayRadioRow(LocalizedStringKey(option.rawValue), isOn: sort == option, isFocused: focusedIndex == index, keyHint: "⌘\(index + 1)") {
                     sort = option
                 }
             }

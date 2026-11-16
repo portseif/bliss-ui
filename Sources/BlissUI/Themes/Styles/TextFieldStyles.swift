@@ -21,10 +21,9 @@ private enum FilledFieldColors {
         return scheme == .dark ? Grey.grey800 : Grey.grey50
     }
 
+    /// The one neutral hairline every box draws.
     static func border(_ scheme: ColorScheme) -> Color {
-        if let palette = ThemeColors.activePalette { return palette.border.color }
-        // grey300 in light mode for visibility against light backgrounds.
-        return scheme == .dark ? Grey.grey700 : Grey.grey300
+        Color.menuBorder
     }
 }
 
@@ -55,9 +54,10 @@ public struct LargePaddedTextFieldStyle: TextFieldStyle {
         configuration
             .focused($isFocused)
             .textFieldStyle(.plain)
+            .font(Typography.labelMedium)
             .multilineTextAlignment(.leading)
-            .padding(.vertical, Spacing.inlineSpacing + 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, Spacing.sm)
+            .frame(maxWidth: .infinity, minHeight: Sizing.controlMedium, alignment: .leading)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(lineColor)
@@ -108,16 +108,16 @@ public struct CompactTextFieldStyle: TextFieldStyle {
             .textFieldStyle(.plain)
             .font(Typography.labelMedium)
             .multilineTextAlignment(.leading)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Spacing.fieldPaddingH)
+            .padding(.vertical, Spacing.fieldPaddingV)
+            .frame(maxWidth: .infinity, minHeight: Sizing.controlDefault, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(backgroundColor)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1)
+                    .strokeBorder(borderColor, lineWidth: 1)
             }
             .focusEffectDisabled()
             .animation(Animations.hover, value: isFocused)
@@ -153,7 +153,7 @@ public struct SearchTextFieldStyle: TextFieldStyle {
     private var iconColor: Color {
         isFocused
             ? .accent
-            : Grey.grey400
+            : Color.textTertiary
     }
 
     public func _body(configuration: TextField<Self._Label>) -> some View {
@@ -168,13 +168,14 @@ public struct SearchTextFieldStyle: TextFieldStyle {
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
+        .frame(minHeight: Sizing.controlMedium)
         .background {
             Capsule()
                 .fill(backgroundColor)
         }
         .overlay {
             Capsule()
-                .stroke(borderColor, lineWidth: 1)
+                .strokeBorder(borderColor, lineWidth: 1)
         }
         .focusEffectDisabled()
         .animation(Animations.hover, value: isFocused)
@@ -215,7 +216,7 @@ public struct ToolbarSearchTextFieldStyle: TextFieldStyle {
     private var iconColor: Color {
         isFocused
             ? .accent
-            : Grey.grey400
+            : Color.textTertiary
     }
 
     public func _body(configuration: TextField<Self._Label>) -> some View {
@@ -228,15 +229,16 @@ public struct ToolbarSearchTextFieldStyle: TextFieldStyle {
                 .focused($isFocused)
                 .textFieldStyle(.plain)
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.xs)
+        .padding(.horizontal, Spacing.fieldPaddingH)
+        .padding(.vertical, Spacing.fieldPaddingV)
+        .frame(minHeight: Sizing.controlDefault)
         .background {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(backgroundColor)
         }
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(borderColor, lineWidth: 1)
+                .strokeBorder(borderColor, lineWidth: 1)
         }
         .focusEffectDisabled()
         .animation(Animations.hover, value: isFocused)
@@ -258,27 +260,54 @@ extension View {
     /// ring (the one every button shows) while focused, and a red hairline
     /// inside a `FormField` with an error. The field needs its own
     /// `.focused(_:)` binding to pass in as `isFocused`.
-    public func inputBox(isFocused: Bool, cornerRadius: CGFloat = Sizing.radiusDefault) -> some View {
-        modifier(InputBoxModifier(isFocused: isFocused, cornerRadius: cornerRadius))
+    ///
+    /// A single-line field keeps the default corners (`Sizing.fieldCornerRadius`,
+    /// a capsule on macOS 26); a box that holds more than one line passes
+    /// `Sizing.textBoxCornerRadius`. `fill: .none` drops the resting fill and
+    /// hairline for a borderless field inside a card.
+    public func inputBox(
+        isFocused: Bool,
+        cornerRadius: CGFloat = Sizing.fieldCornerRadius,
+        fill: InputBoxFill = .resting
+    ) -> some View {
+        modifier(InputBoxModifier(isFocused: isFocused, cornerRadius: cornerRadius, fill: fill))
     }
+}
+
+/// What an `.inputBox` draws at rest.
+public enum InputBoxFill {
+    /// The faint fill and hairline every boxed field has.
+    case resting
+    /// Nothing at rest; the box appears only while focused or invalid.
+    case none
 }
 
 private struct InputBoxModifier: ViewModifier {
     let isFocused: Bool
     let cornerRadius: CGFloat
+    let fill: InputBoxFill
 
     @Environment(\.formFieldIsInvalid) private var isInvalid
+
+    private var restingFill: Color {
+        fill == .resting ? Color.restingFill : .clear
+    }
+
+    private var hairline: Color {
+        if isInvalid { return Danger.danger500 }
+        return fill == .resting || isFocused ? Color.menuBorder : .clear
+    }
 
     func body(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(isFocused ? Color.controlBackground : Color.primary.opacity(0.04))
+                    .fill(isFocused ? Color.controlBackground : restingFill)
                     .animation(Animations.hover, value: isFocused)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(isInvalid ? Danger.danger500 : Color.menuBorder, lineWidth: 1)
+                    .strokeBorder(hairline, lineWidth: 1)
             }
             .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, showsOnPointerFocus: true)
     }

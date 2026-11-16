@@ -34,6 +34,13 @@ extension Gallery {
                 MonthCalendar(selection: .constant(GallerySampleDates.dueDate), style: .compact)
             }
         },
+        GalleryEntry("time-field", width: 360, height: 100) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                TimeField("Starts", selection: .constant(nil))
+                TimeField("Ends", selection: .constant(GallerySampleDates.reminder))
+            }
+            .fixedSize()
+        },
         GalleryEntry("date-range-picker-field", width: 640, height: 400) {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 DateRangePickerField(selection: .constant(GallerySampleDates.midMonthRange))

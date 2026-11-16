@@ -34,12 +34,20 @@ import SwiftUI
 /// of the bar does. It has no background of its own: it sits on the window's
 /// shell (`Color.appShell`).
 public struct WindowTitleBar<Leading: View, Center: View, Trailing: View>: View {
-    /// Room on the leading edge for the traffic lights, at their offset spot.
-    public static var trafficLightClearance: CGFloat { 78 }
+    /// Where AppKit's zoom button ends: the close, minimize and zoom buttons
+    /// sit at 7 / 27 / 47 from the window's edge, 12pt each.
+    private static var trafficLightsSpan: CGFloat { 59 }
+
+    /// Room on the leading edge for the traffic lights, at their offset spot:
+    /// `.blissWindowChrome()`'s offset, the buttons, and a `Spacing.lg` gap.
+    public static var trafficLightClearance: CGFloat {
+        TrafficLightOffset.defaultOffset.x + trafficLightsSpan + Spacing.lg
+    }
 
     private let height: CGFloat
     private let insetsForTrafficLights: Bool
     private let showsDivider: Bool
+    private let centerInset: CGFloat
     private let leading: Leading
     private let center: Center
     private let trailing: Trailing
@@ -52,6 +60,9 @@ public struct WindowTitleBar<Leading: View, Center: View, Trailing: View>: View 
     ///   - insetsForTrafficLights: Leaves room for the traffic lights before the
     ///     leading controls (not in full screen, where there are none).
     ///   - showsDivider: A hairline along the bottom edge.
+    ///   - centerInset: Shifts the title's centering right by this much — pass
+    ///     the sidebar's width to center it over the content pane, the way
+    ///     `.appSheetHost(leadingInset:)` centers sheets.
     ///   - leading: Controls after the traffic lights (a sidebar toggle, Back).
     ///   - center: The title, centered in the window whatever the sides hold.
     ///   - trailing: Controls on the trailing edge (New, Search, a bell).
@@ -59,6 +70,7 @@ public struct WindowTitleBar<Leading: View, Center: View, Trailing: View>: View 
         height: CGFloat = Sizing.titleBarHeight,
         insetsForTrafficLights: Bool = true,
         showsDivider: Bool = false,
+        centerInset: CGFloat = 0,
         @ViewBuilder leading: () -> Leading,
         @ViewBuilder center: () -> Center,
         @ViewBuilder trailing: () -> Trailing
@@ -66,6 +78,7 @@ public struct WindowTitleBar<Leading: View, Center: View, Trailing: View>: View 
         self.height = height
         self.insetsForTrafficLights = insetsForTrafficLights
         self.showsDivider = showsDivider
+        self.centerInset = centerInset
         self.leading = leading()
         self.center = center()
         self.trailing = trailing()
@@ -94,6 +107,8 @@ public struct WindowTitleBar<Leading: View, Center: View, Trailing: View>: View 
                 .font(Typography.bodySmallSemibold)
                 .lineLimit(1)
                 .accessibilityAddTraits(.isHeader)
+                // Centered over the content pane, right of a sidebar.
+                .padding(.leading, max(centerInset - leadingInset, 0))
         }
         .padding(.leading, leadingInset)
         .padding(.trailing, Spacing.md)
@@ -145,6 +160,87 @@ extension WindowTitleBar where Leading == EmptyView, Trailing == EmptyView {
     }
 }
 
+/// The text a `WindowTitleBar(title:subtitle:)` centers: the title over a
+/// secondary line, like Mail's "Inbox" over "12 unread".
+public struct WindowTitleBarTitle: View {
+    private let title: LocalizedStringKey
+    private let subtitle: LocalizedStringKey?
+
+    public init(_ title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) {
+        self.title = title
+        self.subtitle = subtitle
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            Text(title)
+                .font(Typography.bodySmallSemibold)
+                .lineLimit(1)
+            if let subtitle {
+                Text(subtitle)
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+extension WindowTitleBar where Center == WindowTitleBarTitle {
+    /// A title bar with a title (and a secondary line under it) between its
+    /// controls, so apps don't restyle the `center` slot by hand.
+    ///
+    /// - Parameters:
+    ///   - title: The window's title, looked up in your app's strings.
+    ///   - subtitle: A secondary line under it ("12 unread").
+    ///   - height: The bar's height.
+    ///   - insetsForTrafficLights: Room for the traffic lights before `leading`.
+    ///   - showsDivider: A hairline along the bottom edge.
+    ///   - centerInset: Shifts the title's centering right (a sidebar's width).
+    ///   - leading: Controls after the traffic lights.
+    ///   - trailing: Controls on the trailing edge.
+    public init(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey? = nil,
+        height: CGFloat = Sizing.titleBarHeight,
+        insetsForTrafficLights: Bool = true,
+        showsDivider: Bool = false,
+        centerInset: CGFloat = 0,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.init(
+            height: height,
+            insetsForTrafficLights: insetsForTrafficLights,
+            showsDivider: showsDivider,
+            centerInset: centerInset,
+            leading: leading,
+            center: { WindowTitleBarTitle(title, subtitle: subtitle) },
+            trailing: trailing
+        )
+    }
+}
+
+extension WindowTitleBar where Leading == EmptyView, Center == WindowTitleBarTitle, Trailing == EmptyView {
+    /// A title bar with only a title and a secondary line.
+    public init(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey? = nil,
+        height: CGFloat = Sizing.titleBarHeight,
+        insetsForTrafficLights: Bool = true,
+        showsDivider: Bool = false
+    ) {
+        self.init(
+            height: height,
+            insetsForTrafficLights: insetsForTrafficLights,
+            showsDivider: showsDivider,
+            leading: { EmptyView() },
+            center: { WindowTitleBarTitle(title, subtitle: subtitle) },
+            trailing: { EmptyView() }
+        )
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Window title bar", traits: .fixedLayout(width: 640, height: 120)) {
@@ -162,9 +258,7 @@ extension WindowTitleBar where Leading == EmptyView, Trailing == EmptyView {
             Button("New") {}
                 .buttonStyle(OutlineButtonStyle(compact: true))
         }
-        WindowTitleBar {
-            Text("Settings")
-        }
+        WindowTitleBar(title: "Inbox", subtitle: "12 unread")
     }
     .background(Color.appShell)
 }

@@ -2,96 +2,147 @@
 //  SelectionBar.swift
 //  BlissUI
 //
-//  The floating bulk-action island that rises from the bottom while rows are
-//  selected: "3 selected", a tight cluster of neutral ghost actions, a divider,
-//  and a clear button. No accent on the bar — it's chrome, not content.
+//  The bulk-action bar that appears while rows are selected: "3 selected", a
+//  tight cluster of neutral ghost actions, a divider, and a clear button. No
+//  accent on the bar — it's chrome, not content. It floats as an island at
+//  the bottom center, or docks flush under the table.
 //
 
 import SwiftUI
 
-/// A pill-shaped bar of bulk actions for the current selection.
+/// Where a `SelectionBar` sits.
+public nonisolated enum SelectionBarPlacement: Sendable {
+    /// A capsule island floating over the content, with the panel shadow.
+    case floating
+    /// A flush strip with a hairline on top — docked under a table.
+    case attached
+}
+
+/// A bar of bulk actions for the current selection.
 ///
 /// Usually shown with `.selectionBar(count:onClear:actions:)`, which floats it
 /// at the bottom center, slides it in and out, and lifts toasts above it.
 public struct SelectionBar<Actions: View>: View {
     private let count: Int
+    private let total: Int?
+    private let placement: SelectionBarPlacement
     private let onClear: () -> Void
+    private let onSelectAll: (() -> Void)?
     private let actions: Actions
 
-    public init(count: Int, onClear: @escaping () -> Void, @ViewBuilder actions: () -> Actions) {
+    /// - Parameters:
+    ///   - count: How many rows are selected.
+    ///   - total: How many there are in all; shown as "3 of 120 selected".
+    ///   - placement: An island floating over the content, or a strip docked under it.
+    ///   - onClear: The ✕ that clears the selection.
+    ///   - onSelectAll: Shows a "Select all" action beside the count.
+    ///   - actions: `SelectionBarButton`s.
+    public init(
+        count: Int,
+        total: Int? = nil,
+        placement: SelectionBarPlacement = .floating,
+        onClear: @escaping () -> Void,
+        onSelectAll: (() -> Void)? = nil,
+        @ViewBuilder actions: () -> Actions
+    ) {
         self.count = count
+        self.total = total
+        self.placement = placement
         self.onClear = onClear
+        self.onSelectAll = onSelectAll
         self.actions = actions()
     }
 
-    /// The themed raised surface under a color theme; the vibrant material
-    /// for System.
-    private var islandSurface: AnyShapeStyle {
-        ThemeColors.activePalette != nil
-            ? AnyShapeStyle(Color.controlBackground)
-            : AnyShapeStyle(.regularMaterial)
+    public var body: some View {
+        switch placement {
+        case .floating:
+            bar
+                // Hugs its contents instead of stretching.
+                .fixedSize(horizontal: true, vertical: false)
+                .background {
+                    Capsule(style: .continuous)
+                        .fill(Color.controlBackground)
+                }
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color.menuBorder, lineWidth: 1)
+                }
+                .clipShape(Capsule(style: .continuous))
+                .elevation(.panel)
+        case .attached:
+            bar
+                .frame(maxWidth: .infinity)
+                .background(Color.windowBackground)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.menuBorder)
+                        .frame(height: 1)
+                }
+        }
     }
 
-    public var body: some View {
+    private var bar: some View {
         HStack(spacing: Spacing.sm) {
-            Text("\(count) selected", bundle: .module)
+            countLabel
                 .font(Typography.labelMedium)
                 .foregroundStyle(.primary)
                 .monospacedDigit()
                 .contentTransition(.numericText())
 
+            if let onSelectAll {
+                Button(action: onSelectAll) {
+                    Text("Select all", bundle: .module)
+                }
+                .buttonStyle(GhostButtonStyle(compact: true))
+            }
+
             Spacer(minLength: Spacing.xl)
 
             // Tight spacing for a segmented feel.
-            HStack(spacing: 2) {
+            HStack(spacing: Spacing.hairline) {
                 actions
             }
 
             Divider()
-                .frame(height: 18)
+                .frame(height: Sizing.iconDefault)
                 .padding(.horizontal, Spacing.xs)
 
             SelectionBarClearButton(action: onClear)
         }
-        // Hugs its contents instead of stretching.
-        .fixedSize(horizontal: true, vertical: false)
         .padding(.leading, Spacing.lg)
         .padding(.trailing, Spacing.sm)
         .padding(.vertical, Spacing.sm)
-        .background {
-            RoundedRectangle(cornerRadius: Sizing.radiusFull, style: .continuous)
-                .fill(islandSurface)
+    }
+
+    private var countLabel: Text {
+        if let total {
+            return Text("\(count) of \(total) selected", bundle: .module)
         }
-        .overlay {
-            RoundedRectangle(cornerRadius: Sizing.radiusFull, style: .continuous)
-                .strokeBorder(Color.menuBorder, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusFull, style: .continuous))
-        .shadow(color: Color.black.opacity(0.22), radius: 18, x: 0, y: 6)
+        return Text("\(count) selected", bundle: .module)
     }
 }
 
-/// A neutral ghost action for a `SelectionBar`: icon + label, a subtle hover
-/// fill, and an optional chevron for a menu trigger. The label lifts from
-/// secondary to primary on hover (Finder/Linear-style).
+/// A neutral ghost action for a `SelectionBar`: icon + label on the compact
+/// ghost button, and an optional chevron for a menu trigger. `isDestructive`
+/// paints the label red (Delete); the hover fill stays neutral.
 public struct SelectionBarButton: View {
     private let title: LocalizedStringKey
     private let systemImage: String
     private let showsChevron: Bool
+    private let isDestructive: Bool
     private let action: () -> Void
-
-    @Environment(\.colorScheme) private var scheme
-    @State private var isHovering = false
 
     public init(
         _ title: LocalizedStringKey,
         systemImage: String,
         showsChevron: Bool = false,
+        isDestructive: Bool = false,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.systemImage = systemImage
         self.showsChevron = showsChevron
+        self.isDestructive = isDestructive
         self.action = action
     }
 
@@ -106,18 +157,9 @@ public struct SelectionBarButton: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            .font(Typography.labelSmall)
-            .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .background {
-                RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
-                    .fill(isHovering ? RowTint.hover(scheme) : Color.clear)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
+            .foregroundStyle(isDestructive ? AnyShapeStyle(Danger.danger500) : AnyShapeStyle(.primary))
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault))
-        .onHover { isHovering = $0 }
+        .buttonStyle(GhostButtonStyle(compact: true))
     }
 }
 
@@ -131,17 +173,19 @@ private struct SelectionBarClearButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "xmark")
-                .font(Typography.labelSmallBold)
+                .font(Typography.labelTinySemibold)
                 .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
-                .frame(width: 24, height: 24)
+                .frame(width: Sizing.controlSmall, height: Sizing.controlSmall)
                 .background {
                     Circle().fill(isHovering ? RowTint.hover(scheme) : Color.clear)
                 }
                 .contentShape(Circle())
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: 12))
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
         .accessibilityLabel(Text("Clear selection", bundle: .module))
-        .onHover { isHovering = $0 }
+        .onHover { hovering in
+            withAnimation(Animations.hover) { isHovering = hovering }
+        }
     }
 }
 
@@ -149,18 +193,21 @@ private struct SelectionBarClearButton: View {
 
 private struct SelectionBarModifier<Actions: View>: ViewModifier {
     let count: Int
+    let total: Int?
+    let placement: SelectionBarPlacement
     let bottomPadding: CGFloat
     let onClear: () -> Void
+    let onSelectAll: (() -> Void)?
     @ViewBuilder let actions: () -> Actions
 
     func body(content: Content) -> some View {
         content
             .overlay(alignment: .bottom) {
                 if count > 0 {
-                    SelectionBar(count: count, onClear: onClear, actions: actions)
+                    SelectionBar(count: count, total: total, placement: placement, onClear: onClear, onSelectAll: onSelectAll, actions: actions)
                         // Toasts rest at the same bottom-center spot; this lifts them clear.
                         .toastsRestAbove()
-                        .padding(.bottom, bottomPadding)
+                        .padding(.bottom, placement == .floating ? bottomPadding : 0)
                         .transition(.motion(.move(edge: .bottom).combined(with: .opacity)))
                 }
             }
@@ -169,26 +216,44 @@ private struct SelectionBarModifier<Actions: View>: ViewModifier {
 }
 
 extension View {
-    /// Floats a `SelectionBar` at the bottom center while `count` is above
-    /// zero, sliding it in and out (a fade under Reduce Motion). Toasts lift
-    /// to rest above it.
+    /// Shows a `SelectionBar` at the bottom while `count` is above zero,
+    /// sliding it in and out (a fade under Reduce Motion). Floating, it rests
+    /// `bottomPadding` up from the edge — the same gap toasts keep — and toasts
+    /// lift to rest above it; attached, it docks flush to the bottom edge.
     public func selectionBar<Actions: View>(
         count: Int,
-        bottomPadding: CGFloat = Spacing.lg,
+        total: Int? = nil,
+        placement: SelectionBarPlacement = .floating,
+        bottomPadding: CGFloat = Spacing.xl,
         onClear: @escaping () -> Void,
+        onSelectAll: (() -> Void)? = nil,
         @ViewBuilder actions: @escaping () -> Actions
     ) -> some View {
-        modifier(SelectionBarModifier(count: count, bottomPadding: bottomPadding, onClear: onClear, actions: actions))
+        modifier(SelectionBarModifier(
+            count: count,
+            total: total,
+            placement: placement,
+            bottomPadding: bottomPadding,
+            onClear: onClear,
+            onSelectAll: onSelectAll,
+            actions: actions
+        ))
     }
 }
 
 // MARK: - Preview
 
-#Preview(traits: .fixedLayout(width: 520, height: 140)) {
-    Color.clear
-        .selectionBar(count: 3, onClear: {}) {
-            SelectionBarButton("Open", systemImage: "arrow.up.forward.app") {}
-            SelectionBarButton("Archive", systemImage: "archivebox") {}
-            SelectionBarButton("Actions", systemImage: "ellipsis.circle", showsChevron: true) {}
-        }
+#Preview(traits: .fixedLayout(width: 560, height: 240)) {
+    VStack(spacing: 0) {
+        Color.clear
+            .selectionBar(count: 3, total: 120, onClear: {}, onSelectAll: {}) {
+                SelectionBarButton("Open", systemImage: "arrow.up.forward.app") {}
+                SelectionBarButton("Archive", systemImage: "archivebox") {}
+                SelectionBarButton("Delete", systemImage: "trash", isDestructive: true) {}
+            }
+        Color.clear
+            .selectionBar(count: 2, placement: .attached, onClear: {}) {
+                SelectionBarButton("Actions", systemImage: "ellipsis.circle", showsChevron: true) {}
+            }
+    }
 }

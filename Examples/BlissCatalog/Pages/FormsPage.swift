@@ -32,6 +32,7 @@ private struct FormsFieldDemo: View {
     @State private var name = ""
     @State private var email = "ada@example"
     @State private var port = 2222
+    @State private var alias = "ada"
 
     private var emailError: LocalizedStringKey? {
         email.contains("@") && email.contains(".") ? nil : "Enter a full address, like ada@example.com"
@@ -52,6 +53,9 @@ private struct FormsFieldDemo: View {
                 FormField("SSH port", hint: "1 to 65535") {
                     NumberField("SSH port", value: $port, in: 1...65_535)
                 }
+                FormField("Alias", hint: "Shown instead of your name.", showsOptionalMark: true, labelPlacement: .leading, characterCount: (current: alias.count, maximum: 24)) {
+                    TextField("Alias", text: $alias).textFieldStyle(.compact)
+                }
             }
             .frame(maxWidth: 420)
         }
@@ -65,12 +69,19 @@ private struct FormsSettingsRowsDemo: View {
     @State private var playSounds = false
     @State private var language = "English"
     @State private var isConfirmingReset = false
+    @State private var syncsDevices = true
+    @State private var listenPort = 443
+    @State private var isSigningOut = false
 
     var body: some View {
         DemoBlock(title: "Settings rows") {
             RoundedSection("General", divided: true) {
                 SettingsToggleRow("Launch at login", detail: "Opens in the menu bar when you log in.", isOn: $launchAtLogin)
                 SettingsToggleRow("Play sounds", isOn: $playSounds)
+                SettingsToggleRow("Sync", detail: "Keeps every device in step.", systemImage: "arrow.triangle.2.circlepath", badge: Badge("Beta").badgeStyle(.info).badgeSize(.small), isOn: $syncsDevices)
+                SettingsRow("Port", detail: "The server listens here.", systemImage: "network", error: listenPort < 1024 ? "Ports under 1024 need root." : nil) {
+                    NumberField("Port", value: $listenPort, in: 1...65_535)
+                }
                 SettingsRow("Language", detail: "Used for menus and messages.") {
                     FloatingMenuPicker(
                         "Language",
@@ -88,6 +99,14 @@ private struct FormsSettingsRowsDemo: View {
                 }
                 SettingsActionRow("Login Items", detail: "Choose what opens at login in System Settings.", systemImage: "arrow.up.right") {
                     ToastService.shared.showInfo(title: "Login Items", message: "An app would open System Settings here.")
+                }
+                SettingsActionRow("Region", value: "United States", leadingSystemImage: "globe") {}
+                SettingsActionRow("Sign Out…", isLoading: isSigningOut) {
+                    isSigningOut = true
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        isSigningOut = false
+                    }
                 }
                 SettingsActionRow("Reset All Settings…", isDestructive: true) {
                     isConfirmingReset = true
@@ -215,6 +234,8 @@ private struct FormsOptionCardsDemo: View {
     @State private var kind = CatalogTaskKind.review
     @State private var plan = CatalogPlan.yearly
     @State private var contents: Set<String> = ["Database", "Files"]
+    @State private var tier = "pro"
+    @State private var look = "light"
 
     var body: some View {
         DemoBlock(title: "Option cards") {
@@ -246,9 +267,44 @@ private struct FormsOptionCardsDemo: View {
                     detail: { $0 == "Database" ? "1.2 GB" : ($0 == "Files" ? "18,206 files" : "12 KB") },
                     icon: { $0 == "Database" ? "cylinder" : ($0 == "Files" ? "folder" : "gearshape") }
                 )
+                // A value, a compact card, and artwork instead of an icon.
+                HStack(spacing: Spacing.sm) {
+                    OptionCard("Pro", detail: "For one person", value: "$9 / mo", isSelected: tier == "pro") { tier = "pro" }
+                    OptionCard("Team", detail: "Up to 10 seats", value: "$29 / mo", badge: Badge("Popular").badgeStyle(.success).badgeSize(.small), isSelected: tier == "team") { tier = "team" }
+                }
+                HStack(spacing: Spacing.sm) {
+                    OptionCard("Light", isSelected: look == "light", axis: .vertical, compact: true, showsMark: false, action: { look = "light" }) {
+                        FormsLookSwatch(isDark: false)
+                    }
+                    OptionCard("Dark", isSelected: look == "dark", axis: .vertical, compact: true, showsMark: false, action: { look = "dark" }) {
+                        FormsLookSwatch(isDark: true)
+                    }
+                }
+                .frame(maxWidth: 300)
             }
             .frame(maxWidth: 640)
         }
+    }
+}
+
+/// A two-tone swatch standing in for a theme thumbnail.
+private struct FormsLookSwatch: View {
+    let isDark: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+            .fill(isDark ? Color.black.opacity(0.85) : Color.white)
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+                    .fill(Color.accent)
+                    .frame(width: Spacing.lg)
+                    .padding(Spacing.xxs)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+                    .strokeBorder(Color.menuBorder, lineWidth: 1)
+            }
+            .frame(height: Sizing.controlXLarge)
     }
 }
 
@@ -257,6 +313,7 @@ private struct FormsOptionCardsDemo: View {
 private struct FormsWizardRowsDemo: View {
     @State private var source = 0
     @State private var stepStates: [WizardStepState] = [.done, .running, .pending, .pending]
+    @State private var stepProgress = 0.6
     @State private var isRunning = false
 
     private let steps: [(title: LocalizedStringKey, detail: LocalizedStringKey)] = [
@@ -270,9 +327,9 @@ private struct FormsWizardRowsDemo: View {
         DemoBlock(title: "Wizard rows") {
             HStack(alignment: .top, spacing: Spacing.xl) {
                 VStack(spacing: Spacing.xxs) {
-                    WizardRadioRow("From a template", subtitle: "Start from a ready-made layout", icon: "square.stack.3d.up", isSelected: source == 0) { source = 0 }
-                    WizardRadioRow("Import a file", subtitle: "Bring in an existing document", icon: "arrow.down.doc", isSelected: source == 1) { source = 1 }
-                    WizardRadioRow("Blank", subtitle: "An empty document", icon: "doc", isSelected: source == 2) { source = 2 }
+                    WizardRadioRow("From a template", detail: "Start from a ready-made layout", icon: "square.stack.3d.up", badge: Badge("Recommended").badgeStyle(.success).badgeSize(.small), isSelected: source == 0, showsBorder: true) { source = 0 }
+                    WizardRadioRow("Import a file", detail: "Bring in an existing document", icon: "arrow.down.doc", isSelected: source == 1, showsBorder: true) { source = 1 }
+                    WizardRadioRow("Blank", detail: "An empty document", icon: "doc", isSelected: source == 2, showsBorder: true) { source = 2 }
                 }
                 .frame(maxWidth: 340)
 
@@ -283,7 +340,8 @@ private struct FormsWizardRowsDemo: View {
                             steps[index].title,
                             detail: state == .done ? steps[index].detail : (state == .failed ? "The disk is full." : nil),
                             number: index + 1,
-                            state: state
+                            state: state,
+                            progress: state == .running ? stepProgress : nil
                         )
                     }
                     HStack(spacing: Spacing.sm) {
@@ -308,7 +366,10 @@ private struct FormsWizardRowsDemo: View {
         Task { @MainActor in
             for index in steps.indices {
                 stepStates[index] = .running
-                try? await Task.sleep(for: .milliseconds(800))
+                for tick in 1...4 {
+                    stepProgress = Double(tick) / 4
+                    try? await Task.sleep(for: .milliseconds(200))
+                }
                 if failing && index == 2 {
                     stepStates[index] = .failed
                     break

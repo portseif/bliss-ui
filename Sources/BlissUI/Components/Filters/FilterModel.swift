@@ -173,17 +173,36 @@ public nonisolated struct FilterCondition: Identifiable, Hashable, Codable, Send
     /// is none of), or — for a text field — the search text in the first
     /// element. Empty = no constraint.
     public var values: [String]
+    /// A pinned condition — a saved view's "Status is Open": the bar draws it
+    /// without its remove segment, its operator can't change, and Clear
+    /// leaves it. Its values still edit.
+    public var isLocked: Bool
 
-    public init(id: UUID = UUID(), fieldID: String, operator: FilterOperator, values: [String] = []) {
+    public init(id: UUID = UUID(), fieldID: String, operator: FilterOperator, values: [String] = [], isLocked: Bool = false) {
         self.id = id
         self.fieldID = fieldID
         self.operator = `operator`
         self.values = values
+        self.isLocked = isLocked
     }
 
     /// A condition on `field`, starting from the field's default operator.
-    public init(field: FilterField, operator: FilterOperator? = nil, values: [String] = []) {
-        self.init(fieldID: field.id, operator: `operator` ?? field.defaultOperator, values: values)
+    public init(field: FilterField, operator: FilterOperator? = nil, values: [String] = [], isLocked: Bool = false) {
+        self.init(fieldID: field.id, operator: `operator` ?? field.defaultOperator, values: values, isLocked: isLocked)
+    }
+
+    // A saved filter from before `isLocked` decodes as unlocked.
+    private enum CodingKeys: String, CodingKey {
+        case id, fieldID, `operator`, values, isLocked
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        fieldID = try container.decode(String.self, forKey: .fieldID)
+        `operator` = try container.decode(FilterOperator.self, forKey: .operator)
+        values = try container.decode([String].self, forKey: .values)
+        isLocked = try container.decodeIfPresent(Bool.self, forKey: .isLocked) ?? false
     }
 
     /// Whether a row whose value for this condition's field is `value` passes.

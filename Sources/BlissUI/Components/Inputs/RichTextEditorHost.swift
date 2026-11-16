@@ -30,14 +30,21 @@ import SwiftUI
 enum RichTextHeading: CaseIterable, Hashable {
     case body, heading1, heading2, heading3
 
-    /// Point sizes: `bodySmall`, `headingSmall`, `headingMedium`, `displaySmall`.
-    var pointSize: CGFloat {
+    /// Point sizes at the default base size: `bodySmall`, `headingSmall`,
+    /// `headingMedium`, `displaySmall`.
+    var basePointSize: CGFloat {
         switch self {
         case .body: return FontSize.footnote
         case .heading3: return FontSize.callout
         case .heading2: return FontSize.headline
         case .heading1: return FontSize.title2
         }
+    }
+
+    /// The size the style draws at: the base size scaled by the user's
+    /// setting, like the `Typography` tokens.
+    var pointSize: CGFloat {
+        RichTextStyle.font(for: self, bold: false, italic: false).pointSize
     }
 
     var isHeading: Bool { self != .body }
@@ -84,8 +91,8 @@ struct RichTextFormatting: Equatable {
     var list: RichTextListKind?
 }
 
-/// The fonts and measures the editor sets text in. System fonts at the
-/// `Typography` sizes, like `TextArea`'s.
+/// The fonts and measures the editor sets text in: the `Typography` sizes in
+/// the user's font and at their base size, like `TextArea`'s.
 enum RichTextStyle {
     static let textInset = NSSize(width: Spacing.sm, height: Spacing.xs)
     static let quoteIndent: CGFloat = Spacing.lg
@@ -113,13 +120,13 @@ enum RichTextStyle {
         "\t\(list.marker(forItemNumber: itemNumber))\t"
     }
 
-    static var bodyFont: NSFont { .systemFont(ofSize: RichTextHeading.body.pointSize) }
-    static var codeFont: NSFont { .monospacedSystemFont(ofSize: FontSize.caption, weight: .regular) }
+    static var bodyFont: NSFont { font(for: .body, bold: false, italic: false) }
+    static var codeFont: NSFont { FontResolver.nsFont(.code, size: FontSize.caption, weight: .regular) }
 
-    /// A heading in the semibold face; body in the regular one, bold when asked.
+    /// A heading in the regular face at its size, like the heading tokens
+    /// (emphasis is the size); bold when asked, in any style.
     static func font(for heading: RichTextHeading, bold: Bool, italic: Bool) -> NSFont {
-        let weight: NSFont.Weight = heading.isHeading ? .semibold : (bold ? .bold : .regular)
-        var font = NSFont.systemFont(ofSize: heading.pointSize, weight: weight)
+        var font = FontResolver.nsFont(.ui, size: heading.basePointSize, weight: bold ? .bold : .regular)
         if italic { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
         return font
     }
@@ -177,14 +184,14 @@ struct RichTextEditorHost: NSViewRepresentable {
     var accessibilityLabel: String
     var isEnabled: Bool
     var minimumHeight: CGFloat
+    /// Past it the text scrolls (the editor draws the thin thumb); nil grows.
+    var maximumHeight: CGFloat?
     var contentHeight: CGFloat
     var focusRequest: Int
     var controller: RichTextController
     var onFocusChange: (Bool) -> Void
     var onContentHeightChange: (CGFloat) -> Void
-
-    /// A width-less proposal (`fixedSize`) gets a typical field width.
-    static let idealWidth: CGFloat = 320
+    var onScroll: (TextAreaScrollMetrics, _ didScroll: Bool) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -232,19 +239,27 @@ struct RichTextEditorHost: NSViewRepresentable {
         let scrollView = NSScrollView()
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
-        // The view grows with its text; nothing scrolls, so no scroller.
+        // The view grows with its text up to `maximumHeight`, then scrolls
+        // under the thin thumb drawn in SwiftUI: no native scroller.
         scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false
+        scrollView.scrollerStyle = .overlay
         scrollView.horizontalScrollElasticity = .none
         scrollView.verticalScrollElasticity = .none
         scrollView.documentView = textView
+        scrollView.contentView.postsBoundsChangedNotifications = true
         textView.postsFrameChangedNotifications = true
 
         coordinator.textView = textView
+        coordinator.scrollView = scrollView
         coordinator.lastFocusRequest = focusRequest
         NotificationCenter.default.addObserver(
             coordinator, selector: #selector(Coordinator.textViewFrameDidChange(_:)),
             name: NSView.frameDidChangeNotification, object: textView
+        )
+        NotificationCenter.default.addObserver(
+            coordinator, selector: #selector(Coordinator.scrollGeometryDidChange(_:)),
+            name: NSView.boundsDidChangeNotification, object: scrollView.contentView
         )
         return scrollView
     }
@@ -288,8 +303,9 @@ struct RichTextEditorHost: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
-        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? Self.idealWidth
-        return CGSize(width: width, height: max(contentHeight, minimumHeight))
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? TextBoxMetrics.idealWidth
+        let height = max(contentHeight, minimumHeight)
+        return CGSize(width: width, height: maximumHeight.map { min(height, $0) } ?? height)
     }
 
     static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator) {
@@ -301,8 +317,10 @@ struct RichTextEditorHost: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: RichTextEditorHost
         weak var textView: RichTextView?
+        weak var scrollView: NSScrollView?
         var lastFocusRequest = 0
         private var lastReportedHeight: CGFloat = 0
+        private var lastReportedOffset: CGFloat = 0
 
         init(parent: RichTextEditorHost) {
             self.parent = parent
@@ -321,11 +339,31 @@ struct RichTextEditorHost: NSViewRepresentable {
         @objc func textViewFrameDidChange(_ notification: Notification) {
             guard let textView else { return }
             let height = textView.frame.height.rounded(.up)
+            scrollGeometryDidChange(notification)
             guard abs(height - lastReportedHeight) > 0.5 else { return }
             lastReportedHeight = height
             // Frame changes arrive during layout, which can be inside a SwiftUI update.
             DispatchQueue.main.async { [weak self] in
                 self?.parent.onContentHeightChange(height)
+            }
+        }
+
+        /// The scroll position, for the thin thumb — only meaningful with a
+        /// `maximumHeight`, when the text can be taller than the view.
+        @objc func scrollGeometryDidChange(_ notification: Notification) {
+            guard let scrollView, let textView else { return }
+            let clipBounds = scrollView.contentView.bounds
+            let metrics = TextAreaScrollMetrics(
+                offset: clipBounds.origin.y,
+                contentHeight: textView.frame.height,
+                viewportHeight: clipBounds.height
+            )
+            let didScroll = abs(clipBounds.origin.y - lastReportedOffset) > 0.5
+            lastReportedOffset = clipBounds.origin.y
+            let elasticity: NSScrollView.Elasticity = metrics.overflows ? .allowed : .none
+            if scrollView.verticalScrollElasticity != elasticity { scrollView.verticalScrollElasticity = elasticity }
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.onScroll(metrics, didScroll)
             }
         }
     }

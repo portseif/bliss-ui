@@ -124,12 +124,14 @@ public nonisolated struct IconItem: Identifiable, Equatable, Sendable {
 /// SF Symbol — tinted by `color`. Use it wherever a picked mark is shown (a sidebar
 /// row, a sheet preview, a table chip) so every surface draws it the same way.
 /// Convention: `IconItem.statusDotName` → dot, `icon-` prefix → asset, else SF Symbol.
+/// A symbol is drawn in the UI font at `size`, so it follows the user's font
+/// settings like every other glyph.
 public struct IconGlyph: View {
     let name: String
     var color: Color = .secondary
-    var size: CGFloat = 16
+    var size: CGFloat = Sizing.iconDefault
 
-    public init(name: String, color: Color = .secondary, size: CGFloat = 16) {
+    public init(name: String, color: Color = .secondary, size: CGFloat = Sizing.iconDefault) {
         self.name = name
         self.color = color
         self.size = size
@@ -149,7 +151,7 @@ public struct IconGlyph: View {
                 .foregroundStyle(color)
         } else {
             Image(systemName: name)
-                .font(.system(size: size))
+                .font(FontResolver.font(.ui, size: size, weight: .regular))
                 .foregroundStyle(color)
         }
     }
@@ -157,7 +159,7 @@ public struct IconGlyph: View {
 
 // MARK: - Compact Icon Picker Button
 
-/// A small swatch-style button that shows the currently selected icon in its color and
+/// A square button that shows the currently selected icon in its color and
 /// opens the icon picker in a popover. The popover carries the shared `ColorPickerButton`
 /// at the top (so icon + color are chosen in one place), then the `GroupIconPicker` (with
 /// the status-dot default). Sits as a leading accessory next to a name field — e.g. in
@@ -172,24 +174,33 @@ public struct IconPickerButton: View {
     var showsColor = true
     /// The icon sets offered in the popover.
     var categories: [IconCategory] = IconCategory.defaults
+    /// The dense `Sizing.controlSmall` square for a toolbar; the default is the
+    /// compact button's `Sizing.controlDefault`, level with a field.
+    var compact = false
 
     @State private var showingPicker = false
-    @Environment(\.colorScheme) private var colorScheme
 
     private var color: Color { showsColor ? Color(red: red, green: green, blue: blue) : .secondary }
 
     /// An icon alone, without a color.
-    public init(selectedIcon: Binding<String>, categories: [IconCategory] = IconCategory.defaults) {
-        self.init(selectedIcon: selectedIcon, red: .constant(0), green: .constant(0), blue: .constant(0), showsColor: false, categories: categories)
+    public init(selectedIcon: Binding<String>, categories: [IconCategory] = IconCategory.defaults, compact: Bool = false) {
+        self.init(selectedIcon: selectedIcon, red: .constant(0), green: .constant(0), blue: .constant(0), showsColor: false, categories: categories, compact: compact)
     }
 
+    /// - Parameters:
+    ///   - selectedIcon: The picked icon's name.
+    ///   - red: The mark's red component (0...1); likewise `green` and `blue`.
+    ///   - showsColor: A Color row in the popover and the glyph in its color.
+    ///   - categories: The icon sets offered.
+    ///   - compact: The dense `Sizing.controlSmall` square for a toolbar.
     public init(
         selectedIcon: Binding<String>,
         red: Binding<Double>,
         green: Binding<Double>,
         blue: Binding<Double>,
         showsColor: Bool = true,
-        categories: [IconCategory] = IconCategory.defaults
+        categories: [IconCategory] = IconCategory.defaults,
+        compact: Bool = false
     ) {
         self._selectedIcon = selectedIcon
         self._red = red
@@ -197,24 +208,19 @@ public struct IconPickerButton: View {
         self._blue = blue
         self.showsColor = showsColor
         self.categories = categories
+        self.compact = compact
     }
 
     public var body: some View {
-        Button {
-            showingPicker = true
-        } label: {
-            IconGlyph(name: selectedIcon, color: color, size: 15)
-                .frame(width: 30, height: 26)
-                .background {
-                    RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                        .fill(colorScheme == .dark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.2), lineWidth: 1)
-                }
+        Group {
+            if compact {
+                Button { showingPicker = true } label: { glyph }
+                    .buttonStyle(ToolbarIconButtonStyle(compact: true))
+            } else {
+                Button { showingPicker = true } label: { glyph }
+                    .buttonStyle(SecondaryButtonStyle(compact: true, iconOnly: true))
+            }
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall))
         .accessibilityLabel(Text("Choose icon", bundle: .module))
         .popover(isPresented: $showingPicker) {
             VStack(alignment: .leading, spacing: Spacing.md) {
@@ -229,9 +235,13 @@ public struct IconPickerButton: View {
                 }
                 GroupIconPicker(selectedIcon: $selectedIcon, includeStatusDot: showsColor, categories: categories)
             }
-            .frame(width: 380)
+            .frame(width: IconPickerMetrics.popoverWidth)
             .padding(Spacing.md)
         }
+    }
+
+    private var glyph: some View {
+        IconGlyph(name: selectedIcon, color: color, size: compact ? Sizing.iconTiny : Sizing.iconSmall)
     }
 }
 
@@ -246,17 +256,25 @@ public struct GroupIconPicker: View {
     var includeStatusDot: Bool = false
     /// The icon sets to offer, in order.
     var categories: [IconCategory] = IconCategory.defaults
+    /// The search box above the grid; off for a short custom set.
+    var showsSearch: Bool = true
     @State private var searchText = ""
-    @Environment(\.colorScheme) private var colorScheme
 
+    /// - Parameters:
+    ///   - selectedIcon: The picked icon's name.
+    ///   - includeStatusDot: A leading "Default" status-dot option.
+    ///   - categories: The icon sets to offer, in order.
+    ///   - showsSearch: The search box above the grid.
     public init(
         selectedIcon: Binding<String>,
         includeStatusDot: Bool = false,
-        categories: [IconCategory] = IconCategory.defaults
+        categories: [IconCategory] = IconCategory.defaults,
+        showsSearch: Bool = true
     ) {
         self._selectedIcon = selectedIcon
         self.includeStatusDot = includeStatusDot
         self.categories = categories
+        self.showsSearch = showsSearch
     }
 
     /// Whether the status-dot default should show for the current search.
@@ -287,9 +305,15 @@ public struct GroupIconPicker: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            // Search
-            TextField(String(localized: "Search icons...", bundle: .module), text: $searchText)
-                .textFieldStyle(.largePadded)
+            if showsSearch {
+                InputField(
+                    .verbatim(String(localized: "Search icons...", bundle: .module)),
+                    text: $searchText,
+                    prompt: Text("Search icons...", bundle: .module),
+                    systemImage: "magnifyingglass",
+                    isClearable: true
+                )
+            }
 
             // Icon grid by category — fixed-height scroll so the picker hugs its
             // content (a host popover sizes to it instead of leaving dead space).
@@ -308,29 +332,23 @@ public struct GroupIconPicker: View {
                 }
                 .padding(.bottom, Spacing.md)
             }
-            .frame(height: 240)
+            .frame(height: IconPickerMetrics.gridHeight)
         }
+    }
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: IconPickerMetrics.cellSize, maximum: IconPickerMetrics.cellSize), spacing: Spacing.xs)]
     }
 
     // MARK: - Default (status dot) Section
 
     private var defaultSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.xs + 1) {
-                Image(systemName: "circle.fill")
-                    .font(Typography.captionTiny)
-                Text("Default", bundle: .module)
-                    .font(Typography.labelTiny)
-            }
-            .foregroundStyle(colorScheme == .dark ? Grey.grey400 : Grey.grey500)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs - 1)
-            .background(
-                Capsule()
-                    .fill(colorScheme == .dark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
-            )
+            Badge(.verbatim(String(localized: "Default", bundle: .module)), icon: "circle.fill")
+                .badgeStyle(.secondary)
+                .badgeSize(.small)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 36, maximum: 36), spacing: Spacing.xs)], spacing: Spacing.xs) {
+            LazyVGrid(columns: gridColumns, spacing: Spacing.xs) {
                 IconPickerCell(
                     iconItem: .statusDot,
                     isSelected: selectedIcon == IconItem.statusDotName
@@ -348,23 +366,12 @@ public struct GroupIconPicker: View {
     private func categorySection(category: IconCategory, icons: [IconItem]) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             // Category badge header
-            HStack(spacing: Spacing.xs + 1) {
-                Image(systemName: category.icon)
-                    .font(Typography.captionTiny)
-
-                Text(category.title)
-                    .font(Typography.labelTiny)
-            }
-            .foregroundStyle(colorScheme == .dark ? Grey.grey400 : Grey.grey500)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs - 1)
-            .background(
-                Capsule()
-                    .fill(colorScheme == .dark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
-            )
+            Badge(.verbatim(category.title), icon: category.icon)
+                .badgeStyle(.secondary)
+                .badgeSize(.small)
 
             // Icon grid
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 36, maximum: 36), spacing: Spacing.xs)], spacing: Spacing.xs) {
+            LazyVGrid(columns: gridColumns, spacing: Spacing.xs) {
                 ForEach(icons) { iconItem in
                     IconPickerCell(
                         iconItem: iconItem,
@@ -391,6 +398,17 @@ public struct GroupIconPicker: View {
     }
 }
 
+// MARK: - Metrics
+
+private enum IconPickerMetrics {
+    /// A grid cell's side.
+    static let cellSize: CGFloat = Sizing.controlLarge
+    /// The scrolling grid's height: the picker hugs it so a host popover does.
+    static let gridHeight: CGFloat = 240
+    /// The button's popover: the Color row and the grid.
+    static let popoverWidth: CGFloat = 380
+}
+
 // MARK: - Icon Picker Cell
 
 private struct IconPickerCell: View {
@@ -398,31 +416,19 @@ private struct IconPickerCell: View {
     let isSelected: Bool
     let action: () -> Void
 
-    @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
 
+    /// The resting fill every box has; the selected cell takes the selection wash.
     private var backgroundColor: Color {
-        if isSelected {
-            return Color.accent.opacity(0.15)
-        }
-        if isHovering {
-            return colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05)
-        }
-        return colorScheme == .dark ? Color.white.opacity(0.04) : Color.black.opacity(0.02)
+        isSelected ? RowTint.selected(colorScheme) : Color.restingFill
     }
 
     private var iconColor: Color {
-        if isSelected {
-            return Color.accent
-        }
-        return colorScheme == .dark ? Grey.grey300 : Grey.grey600
+        isSelected ? Color.accent : Color.textSecondary
     }
 
     private var borderColor: Color {
-        if isSelected {
-            return Color.accent.opacity(0.6)
-        }
-        return Color.clear
+        isSelected ? Color.accent : Color.clear
     }
 
     var body: some View {
@@ -437,28 +443,26 @@ private struct IconPickerCell: View {
                         .renderingMode(.template)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 16, height: 16)
+                        .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
                 } else {
                     Image(systemName: iconItem.name)
                         .font(Typography.bodyMedium)
                 }
             }
             .foregroundStyle(iconColor)
-            .frame(width: 36, height: 36)
+            .frame(width: IconPickerMetrics.cellSize, height: IconPickerMetrics.cellSize)
             .background(
                 RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
                     .fill(backgroundColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: 1.5)
+                    .strokeBorder(borderColor, lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous))
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium))
-        .onHover { hovering in
-            isHovering = hovering
-        }
+        // The hover wash and press every clickable card shares.
+        .buttonStyle(SelectableCardButtonStyle(cornerRadius: Sizing.radiusMedium))
         .tooltip(configuration: .iconHint, position: .above) {
             Text(iconItem.searchableName.capitalized).font(Typography.labelSmall)
         }
@@ -474,13 +478,12 @@ private struct GroupIconPickerPreview: View {
 
     var body: some View {
         GroupIconPicker(selectedIcon: $selectedIcon)
-            .frame(width: 400, height: 500)
-            .padding()
+            .padding(Spacing.lg)
             .background(Color.windowBackground)
     }
 }
 
-#Preview("Icon Picker") {
+#Preview("Icon Picker", traits: .fixedLayout(width: 420, height: 340)) {
     GroupIconPickerPreview()
 }
 
@@ -492,11 +495,12 @@ private struct IconPickerButtonPreview: View {
     var body: some View {
         HStack(spacing: Spacing.sm) {
             IconPickerButton(selectedIcon: $icon, red: $red, green: $green, blue: $blue)
+            IconPickerButton(selectedIcon: $icon, compact: true)
             Text("Selected: \(icon)")
                 .font(Typography.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding()
+        .padding(Spacing.lg)
         .background(Color.windowBackground)
     }
 }

@@ -12,8 +12,16 @@ import SwiftUI
 // MARK: - Math
 
 /// Pure geometry and number helpers behind the data views. `nonisolated` so
-/// they're tested without a view.
-nonisolated enum DataMetrics {
+/// they're tested without a view. Public for the one constant a caller may
+/// want (`lineWidth`); the helpers stay internal.
+public nonisolated enum DataMetrics {
+    /// The family's line: a sparkline, a chart's series, a commit lane.
+    public static let lineWidth: CGFloat = 2
+
+    /// How far a value's text may shrink before it truncates (a stat card's
+    /// value, a ring's center, an avatar's initials).
+    static let minimumScaleFactor: CGFloat = 0.7
+
     /// `value / total`, clamped to 0...1. A non-finite value, or a total of zero
     /// or less, is 0 — a bad reading draws an empty bar, never NaN geometry.
     static func fraction(_ value: Double, of total: Double) -> Double {
@@ -48,6 +56,39 @@ nonisolated enum DataMetrics {
         }
         return shares
     }
+}
+
+// MARK: - Thickness
+
+/// How thick a `ProgressBar` or `UsageBar` is.
+public nonisolated enum BarThickness: Hashable, Sendable, CaseIterable {
+    /// 3pt — a bar inside a table row or a toast.
+    case thin
+    /// 6pt — the bar under a title.
+    case regular
+    /// 10pt — a bar that is the point of the card.
+    case thick
+
+    /// The bar's height in points.
+    public var height: CGFloat {
+        switch self {
+        case .thin: 3
+        case .regular: 6
+        case .thick: 10
+        }
+    }
+}
+
+// MARK: - Readout
+
+/// What a progress view writes beside (or inside) its bar or ring.
+public enum ProgressReadout {
+    /// Nothing.
+    case none
+    /// The whole percent, rounded down.
+    case percentage
+    /// Your own short text ("3/5"), looked up in your app's strings.
+    case text(LocalizedStringKey)
 }
 
 // MARK: - Track

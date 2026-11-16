@@ -2,16 +2,15 @@
 //  KeyHintPill.swift
 //  BlissUI
 //
-//  A small outlined key cap for keyboard hints in running text — a sheet
-//  footer's "esc to cancel · ↩ to save". The hairline sibling of
-//  `ShortcutKey`: that one is a filled pill that accessorizes a control (a
-//  search field's ⌘K); this one sits inline in caption text without adding a
-//  block of fill to it.
+//  An outlined key cap for keyboard hints in running text — a sheet footer's
+//  "esc to cancel · ↩ to save". The same pill as `ShortcutKey(_:outlined:
+//  true)`, kept under its own name for callers that already use it.
 //
 
 import SwiftUI
 
-/// An outlined key cap for inline keyboard hints ("esc", "⌘↩").
+/// An outlined key cap for inline keyboard hints ("esc", "⌘↩") — `ShortcutKey`
+/// with `outlined: true`.
 ///
 /// ```swift
 /// HStack(spacing: Spacing.xs) {
@@ -28,15 +27,7 @@ public struct KeyHintPill: View {
     }
 
     public var body: some View {
-        Text(verbatim: keys)
-            .font(Typography.codeTiny)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, Spacing.xs - 1)
-            .padding(.vertical, 1)
-            .background {
-                RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(prefersIncreasedContrast ? 0.3 : 0.15), lineWidth: 1)
-            }
+        ShortcutKey(keys, outlined: true)
     }
 }
 

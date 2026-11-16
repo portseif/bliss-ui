@@ -4,7 +4,8 @@
 //
 //  A panel that slides in over a view's trailing (or leading) edge — a
 //  notifications feed, an inspector, recent activity — with a header (title,
-//  actions, ✕) over its scrolling content. Esc or a click outside closes it.
+//  actions, ✕) over its scrolling content and an optional pinned footer. Esc
+//  or a click outside closes it.
 //
 //  The panel is always mounted and slid off-screen when closed, so opening and
 //  closing is a real slide (an animated `offset` + fade) rather than a pop — an
@@ -28,19 +29,36 @@ extension View {
     ///   - isPresented: Whether the panel is in. Esc, the ✕ and a click outside
     ///     set it to false.
     ///   - title: The header, looked up in your app's strings like `Text("…")`.
+    ///   - subtitle: A secondary line under the title ("3 unread").
     ///   - edge: The side it slides in from.
     ///   - width: The panel's width.
+    ///   - insetsContent: The content's `Spacing.cardPadding` inset; off lets
+    ///     `DividedForEach` rows and their hover fills run to the panel's edges.
+    ///   - dimsBackground: A scrim over the page while the panel is in, for
+    ///     one the user must close before continuing.
     ///   - content: The panel's rows; they scroll under the header.
     public func slideoutPanel<PanelContent: View>(
         isPresented: Binding<Bool>,
         title: LocalizedStringKey,
+        subtitle: LocalizedStringKey? = nil,
         edge: HorizontalEdge = .trailing,
-        width: CGFloat = 340,
+        width: CGFloat = Sizing.slideoutPanelWidth,
+        insetsContent: Bool = true,
+        dimsBackground: Bool = false,
         @ViewBuilder content: @escaping () -> PanelContent
     ) -> some View {
-        slideoutPanel(isPresented: isPresented, title: title, edge: edge, width: width, content: content) {
-            EmptyView()
-        }
+        slideoutPanel(
+            isPresented: isPresented,
+            title: title,
+            subtitle: subtitle,
+            edge: edge,
+            width: width,
+            insetsContent: insetsContent,
+            dimsBackground: dimsBackground,
+            content: content,
+            actions: { EmptyView() },
+            footer: { EmptyView() }
+        )
     }
 
     /// Slides a panel in over this view's `edge`, with `actions` ("Mark all
@@ -49,45 +67,105 @@ extension View {
     /// - Parameters:
     ///   - isPresented: Whether the panel is in.
     ///   - title: The header, looked up in your app's strings like `Text("…")`.
+    ///   - subtitle: A secondary line under the title.
     ///   - edge: The side it slides in from.
     ///   - width: The panel's width.
+    ///   - insetsContent: The content's inset; off for edge-to-edge rows.
+    ///   - dimsBackground: A scrim over the page while the panel is in.
     ///   - content: The panel's rows; they scroll under the header.
     ///   - actions: Header controls, before the ✕.
     public func slideoutPanel<PanelContent: View, Actions: View>(
         isPresented: Binding<Bool>,
         title: LocalizedStringKey,
+        subtitle: LocalizedStringKey? = nil,
         edge: HorizontalEdge = .trailing,
-        width: CGFloat = 340,
+        width: CGFloat = Sizing.slideoutPanelWidth,
+        insetsContent: Bool = true,
+        dimsBackground: Bool = false,
         @ViewBuilder content: @escaping () -> PanelContent,
         @ViewBuilder actions: @escaping () -> Actions
+    ) -> some View {
+        slideoutPanel(
+            isPresented: isPresented,
+            title: title,
+            subtitle: subtitle,
+            edge: edge,
+            width: width,
+            insetsContent: insetsContent,
+            dimsBackground: dimsBackground,
+            content: content,
+            actions: actions,
+            footer: { EmptyView() }
+        )
+    }
+
+    /// Slides a panel in over this view's `edge`, with header `actions` and a
+    /// `footer` pinned under the scrolling content ("Clear all").
+    ///
+    /// - Parameters:
+    ///   - isPresented: Whether the panel is in.
+    ///   - title: The header, looked up in your app's strings like `Text("…")`.
+    ///   - subtitle: A secondary line under the title.
+    ///   - edge: The side it slides in from.
+    ///   - width: The panel's width.
+    ///   - insetsContent: The content's inset; off for edge-to-edge rows.
+    ///   - dimsBackground: A scrim over the page while the panel is in.
+    ///   - content: The panel's rows; they scroll under the header.
+    ///   - actions: Header controls, before the ✕.
+    ///   - footer: A bar pinned under the content, over a hairline.
+    public func slideoutPanel<PanelContent: View, Actions: View, Footer: View>(
+        isPresented: Binding<Bool>,
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey? = nil,
+        edge: HorizontalEdge = .trailing,
+        width: CGFloat = Sizing.slideoutPanelWidth,
+        insetsContent: Bool = true,
+        dimsBackground: Bool = false,
+        @ViewBuilder content: @escaping () -> PanelContent,
+        @ViewBuilder actions: @escaping () -> Actions,
+        @ViewBuilder footer: @escaping () -> Footer
     ) -> some View {
         modifier(SlideoutPanelModifier(
             isPresented: isPresented,
             title: title,
+            subtitle: subtitle,
             edge: edge,
             width: width,
+            insetsContent: insetsContent,
+            dimsBackground: dimsBackground,
             panelContent: content,
-            actions: actions
+            actions: actions,
+            footer: footer
         ))
     }
 }
 
-private struct SlideoutPanelModifier<PanelContent: View, Actions: View>: ViewModifier {
-    @Binding var isPresented: Bool
-    let title: LocalizedStringKey
-    let edge: HorizontalEdge
-    let width: CGFloat
-    let panelContent: () -> PanelContent
-    let actions: () -> Actions
-
+/// The slide-out panel's own numbers.
+private enum SlideoutPanelMetrics {
     /// The gap between the panel and the host's edges, so it reads as a card
     /// floating over the page.
-    private static var inset: CGFloat { Spacing.xxs }
+    static var inset: CGFloat { Spacing.xxs }
+    /// The click-catcher behind an undimmed panel: all but invisible, so a
+    /// click outside still lands on it.
+    static let clickCatcherOpacity: CGFloat = 0.001
+}
+
+private struct SlideoutPanelModifier<PanelContent: View, Actions: View, Footer: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey?
+    let edge: HorizontalEdge
+    let width: CGFloat
+    let insetsContent: Bool
+    let dimsBackground: Bool
+    let panelContent: () -> PanelContent
+    let actions: () -> Actions
+    let footer: () -> Footer
 
     /// How far it sits off its edge while closed: its width, its inset, and room
     /// for its shadow.
     private var hiddenOffset: CGFloat {
-        let distance = width + Self.inset + Spacing.xl
+        let distance = width + SlideoutPanelMetrics.inset + Spacing.xl
         return edge == .trailing ? distance : -distance
     }
 
@@ -95,10 +173,11 @@ private struct SlideoutPanelModifier<PanelContent: View, Actions: View>: ViewMod
         content
             .overlay {
                 ZStack(alignment: edge == .trailing ? .trailing : .leading) {
-                    // Catches a click outside the panel, which closes it. Kept
-                    // conditional since a Color's opacity transition is reliable.
+                    // Catches a click outside the panel, which closes it — a
+                    // scrim when the panel is modal. Kept conditional since a
+                    // Color's opacity transition is reliable.
                     if isPresented {
-                        Color.black.opacity(0.001)
+                        Color.black.opacity(dimsBackground ? Scrim.opacity : SlideoutPanelMetrics.clickCatcherOpacity)
                             .contentShape(Rectangle())
                             .onTapGesture { isPresented = false }
                             .transition(.opacity)
@@ -106,12 +185,15 @@ private struct SlideoutPanelModifier<PanelContent: View, Actions: View>: ViewMod
 
                     SlideoutPanelCard(
                         title: title,
+                        subtitle: subtitle,
+                        insetsContent: insetsContent,
                         onClose: { isPresented = false },
                         content: panelContent,
-                        actions: actions
+                        actions: actions,
+                        footer: footer
                     )
                     .frame(width: width)
-                    .padding(Self.inset)
+                    .padding(SlideoutPanelMetrics.inset)
                     // Scoped to the panel: the page's own changes in the same
                     // transaction keep their timing. Leaves faster than it arrives,
                     // like the menus.
@@ -133,17 +215,19 @@ private struct SlideoutPanelModifier<PanelContent: View, Actions: View>: ViewMod
     }
 }
 
-/// The panel itself: header (title, actions, ✕), a hairline, and the content
-/// scrolling under it, on the content surface with a hairline border.
-private struct SlideoutPanelCard<PanelContent: View, Actions: View>: View {
+/// The panel itself: header (title, actions, ✕), a hairline, the content
+/// scrolling under it and an optional pinned footer, on the control surface
+/// with the floating-panel chrome.
+private struct SlideoutPanelCard<PanelContent: View, Actions: View, Footer: View>: View {
     let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey?
+    let insetsContent: Bool
     let onClose: () -> Void
     let content: () -> PanelContent
     let actions: () -> Actions
+    let footer: () -> Footer
 
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var cornerRadius: CGFloat { Sizing.radiusLarge + 2 }
+    private var cornerRadius: CGFloat { Sizing.radiusLarge }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -154,38 +238,53 @@ private struct SlideoutPanelCard<PanelContent: View, Actions: View>: View {
                     content()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Spacing.md)
+                .padding(insetsContent ? Spacing.cardPadding : 0)
+            }
+            if Footer.self != EmptyView.self {
+                Divider()
+                HStack(spacing: Spacing.sm) {
+                    footer()
+                }
+                .padding(.horizontal, Spacing.cardPadding)
+                .padding(.vertical, Spacing.sm)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         // Opaque: the page must not read through it as it slides over.
-        .background(Color.contentAreaBackground)
-        .background(Color.appShell)
+        .background(Color.controlBackground)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
-        .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 16, x: 0, y: 6)
+        .elevation(.panel)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(title))
     }
 
     private var header: some View {
         HStack(spacing: Spacing.sm) {
-            Text(title)
-                .font(Typography.headingSmall)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
+                Text(title)
+                    .font(Typography.headingSmall)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .accessibilityAddTraits(.isHeader)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(Typography.captionSmall)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
             Spacer(minLength: Spacing.sm)
             actions()
             // Esc closes it, like a sheet or a menu. Only while it's open: closed,
             // the panel is disabled, and so is the shortcut.
-            SheetCloseButton(action: onClose, verticalOffset: 0)
+            SheetCloseButton(action: onClose)
                 .keyboardShortcut(.escape, modifiers: [])
         }
-        .padding(.leading, Spacing.md)
+        .padding(.leading, Spacing.cardPadding)
         .padding(.trailing, Spacing.sm)
         .padding(.vertical, Spacing.sm)
     }
@@ -204,7 +303,7 @@ private struct SlideoutPanelCard<PanelContent: View, Actions: View>: View {
     .padding(Spacing.xl)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .background(Color.contentAreaBackground)
-    .slideoutPanel(isPresented: $isPresented, title: "Notifications") {
+    .slideoutPanel(isPresented: $isPresented, title: "Notifications", subtitle: "3 unread") {
         DividedForEach(["Build finished", "Backup completed", "Invite accepted"], id: \.self) { item in
             HStack {
                 Text(verbatim: item).font(Typography.bodySmall)
@@ -215,8 +314,10 @@ private struct SlideoutPanelCard<PanelContent: View, Actions: View>: View {
         }
     } actions: {
         Button("Mark all read") {}
-            .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 3))
-            .font(Typography.labelSmall)
-            .foregroundStyle(Color.accent)
+            .buttonStyle(GhostButtonStyle(compact: true, hugsLabel: true))
+    } footer: {
+        Spacer()
+        Button("Clear all") {}
+            .buttonStyle(SecondaryButtonStyle(compact: true))
     }
 }

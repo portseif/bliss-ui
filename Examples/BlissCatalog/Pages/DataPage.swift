@@ -22,6 +22,11 @@ struct DataPage: View {
     @State private var isRunning = true
     @State private var chartKind: TimeSeriesChartKind = .line
     @State private var stacksBars = false
+    @State private var chartsAreCompact = false
+    @State private var barsAreHorizontal = false
+    @State private var graphIsCompact = false
+    @State private var selectedCommit: String?
+    @State private var statsAreLoading = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -48,6 +53,19 @@ struct DataPage: View {
                 StatCard("Builds today", value: "48", change: StatChange("0", direction: .flat), detail: "same as yesterday", systemImage: "hammer")
             }
             .frame(maxWidth: 760)
+            Text("Compact tiles that open on click, and a loading one.")
+                .font(Typography.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: Spacing.md) {
+                StatCard("Latency", value: "142 ms", change: StatChange("8%", direction: .down, isPositive: false), systemImage: "timer", compact: true, onOpen: {
+                    ToastService.shared.showInfo(title: "Opened", message: "Latency")
+                })
+                StatCard("Uptime", value: "99.98%", change: StatChange("0.01", direction: .up), sparkline: [99.9, 99.95, 99.97, 99.98], sparklineColor: Success.success500, compact: true)
+                StatCard("Queue", value: "12", compact: true, isLoading: statsAreLoading)
+            }
+            .frame(maxWidth: 760)
+            Toggle("Loading", isOn: $statsAreLoading)
+                .toggleStyle(.flatSwitch(showsLabel: true))
         }
     }
 
@@ -64,13 +82,17 @@ struct DataPage: View {
                     .buttonStyle(SecondaryButtonStyle(compact: true))
                 Button(stacksBars ? "Side by side" : "Stacked") { stacksBars.toggle() }
                     .buttonStyle(SecondaryButtonStyle(compact: true))
+                Button(barsAreHorizontal ? "Vertical bars" : "Horizontal bars") { barsAreHorizontal.toggle() }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+                Toggle("Compact", isOn: $chartsAreCompact)
+                    .toggleStyle(.flatSwitch(showsLabel: true))
             }
-            TimeSeriesChart(chartKind, samples: CatalogChartData.visits)
+            TimeSeriesChart(chartKind, samples: CatalogChartData.visits, compact: chartsAreCompact, seriesColors: ["App": Purple.purple400])
                 .frame(maxWidth: 640)
-                .frame(height: 220)
-            BarChart(bars: CatalogChartData.downloads, stacked: stacksBars)
+                .frame(height: chartsAreCompact ? Sizing.chartCompactHeight : 220)
+            BarChart(bars: CatalogChartData.downloads, stacked: stacksBars, compact: chartsAreCompact, orientation: barsAreHorizontal ? .horizontal : .vertical)
                 .frame(maxWidth: 640)
-                .frame(height: 220)
+                .frame(height: chartsAreCompact ? Sizing.chartCompactHeight : 220)
         }
     }
 
@@ -80,7 +102,16 @@ struct DataPage: View {
 
     private var commitGraphBlock: some View {
         DemoBlock(title: "Commit graph") {
-            CommitGraph(DataSamples.commits, onOpen: { openedCommit = $0 }) { commit, isHovered in
+            HStack(spacing: Spacing.md) {
+                Toggle("Compact", isOn: $graphIsCompact)
+                    .toggleStyle(.flatSwitch(showsLabel: true))
+                if let selectedCommit {
+                    Text(verbatim: "Selected \(selectedCommit)")
+                        .font(Typography.captionSmall)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            CommitGraph(DataSamples.commits, selection: $selectedCommit, compact: graphIsCompact, onOpen: { openedCommit = $0 }) { commit, isHovered in
                 Button("Check Out") { openedCommit = commit }
                     .buttonStyle(SecondaryButtonStyle(compact: true))
                     .opacity(isHovered ? 1 : 0)
@@ -105,7 +136,9 @@ struct DataPage: View {
                     label: isIndeterminate ? "Preparing…" : "Uploading",
                     showsPercentage: true
                 )
-                ProgressBar(value: progress, tint: Success.success500, height: 4)
+                ProgressBar(value: progress, tint: Success.success500, thickness: .thin)
+                ProgressBar(value: progress, label: "Importing", readout: .text(.verbatim("\(Int(progress * 12)) of 12")), thickness: .thick)
+                ProgressBar(value: progress, label: "Sync", readout: .percentage, inline: true)
             }
             .frame(maxWidth: 420)
             HStack(spacing: Spacing.sm) {
@@ -137,6 +170,7 @@ struct DataPage: View {
                     lineWidth: 4
                 )
                 ProgressRing(value: progress, center: .percentage, size: 72, lineWidth: 6)
+                ProgressRing(value: progress, center: .percentage, size: 56, label: "Backup")
             }
             Text("Uses the progress above — Advance to animate it.")
                 .font(Typography.captionSmall)
@@ -158,6 +192,16 @@ struct DataPage: View {
                     valueFormat: DataSamples.gigabytes
                 )
                 UsageBar(value: logEntries, capacity: 500, title: "Log entries", showsTotal: true)
+                UsageBar(value: logEntries, capacity: 500, title: "Thresholds at 50% and 95%, with a percentage", showsTotal: true, showsPercentage: true, thresholds: UsageThresholds(warning: 0.5, critical: 0.95), thickness: .thick)
+                UsageBar(
+                    DataSamples.storage(photos: photos),
+                    capacity: 256,
+                    title: "Shares in the legend",
+                    showsLegend: true,
+                    showsShares: true,
+                    thickness: .thin,
+                    valueFormat: DataSamples.gigabytes
+                )
             }
             .frame(maxWidth: 420)
             HStack(spacing: Spacing.sm) {
@@ -181,6 +225,14 @@ struct DataPage: View {
             HStack(spacing: Spacing.md) {
                 TickStrip(health, isRefreshing: isRefreshing, accessibilityLabel: "Health, last 20 days")
                 Text("Hover a tick for its day.")
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: Spacing.md) {
+                TickStrip(health, highlightedIndex: health.count - 1, onSelect: { index in
+                    ToastService.shared.showInfo(title: "Day", message: health[index].label)
+                }, accessibilityLabel: "Health, today highlighted")
+                Text("Today is taller; click a tick to open its day.")
                     .font(Typography.captionSmall)
                     .foregroundStyle(.secondary)
             }
@@ -209,6 +261,7 @@ struct DataPage: View {
                 ChangeBlocks(additions: additions, deletions: deletions)
                 ChangeBlocks(additions: 40, deletions: 380)
                 ChangeBlocks(additions: 12_400, deletions: 3_100)
+                ChangeBlocks(additions: 12_400, deletions: 3_100, countStyle: .exact)
                 ChangeBlocks(additions: 0, deletions: 0)
             }
             Button("Randomize") {
@@ -231,6 +284,15 @@ struct DataPage: View {
                 Sparkline(DataSamples.withGaps(latency), range: 0...120, color: Warning.warning500, accessibilityLabel: "Latency", valueFormat: DataSamples.milliseconds)
                     .frame(width: 140, height: 28)
             }
+            HStack(spacing: Spacing.xl) {
+                Sparkline(latency, baseline: 70, showsExtremes: true, accessibilityLabel: "Latency against a 70 ms target", valueFormat: DataSamples.milliseconds)
+                    .frame(width: 140, height: 28)
+                Sparkline(latency, color: Info.info500, fillsArea: true, smooths: true, accessibilityLabel: "Latency, smoothed", valueFormat: DataSamples.milliseconds)
+                    .frame(width: 140, height: 28)
+                Text("A baseline with the extremes marked, and a smoothed curve.")
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+            }
             Button("New data") { latency = DataSamples.latency(seed: Int.random(in: 1...999)) }
                 .buttonStyle(SecondaryButtonStyle(compact: true))
         }
@@ -242,6 +304,8 @@ struct DataPage: View {
         DemoBlock(title: "Status and key pills") {
             HStack(spacing: Spacing.md) {
                 StatusPill(isRunning ? "Running" : "Stopped", isActive: isRunning)
+                StatusPill(isRunning ? "Connected" : "Offline", isActive: isRunning, color: Info.info500, size: .regular, icon: "bolt.fill")
+                StatusPill(isRunning ? "Live" : "Paused", isActive: isRunning, size: .large, bordered: false)
                 Toggle("Running", isOn: $isRunning)
                     .toggleStyle(.flatSwitch(showsLabel: true))
             }

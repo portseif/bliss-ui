@@ -33,50 +33,109 @@ public nonisolated enum TooltipPosition: Sendable {
     case trailing
 }
 
+// MARK: - Tooltip Metrics
+
+/// The sizes and timings every tooltip shares.
+public nonisolated enum TooltipMetrics {
+    /// The widest a tooltip's text runs before wrapping.
+    public static let maxWidth: CGFloat = 250
+    /// The tallest a tooltip gets before its content scrolls.
+    public static let maxHeight: CGFloat = 200
+    /// The `.compact` preset's envelope.
+    public static let compactMaxWidth: CGFloat = 180
+    public static let compactMaxHeight: CGFloat = 120
+    /// The `.wide` preset's envelope, and the actions tooltip's width.
+    public static let wideMaxWidth: CGFloat = 320
+    public static let wideMaxHeight: CGFloat = 250
+    /// The `.iconHint` preset's envelope: one line.
+    public static let iconHintMaxWidth: CGFloat = 200
+    public static let iconHintMaxHeight: CGFloat = 44
+    /// The text's inset: the menu rows' (`Spacing.menuRowPaddingH` / `V`),
+    /// restated here because a configuration is built off the main actor.
+    public static let horizontalPadding: CGFloat = 10
+    public static let verticalPadding: CGFloat = 5
+    /// The gap between the tooltip and the view it points at.
+    @MainActor static var anchorOffset: CGFloat { Spacing.sm }
+    /// How close to a screen's edge a tooltip may sit.
+    @MainActor static var screenInset: CGFloat { Spacing.xxs }
+    /// Delay before the first tooltip in a session appears. Prevents accidental
+    /// activation when the cursor merely passes over a target.
+    static let initialDelay: TimeInterval = 0.5
+    /// Window of time after a tooltip closes during which subsequent tooltips
+    /// appear instantly with no fade-in. Lets users sweep across icon rows
+    /// without the cumulative half-second penalty per icon.
+    static let groupGrace: TimeInterval = 0.4
+    /// How long an interactive tooltip stays after the cursor leaves its source,
+    /// so the cursor can cross into it.
+    static let hideGrace: TimeInterval = 0.25
+    /// How long an action's confirmation ("Copied") shows.
+    static let confirmationDuration: TimeInterval = 1.2
+    /// How far outside its target the cursor may be and still count as on it.
+    static let cursorTolerance: CGFloat = 4
+    /// Anchor-rect sanity limits: a control taller or wider than this, or with
+    /// an edge farther from the cursor than `edgeSlack`, is an inflated parent
+    /// frame, and that axis collapses to `cursorBox` around the cursor.
+    static let controlLimit: CGFloat = 72
+    static let edgeSlack: CGFloat = 48
+    static let cursorBox: CGFloat = 24
+    /// How far the offset edge may sit from the cursor, and the centering axis.
+    static let edgeCap: CGFloat = 24
+    static let centerCap: CGFloat = 48
+    /// How often an on-screen tooltip re-checks its target.
+    static let anchorWatchInterval: TimeInterval = 1.0 / 30.0
+}
+
+/// How long a tooltip waits before it shows.
+public nonisolated enum TooltipDelay: Sendable {
+    /// The usual half second, skipped within a group of tooltips.
+    case standard
+    /// At once — a chart callout, a key-hint pill.
+    case none
+}
+
 // MARK: - Tooltip Configuration
 
 /// Configuration options for tooltip sizing behavior
 public nonisolated struct TooltipConfiguration: Equatable, Sendable {
     /// Maximum width of the tooltip content
-    public var maxWidth: CGFloat = 250
+    public var maxWidth: CGFloat = TooltipMetrics.maxWidth
     /// Maximum height before scrolling is enabled
-    public var maxHeight: CGFloat = 200
+    public var maxHeight: CGFloat = TooltipMetrics.maxHeight
     /// Horizontal padding inside the tooltip
-    public var horizontalPadding: CGFloat = 10
+    public var horizontalPadding: CGFloat = TooltipMetrics.horizontalPadding
     /// Vertical padding inside the tooltip
-    public var verticalPadding: CGFloat = 5
+    public var verticalPadding: CGFloat = TooltipMetrics.verticalPadding
     /// When true, the tooltip accepts mouse interaction: hovering it keeps it
     /// open (so the cursor can travel from the source into the tooltip), and
     /// it can host clickable action buttons. Default tooltips stay click-through.
     public var interactive: Bool = false
+    /// How long the tooltip waits before it shows.
+    public var delay: TooltipDelay = .standard
 
     public init(
-        maxWidth: CGFloat = 250,
-        maxHeight: CGFloat = 200,
-        horizontalPadding: CGFloat = 10,
-        verticalPadding: CGFloat = 5,
-        interactive: Bool = false
+        maxWidth: CGFloat = TooltipMetrics.maxWidth,
+        maxHeight: CGFloat = TooltipMetrics.maxHeight,
+        horizontalPadding: CGFloat = TooltipMetrics.horizontalPadding,
+        verticalPadding: CGFloat = TooltipMetrics.verticalPadding,
+        interactive: Bool = false,
+        delay: TooltipDelay = .standard
     ) {
         self.maxWidth = maxWidth
         self.maxHeight = maxHeight
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
         self.interactive = interactive
+        self.delay = delay
     }
 
-    // Every tooltip uses the tight (10h/5v) padding — the init's defaults, so
-    // the text overloads that build their own configuration read compact too;
-    // the presets differ only in width envelope.
-    public static let `default` = TooltipConfiguration(horizontalPadding: 10, verticalPadding: 5)
-    public static let compact = TooltipConfiguration(maxWidth: 180, maxHeight: 120, horizontalPadding: 10, verticalPadding: 5)
-    public static let wide = TooltipConfiguration(maxWidth: 320, maxHeight: 250, horizontalPadding: 10, verticalPadding: 5)
+    // Every tooltip uses the menu-row inset — the init's defaults, so the text
+    // overloads that build their own configuration read the same; the presets
+    // differ only in width envelope.
+    public static let `default` = TooltipConfiguration()
+    public static let compact = TooltipConfiguration(maxWidth: TooltipMetrics.compactMaxWidth, maxHeight: TooltipMetrics.compactMaxHeight)
+    public static let wide = TooltipConfiguration(maxWidth: TooltipMetrics.wideMaxWidth, maxHeight: TooltipMetrics.wideMaxHeight)
     /// Tight single-line tooltip for icon buttons (sidebar rows, toolbar items).
-    public static let iconHint = TooltipConfiguration(
-        maxWidth: 200,
-        maxHeight: 44,
-        horizontalPadding: 10,
-        verticalPadding: 5
-    )
+    public static let iconHint = TooltipConfiguration(maxWidth: TooltipMetrics.iconHintMaxWidth, maxHeight: TooltipMetrics.iconHintMaxHeight)
 }
 
 // MARK: - Tooltip Window Controller
@@ -106,21 +165,16 @@ final class TooltipWindowController: NSObject {
     /// Whether the on-screen tooltip accepts mouse interaction (hover-to-keep-open
     /// + clickable action buttons). Drives the click-monitor and hover behavior.
     private var interactiveTooltip = false
-
-    /// Delay before the first tooltip in a session appears. Prevents accidental
-    /// activation when the cursor merely passes over a target.
-    private let initialDelay: TimeInterval = 0.5
-    /// Window of time after a tooltip closes during which subsequent tooltips
-    /// appear instantly with no fade-in. Lets users sweep across icon rows
-    /// without the cumulative half-second penalty per icon.
-    private let groupGrace: TimeInterval = 0.4
+    /// Whether the on-screen tooltip was shown by code (`.tooltip(_:isPresented:)`)
+    /// rather than hover: it stays until its binding drops, wherever the cursor is.
+    private var pinnedTooltip = false
 
     /// True while a tooltip is on-screen OR within `groupGrace` of the last
     /// dismissal. Callers use this to decide whether to delay/animate.
     private var groupActive: Bool {
         if tooltipWindow != nil { return true }
         if let last = lastDismissedAt {
-            return Date().timeIntervalSince(last) < groupGrace
+            return Date().timeIntervalSince(last) < TooltipMetrics.groupGrace
         }
         return false
     }
@@ -235,13 +289,19 @@ final class TooltipWindowController: NSObject {
             return
         }
 
+        // A tooltip that waits for nothing (a chart callout) shows at once.
+        if configuration.delay == .none {
+            show(content: content, configuration: configuration, anchoredTo: anchorView, position: position, colorScheme: colorScheme, animated: true)
+            return
+        }
+
         // First tooltip in a session — delay to filter out cursor sweeps.
         let workItem = DispatchWorkItem { [weak self, weak anchorView] in
             guard let self, let anchorView else { return }
             self.show(content: content, configuration: configuration, anchoredTo: anchorView, position: position, colorScheme: colorScheme, animated: true)
         }
         pendingShow = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + initialDelay, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + TooltipMetrics.initialDelay, execute: workItem)
     }
 
     func cancelPendingShow() {
@@ -249,13 +309,16 @@ final class TooltipWindowController: NSObject {
         pendingShow = nil
     }
 
+    /// - Parameter pinned: Shown by code rather than hover: the cursor needn't
+    ///   be on the anchor, and the tooltip stays until `hide()`.
     func show<Content: View>(
         content: Content,
         configuration: TooltipConfiguration,
         anchoredTo anchorView: NSView,
         position: TooltipPosition,
         colorScheme: ColorScheme,
-        animated: Bool = true
+        animated: Bool = true,
+        pinned: Bool = false
     ) {
         // Resolve the anchor's frame NOW, at presentation time. Between hover
         // and the delayed show the target can move (content scrolled, layout
@@ -267,15 +330,17 @@ final class TooltipWindowController: NSObject {
 
         // If the cursor is no longer over the target (it moved away and the
         // hover-exit was missed), don't show a tooltip for a control the user
-        // isn't pointing at.
-        let cursor = NSEvent.mouseLocation
-        guard anchorRect.insetBy(dx: -4, dy: -4).contains(cursor) else { return }
+        // isn't pointing at. A pinned tooltip anchors to the rect itself.
+        let tolerance = TooltipMetrics.cursorTolerance
+        let cursor = pinned ? NSPoint(x: anchorRect.midX, y: anchorRect.midY) : NSEvent.mouseLocation
+        guard pinned || anchorRect.insetBy(dx: -tolerance, dy: -tolerance).contains(cursor) else { return }
 
         // Replacing an existing tooltip: drop it instantly. Fading the old one
         // while the new one pops in looks janky during group-active swaps.
         hide(animated: false)
 
         interactiveTooltip = configuration.interactive
+        pinnedTooltip = pinned
 
         let tooltipView = TooltipContentView(
             content: content,
@@ -343,11 +408,12 @@ final class TooltipWindowController: NSObject {
 
         // Position the window. `tooltipSize` includes the transparent shadow
         // padding applied inside TooltipContentView; shift the window origin by
-        // `tooltipShadowPadding` so the visible content still lands at the
+        // `PanelMetrics.shadowInset` so the visible content still lands at the
         // intended offset from the anchor. (Must be the cached measurement —
         // `fittingSize` is dead after the `sizingOptions` clear above.)
         let tooltipSize = measuredSize
-        let pad = tooltipShadowPadding
+        let pad = PanelMetrics.shadowInset
+        let gap = TooltipMetrics.anchorOffset
 
         // The anchor frame comes from SwiftUI's `.background` plumbing and is NOT
         // reliably the control's own bounds — a `.position`ed view reports its
@@ -364,9 +430,9 @@ final class TooltipWindowController: NSObject {
         // made tooltips float way too high: `.above` reads the inflated maxY).
         // Either way, collapse that axis to a small box on the cursor. Ordinary
         // buttons and rows pass both tests and anchor to their real geometry.
-        let controlLimit: CGFloat = 72
-        let edgeSlack: CGFloat = 48
-        let cursorBox: CGFloat = 24
+        let controlLimit = TooltipMetrics.controlLimit
+        let edgeSlack = TooltipMetrics.edgeSlack
+        let cursorBox = TooltipMetrics.cursorBox
         var rect = anchorRect
         if rect.height > controlLimit
             || rect.maxY - cursor.y > edgeSlack
@@ -389,13 +455,14 @@ final class TooltipWindowController: NSObject {
         // never far away. Clamp the edge each position offsets from into that
         // directionally-correct band around the cursor. Honest anchors pass
         // through untouched; shifted ones degrade to hugging the pointer.
-        let edgeCap: CGFloat = 24
+        // A pinned tooltip trusts its rect: the cursor is nowhere near.
+        let edgeCap: CGFloat = pinned ? .greatestFiniteMagnitude : TooltipMetrics.edgeCap
         func clamped(_ value: CGFloat, _ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
             min(max(value, lower), upper)
         }
         // The centering axis gets a looser sanity band — being centered a bit
         // off reads fine; being centered 50+pt off does not.
-        let centerCap: CGFloat = 48
+        let centerCap: CGFloat = pinned ? .greatestFiniteMagnitude : TooltipMetrics.centerCap
         let centerX = clamped(rect.midX, cursor.x - centerCap, cursor.x + centerCap)
         let centerY = clamped(rect.midY, cursor.y - centerCap, cursor.y + centerCap)
 
@@ -404,38 +471,39 @@ final class TooltipWindowController: NSObject {
         case .above:
             // Anchor's top edge: at or above the cursor, within reach.
             let edgeY = clamped(rect.maxY, cursor.y, cursor.y + edgeCap)
-            origin = NSPoint(x: centerX - tooltipSize.width / 2, y: edgeY + 8 - pad)
+            origin = NSPoint(x: centerX - tooltipSize.width / 2, y: edgeY + gap - pad)
         case .below:
             // Anchor's bottom edge: at or below the cursor, within reach.
             let edgeY = clamped(rect.minY, cursor.y - edgeCap, cursor.y)
-            origin = NSPoint(x: centerX - tooltipSize.width / 2, y: edgeY - tooltipSize.height - 8 + pad)
+            origin = NSPoint(x: centerX - tooltipSize.width / 2, y: edgeY - tooltipSize.height - gap + pad)
         case .leading:
             // Right edge of visible tooltip sits to the left of the anchor
             let edgeX = clamped(rect.minX, cursor.x - edgeCap, cursor.x)
-            origin = NSPoint(x: edgeX - tooltipSize.width - 8 + pad, y: centerY - tooltipSize.height / 2)
+            origin = NSPoint(x: edgeX - tooltipSize.width - gap + pad, y: centerY - tooltipSize.height / 2)
         case .trailing:
             // Left edge of visible tooltip sits to the right of the anchor
             let edgeX = clamped(rect.maxX, cursor.x, cursor.x + edgeCap)
-            origin = NSPoint(x: edgeX + 8 - pad, y: centerY - tooltipSize.height / 2)
+            origin = NSPoint(x: edgeX + gap - pad, y: centerY - tooltipSize.height / 2)
         }
 
         // Keep the tooltip on the anchor's screen — NSScreen.main is the key
         // window's screen, which isn't necessarily where the anchor lives.
         if let screen = hostWindow.screen ?? NSScreen.main {
             let screenFrame = screen.visibleFrame
+            let inset = TooltipMetrics.screenInset
 
             // Adjust horizontal position
             if origin.x < screenFrame.minX {
-                origin.x = screenFrame.minX + 4
+                origin.x = screenFrame.minX + inset
             } else if origin.x + tooltipSize.width > screenFrame.maxX {
-                origin.x = screenFrame.maxX - tooltipSize.width - 4
+                origin.x = screenFrame.maxX - tooltipSize.width - inset
             }
 
             // Adjust vertical position
             if origin.y < screenFrame.minY {
-                origin.y = screenFrame.minY + 4
+                origin.y = screenFrame.minY + inset
             } else if origin.y + tooltipSize.height > screenFrame.maxY {
-                origin.y = screenFrame.maxY - tooltipSize.height - 4
+                origin.y = screenFrame.maxY - tooltipSize.height - inset
             }
         }
 
@@ -462,7 +530,7 @@ final class TooltipWindowController: NSObject {
         trackedAnchorView = anchorView
         trackedAnchorRect = rawAnchorRect
         anchorWatchTimer?.invalidate()
-        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: TooltipMetrics.anchorWatchInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.anchorWatchTick() }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -497,10 +565,12 @@ final class TooltipWindowController: NSObject {
         // the target — catches missed hover-exits and content that reflowed out
         // from under the cursor. Interactive tooltips own their dismissal via
         // the hover-grace machinery (the cursor is allowed to be on the tooltip
-        // itself), so only the movement/death checks apply to them.
-        if !interactiveTooltip {
+        // itself), and a pinned one its binding, so only the movement/death
+        // checks apply to them.
+        if !interactiveTooltip && !pinnedTooltip {
             let cursor = NSEvent.mouseLocation
-            if !raw.insetBy(dx: -4, dy: -4).contains(cursor) {
+            let tolerance = TooltipMetrics.cursorTolerance
+            if !raw.insetBy(dx: -tolerance, dy: -tolerance).contains(cursor) {
                 hide()
                 return
             }
@@ -523,7 +593,7 @@ final class TooltipWindowController: NSObject {
     /// so the cursor can cross the small gap between the source and the tooltip
     /// (or between action buttons) without it vanishing. Cancelled if the cursor
     /// re-enters the source or the tooltip within the grace window.
-    func scheduleHide(grace: TimeInterval = 0.25) {
+    func scheduleHide(grace: TimeInterval = TooltipMetrics.hideGrace) {
         pendingHide?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.hide() }
         pendingHide = work
@@ -543,6 +613,7 @@ final class TooltipWindowController: NSObject {
         cancelScheduledHide()
         stopAnchorWatch()
         interactiveTooltip = false
+        pinnedTooltip = false
 
         guard let window = tooltipWindow else { return }
 
@@ -560,11 +631,11 @@ final class TooltipWindowController: NSObject {
             return
         }
 
-        // The menus' close (`Animations.menuClose`): the same strong ease-out
-        // curve and 0.12s, so tooltips and menus leave alike.
+        // The menus' close (`Animations.menuClose`), so tooltips and menus
+        // leave alike. The panel is AppKit's: it fades on the token's curve.
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.12
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
+            context.duration = MenuCloseCurve.duration
+            context.timingFunction = MenuCloseCurve.timingFunction
             window.animator().alphaValue = 0
         }, completionHandler: {
             MainActor.assumeIsolated { window.orderOut(nil) }
@@ -572,22 +643,16 @@ final class TooltipWindowController: NSObject {
     }
 }
 
+/// `Animations.menuClose` for an AppKit animation group — the token is a
+/// SwiftUI `Animation`, which can't drive `NSAnimationContext`.
+enum MenuCloseCurve {
+    static let duration: TimeInterval = 0.12
+    static var timingFunction: CAMediaTimingFunction { CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1) }
+}
+
 // MARK: - Tooltip Content View
 
-/// Transparent padding around the tooltip content so the drop-shadow has room
-/// to render outside the rounded-rect bounds without being clipped by the
-/// NSHostingView / NSPanel frame. Positioning math in `TooltipWindowController`
-/// subtracts this value so the visible content still appears where expected.
-let tooltipShadowPadding: CGFloat = 16
-
 private struct TooltipContentView<Content: View>: View {
-    /// The theme's raised surface under a color theme; the vibrant material
-    /// otherwise.
-    private var tooltipSurface: AnyShapeStyle {
-        if let palette = ThemeColors.activePalette { return AnyShapeStyle(palette.elevatedBackground.color) }
-        return AnyShapeStyle(.thinMaterial)
-    }
-
     let content: Content
     let configuration: TooltipConfiguration
     let position: TooltipPosition
@@ -660,14 +725,14 @@ private struct TooltipContentView<Content: View>: View {
         .padding(.horizontal, configuration.horizontalPadding)
         .padding(.vertical, configuration.verticalPadding)
         .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(tooltipSurface)
-                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                .fill(PanelSurface.fill)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.menuBorder, lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
+        .elevation(.panel)
         .background {
             // Measure actual content height (same layout as the visible copy)
             content
@@ -686,11 +751,11 @@ private struct TooltipContentView<Content: View>: View {
         }
         // Apply scale+opacity to the visible tooltip card (anchor refers to the
         // card's edges, not the padded area), THEN add transparent shadow padding.
-        // From 0.96 on the menus' open curve, so a tooltip and a menu arrive
-        // the same way (0.85 popped harder than anything beside it).
-        .scaleEffect(isAppeared || prefersReducedMotion ? 1.0 : 0.96, anchor: scaleAnchor)
+        // From the menus' entrance scale on their open curve, so a tooltip and
+        // a menu arrive the same way (0.85 popped harder than anything beside it).
+        .scaleEffect(isAppeared || prefersReducedMotion ? 1.0 : MenuPresentationMotion.entranceScale, anchor: scaleAnchor)
         .opacity(isAppeared ? 1.0 : 0.0)
-        .padding(tooltipShadowPadding)
+        .padding(PanelMetrics.shadowInset)
         // Track hover across the entire window (incl. the transparent shadow
         // padding) so moving the cursor onto the tooltip keeps it open. No-op
         // for non-interactive tooltips (callback nil + window ignores mouse).
@@ -858,6 +923,7 @@ public struct TooltipAction: Identifiable {
 /// over the tooltip's material background, with optional tap confirmation.
 private struct TooltipActionButton: View {
     let action: TooltipAction
+    @Environment(\.colorScheme) private var colorScheme
     @State private var confirmed = false
     @State private var isHovered = false
 
@@ -866,11 +932,11 @@ private struct TooltipActionButton: View {
             action.action()
             guard action.confirmation != nil else { return }
             withAnimation(Animations.feedback) { confirmed = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + TooltipMetrics.confirmationDuration) {
                 withAnimation(Animations.feedback) { confirmed = false }
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: Spacing.xxs) {
                 Image(systemName: confirmed ? "checkmark" : action.icon)
                 Text(confirmed ? (action.confirmation ?? action.label) : action.label)
             }
@@ -880,7 +946,7 @@ private struct TooltipActionButton: View {
             .padding(.vertical, Spacing.xxs)
             .background {
                 RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                    .fill(Color.primary.opacity(isHovered ? 0.12 : 0.06))
+                    .fill(isHovered ? RowTint.hover(colorScheme) : Color.restingFill)
             }
             .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous))
         }
@@ -935,11 +1001,54 @@ extension View {
     /// - Parameters:
     ///   - text: The tooltip text
     ///   - position: Where to position the tooltip relative to the element (default: above)
-    ///   - maxWidth: Maximum width before text wraps (default: 250)
-    public func tooltip(_ text: LocalizedStringKey, position: TooltipPosition = .above, maxWidth: CGFloat = 250) -> some View {
+    ///   - maxWidth: Maximum width before text wraps (default: `TooltipMetrics.maxWidth`)
+    public func tooltip(_ text: LocalizedStringKey, position: TooltipPosition = .above, maxWidth: CGFloat = TooltipMetrics.maxWidth) -> some View {
         tooltip(configuration: TooltipConfiguration(maxWidth: maxWidth), position: position) {
             Text(text)
         }
+    }
+
+    /// A text tooltip with the control's shortcut after it, as a key pill:
+    /// "Hide Sidebar ⌃⌘S".
+    /// - Parameters:
+    ///   - text: The tooltip text.
+    ///   - shortcut: The key, as the user reads it ("⌃⌘S").
+    ///   - position: Which side of the view the tooltip sits on.
+    public func tooltip(_ text: LocalizedStringKey, shortcut: String, position: TooltipPosition = .above) -> some View {
+        tooltip(configuration: .default, position: position) {
+            HStack(spacing: Spacing.xs) {
+                Text(text)
+                ShortcutKey(shortcut, compact: true)
+            }
+        }
+    }
+
+    /// A two-line tooltip: a title over a secondary detail (a file's name over
+    /// its size and date).
+    /// - Parameters:
+    ///   - title: The first line.
+    ///   - detail: The second line, in the secondary color.
+    ///   - position: Which side of the view the tooltip sits on.
+    public func tooltip(_ title: LocalizedStringKey, detail: LocalizedStringKey, position: TooltipPosition = .above) -> some View {
+        tooltip(configuration: .default, position: position) {
+            VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
+                Text(title)
+                    .font(Typography.captionSmallSemibold)
+                Text(detail)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// A tooltip shown by code rather than hover — a "Copied" confirmation on
+    /// the button that copied. It stays while `isPresented` is true, wherever
+    /// the pointer is; a click anywhere or `isPresented` dropping hides it.
+    /// - Parameters:
+    ///   - text: The tooltip text.
+    ///   - isPresented: Whether the tooltip is up.
+    ///   - position: Which side of the view the tooltip sits on.
+    public func tooltip(_ text: LocalizedStringKey, isPresented: Binding<Bool>, position: TooltipPosition = .above) -> some View {
+        modifier(PinnedTooltipModifier(isPresented: isPresented, position: position) { Text(text) })
     }
 
     /// Adds an interactive tooltip with custom content. Unlike the standard
@@ -961,7 +1070,7 @@ extension View {
     public func tooltip(
         _ text: String?,
         position: TooltipPosition = .above,
-        maxWidth: CGFloat = 320,
+        maxWidth: CGFloat = TooltipMetrics.wideMaxWidth,
         actions: [TooltipAction]
     ) -> some View {
         interactiveTooltip(
@@ -973,34 +1082,80 @@ extension View {
     }
 }
 
-// MARK: - Previews
+// MARK: - Pinned tooltip
 
-#Preview("Basic Tooltips") {
-    VStack(spacing: 40) {
-        Button("Hover me") {}
-            .tooltip("This is a tooltip")
+/// `.tooltip(_:isPresented:)`: shows the tooltip through the controller when the
+/// binding turns on and hides it when it turns off.
+private struct PinnedTooltipModifier<TooltipContent: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    let position: TooltipPosition
+    @ViewBuilder let tooltipContent: () -> TooltipContent
 
-        Image(systemName: "gear")
-            .font(.title)
-            .tooltip("Settings")
-
-        Text("Quarterly Report.pdf")
-            .font(.headline)
-            .tooltip {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Quarterly Report.pdf")
-                        .font(.caption).bold()
-                    Text("PDF document - 2.4 MB - Modified today")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+    func body(content: Content) -> some View {
+        content
+            .background(PinnedTooltipAnchorView(isPresented: isPresented, position: position, tooltipContent: tooltipContent))
+            .onChange(of: isPresented) { _, presented in
+                if !presented { TooltipWindowController.shared.hide() }
             }
+            .onDisappear { if isPresented { TooltipWindowController.shared.hide() } }
     }
-    .padding(100)
 }
 
-#Preview("Long Text Tooltip") {
-    VStack(spacing: 40) {
+private struct PinnedTooltipAnchorView<TooltipContent: View>: NSViewRepresentable {
+    let isPresented: Bool
+    let position: TooltipPosition
+    let tooltipContent: () -> TooltipContent
+
+    final class Coordinator {
+        var wasPresented = false
+        deinit {}
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        let justPresented = isPresented && !context.coordinator.wasPresented
+        context.coordinator.wasPresented = isPresented
+        guard justPresented, nsView.window != nil else { return }
+        let colorScheme = context.environment.colorScheme
+        // The first pass can land before the view is in the window's layout.
+        DispatchQueue.main.async {
+            TooltipWindowController.shared.show(
+                content: tooltipContent(),
+                configuration: .default,
+                anchoredTo: nsView,
+                position: position,
+                colorScheme: colorScheme,
+                animated: true,
+                pinned: true
+            )
+        }
+    }
+}
+
+// MARK: - Previews
+
+#Preview("Basic Tooltips", traits: .fixedLayout(width: 420, height: 320)) {
+    VStack(spacing: Spacing.xxl) {
+        Button("Hover me") {}
+            .buttonStyle(SecondaryButtonStyle(compact: true))
+            .tooltip("This is a tooltip")
+
+        Button {} label: { Image(systemName: "gear") }
+            .buttonStyle(ToolbarIconButtonStyle())
+            .tooltip("Settings", shortcut: "⌘,")
+
+        Text("Quarterly Report.pdf")
+            .font(Typography.bodySmallSemibold)
+            .tooltip("Quarterly Report.pdf", detail: "PDF document · 2.4 MB · Modified today")
+    }
+    .padding(Spacing.xxxxxl)
+}
+
+#Preview("Long Text Tooltip", traits: .fixedLayout(width: 420, height: 320)) {
+    VStack(spacing: Spacing.xxl) {
         Text("Short text")
             .tooltip("Brief tip")
 
@@ -1009,9 +1164,9 @@ extension View {
 
         Text("Long text (scrollable)")
             .tooltip(configuration: .default) {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("Extended Information")
-                        .font(.caption).bold()
+                        .font(Typography.captionSmallSemibold)
                     Text("""
                     This is a very long tooltip that contains multiple paragraphs of text. \
                     It demonstrates how the tooltip handles overflow content by enabling scrolling.
@@ -1025,16 +1180,16 @@ extension View {
                     The scrollbar indicator appears when needed, providing a visual cue that \
                     there's more content below.
                     """)
-                        .font(.caption2)
+                        .font(Typography.captionSmall)
                         .foregroundStyle(.secondary)
                 }
             }
     }
-    .padding(100)
+    .padding(Spacing.xxxxxl)
 }
 
-#Preview("Configuration Variants") {
-    HStack(spacing: 60) {
+#Preview("Configuration Variants", traits: .fixedLayout(width: 520, height: 240)) {
+    HStack(spacing: Spacing.xxxl) {
         Text("Compact")
             .tooltip(configuration: .compact) {
                 Text("Compact tooltip with limited width")
@@ -1050,5 +1205,5 @@ extension View {
                 Text("Wide tooltip allows for more content horizontally before wrapping occurs")
             }
     }
-    .padding(100)
+    .padding(Spacing.xxxxxl)
 }

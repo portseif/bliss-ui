@@ -5,7 +5,7 @@
 //  A capacity bar: stacked colored segments (what's using the space) over a
 //  faint track (what's left), with an optional title + total above it and a
 //  legend below. Or a single meter that warns as it fills — amber past 75%,
-//  red past 90%.
+//  red past 90% by default.
 //
 //  Segment widths are whole points that sum exactly to the filled width: a row
 //  of fractional widths anti-aliases its edges unevenly, so neighbouring
@@ -13,6 +13,22 @@
 //
 
 import SwiftUI
+
+/// Where a meter turns amber, then red.
+public nonisolated struct UsageThresholds: Hashable, Sendable {
+    /// The share of capacity past which the meter is amber.
+    public var warning: Double
+    /// The share past which it is red.
+    public var critical: Double
+
+    public init(warning: Double, critical: Double) {
+        self.warning = warning
+        self.critical = critical
+    }
+
+    /// Amber past 75%, red past 90%.
+    public static let `default` = UsageThresholds(warning: 0.75, critical: 0.9)
+}
 
 /// A stacked usage bar, or a single meter.
 ///
@@ -48,7 +64,9 @@ public struct UsageBar: View {
     private let capacity: Double?
     private let title: LocalizedStringKey?
     private let showsTotal: Bool
+    private let showsPercentage: Bool
     private let showsLegend: Bool
+    private let showsShares: Bool
     private let height: CGFloat
     private let spacing: CGFloat
     private let valueFormat: (Double) -> String
@@ -67,7 +85,9 @@ public struct UsageBar: View {
     ///   - showsTotal: Shows "used of capacity" (or the total) above the bar's
     ///     trailing end.
     ///   - showsLegend: Lists each segment's dot, label and value under the bar.
-    ///   - height: The bar's thickness.
+    ///   - showsShares: Adds each segment's share of the capacity to the legend
+    ///     ("48 GB, 19%").
+    ///   - thickness: The bar's thickness.
     ///   - spacing: The gap between segments, in whole points.
     ///   - valueFormat: Formats a value for the legend, the total and VoiceOver
     ///     (add your unit here: `{ "\($0.formatted()) GB" }`).
@@ -77,15 +97,43 @@ public struct UsageBar: View {
         title: LocalizedStringKey? = nil,
         showsTotal: Bool = false,
         showsLegend: Bool = false,
-        height: CGFloat = 6,
-        spacing: CGFloat = 2,
+        showsShares: Bool = false,
+        thickness: BarThickness = .regular,
+        spacing: CGFloat = Spacing.hairline,
         valueFormat: @escaping (Double) -> String = { $0.formatted() }
     ) {
         self.segments = segments
         self.capacity = capacity
         self.title = title
         self.showsTotal = showsTotal
+        self.showsPercentage = false
         self.showsLegend = showsLegend
+        self.showsShares = showsShares
+        self.height = thickness.height
+        self.spacing = spacing
+        self.valueFormat = valueFormat
+        self.isMeter = false
+    }
+
+    /// A stacked bar of any thickness in points.
+    @available(*, deprecated, message: "Pass thickness: (.thin, .regular or .thick) instead of a height")
+    public init(
+        _ segments: [Segment],
+        capacity: Double? = nil,
+        title: LocalizedStringKey? = nil,
+        showsTotal: Bool = false,
+        showsLegend: Bool = false,
+        height: CGFloat,
+        spacing: CGFloat = Spacing.hairline,
+        valueFormat: @escaping (Double) -> String = { $0.formatted() }
+    ) {
+        self.segments = segments
+        self.capacity = capacity
+        self.title = title
+        self.showsTotal = showsTotal
+        self.showsPercentage = false
+        self.showsLegend = showsLegend
+        self.showsShares = false
         self.height = height
         self.spacing = spacing
         self.valueFormat = valueFormat
@@ -93,29 +141,60 @@ public struct UsageBar: View {
     }
 
     /// A single meter (entries of a limit, bytes of a quota). Accent while
-    /// there's room, amber past 75%, red past 90%.
+    /// there's room, amber past the warning threshold, red past the critical one.
     /// - Parameters:
     ///   - value: How much is used.
     ///   - capacity: The limit.
     ///   - title: A title above the bar, looked up in your app's strings.
     ///   - showsTotal: Shows "value of capacity" above the bar's trailing end.
-    ///   - height: The bar's thickness.
+    ///   - showsPercentage: Shows the whole percent used above the bar's
+    ///     trailing end (after the total when both are on).
+    ///   - thresholds: Where the meter turns amber, then red.
+    ///   - thickness: The bar's thickness.
     ///   - valueFormat: Formats the total's numbers.
     public init(
         value: Double,
         capacity: Double,
         title: LocalizedStringKey? = nil,
         showsTotal: Bool = false,
-        height: CGFloat = 6,
+        showsPercentage: Bool = false,
+        thresholds: UsageThresholds = .default,
+        thickness: BarThickness = .regular,
         valueFormat: @escaping (Double) -> String = { $0.formatted() }
     ) {
-        let level = UsageBarLayout.MeterLevel(fraction: DataMetrics.fraction(value, of: capacity))
+        let level = UsageBarLayout.MeterLevel(fraction: DataMetrics.fraction(value, of: capacity), thresholds: thresholds)
         // The label only feeds a legend, which a meter never shows.
         self.segments = [Segment(title ?? .verbatim(""), value: value, color: level.color)]
         self.capacity = capacity
         self.title = title
         self.showsTotal = showsTotal
+        self.showsPercentage = showsPercentage
         self.showsLegend = false
+        self.showsShares = false
+        self.height = thickness.height
+        self.spacing = 0
+        self.valueFormat = valueFormat
+        self.isMeter = true
+    }
+
+    /// A meter of any thickness in points.
+    @available(*, deprecated, message: "Pass thickness: (.thin, .regular or .thick) instead of a height")
+    public init(
+        value: Double,
+        capacity: Double,
+        title: LocalizedStringKey? = nil,
+        showsTotal: Bool = false,
+        height: CGFloat,
+        valueFormat: @escaping (Double) -> String = { $0.formatted() }
+    ) {
+        let level = UsageBarLayout.MeterLevel(fraction: DataMetrics.fraction(value, of: capacity))
+        self.segments = [Segment(title ?? .verbatim(""), value: value, color: level.color)]
+        self.capacity = capacity
+        self.title = title
+        self.showsTotal = showsTotal
+        self.showsPercentage = false
+        self.showsLegend = false
+        self.showsShares = false
         self.height = height
         self.spacing = 0
         self.valueFormat = valueFormat
@@ -128,9 +207,9 @@ public struct UsageBar: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            if title != nil || showsTotal {
+            if title != nil || showsTotal || showsPercentage {
                 DataHeaderRow(title: title) {
-                    if showsTotal { totalText }
+                    headerReadout
                 }
             }
             bar
@@ -177,15 +256,26 @@ public struct UsageBar: View {
         .frame(height: height)
     }
 
-    // MARK: - Total
+    // MARK: - Readout
 
+    /// "412 of 500", "82%", or "412 of 500 · 82%".
     @ViewBuilder
-    private var totalText: some View {
+    private var headerReadout: some View {
         let used = valueFormat(usedTotal)
-        if let capacity {
-            Text("\(used) of \(valueFormat(capacity))", bundle: .module)
-        } else {
-            Text("\(used) total", bundle: .module)
+        HStack(spacing: Spacing.xs) {
+            if showsTotal {
+                if let capacity {
+                    Text("\(used) of \(valueFormat(capacity))", bundle: .module)
+                } else {
+                    Text("\(used) total", bundle: .module)
+                }
+            }
+            if showsPercentage, let capacity {
+                if showsTotal {
+                    Text(verbatim: "·")
+                }
+                Text(DataMetrics.fraction(usedTotal, of: capacity), format: DataMetrics.percentFormat)
+            }
         }
     }
 
@@ -201,7 +291,7 @@ public struct UsageBar: View {
                         .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
                     Text(segment.label)
                         .foregroundStyle(.secondary)
-                    Text(verbatim: valueFormat(segment.value))
+                    Text(verbatim: legendValue(for: segment))
                         .foregroundStyle(.tertiary)
                         .monospacedDigit()
                 }
@@ -211,6 +301,14 @@ public struct UsageBar: View {
                 .padding(.trailing, Spacing.xs)
             }
         }
+    }
+
+    /// "48 GB", or "48 GB, 19%" with shares on.
+    private func legendValue(for segment: Segment) -> String {
+        let value = valueFormat(segment.value)
+        guard showsShares, let capacity else { return value }
+        let share = DataMetrics.fraction(segment.value, of: capacity).formatted(DataMetrics.percentFormat)
+        return "\(value), \(share)"
     }
 
     // MARK: - Accessibility
@@ -279,10 +377,10 @@ nonisolated enum UsageBarLayout {
     nonisolated enum MeterLevel: Equatable, Sendable {
         case normal, warning, critical
 
-        init(fraction: Double) {
-            if fraction > 0.9 {
+        init(fraction: Double, thresholds: UsageThresholds = .default) {
+            if fraction > thresholds.critical {
                 self = .critical
-            } else if fraction > 0.75 {
+            } else if fraction > thresholds.warning {
                 self = .warning
             } else {
                 self = .normal
@@ -301,16 +399,16 @@ nonisolated enum UsageBarLayout {
 
 // MARK: - Preview
 
-#Preview(traits: .fixedLayout(width: 380, height: 220)) {
+#Preview(traits: .fixedLayout(width: 380, height: 240)) {
     VStack(alignment: .leading, spacing: Spacing.xl) {
         UsageBar([
             UsageBar.Segment("Apps", value: 48, color: Color.accent),
             UsageBar.Segment("Photos", value: 31, color: Info.info500),
             UsageBar.Segment("Mail", value: 9, color: Warning.warning500),
             UsageBar.Segment("System", value: 18, color: Grey.grey400),
-        ], capacity: 256, title: "Storage", showsTotal: true, showsLegend: true) { "\($0.formatted()) GB" }
-        UsageBar(value: 412, capacity: 500, title: "Log entries", showsTotal: true)
-        UsageBar(value: 96, capacity: 100)
+        ], capacity: 256, title: "Storage", showsTotal: true, showsLegend: true, showsShares: true) { "\($0.formatted()) GB" }
+        UsageBar(value: 412, capacity: 500, title: "Log entries", showsTotal: true, showsPercentage: true)
+        UsageBar(value: 96, capacity: 100, thickness: .thin)
     }
     .padding(Spacing.xl)
 }

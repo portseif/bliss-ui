@@ -5,12 +5,58 @@
 //  Created by Chris Seifert on 12/23/24.
 //
 //  iOS-inspired floating menus:
-//  - Soft shadows with refined visual weight
-//  - Opacity-based backgrounds for light/dark modes
+//  - `Elevation.panel` shadows, like every detached panel
+//  - `PanelSurface`: the theme's control color, else the vibrant material
 //  - Clean spring animations
-//  - Consistent 10px corner radius
+//  - `Sizing.radiusLarge` corners
+//
+//  `PanelSurface` and `PanelMetrics` here are what every detached panel (the
+//  right-click popup, tooltips, the command palette) draws with, so they all
+//  read as one surface.
 
 import SwiftUI
+
+// MARK: - Panel surface
+
+/// The surface every detached panel draws: the theme's control color under a
+/// color theme (so menus match the theme), the vibrant material under System.
+enum PanelSurface {
+    static var fill: AnyShapeStyle {
+        if ThemeColors.activePalette != nil {
+            return AnyShapeStyle(Color.controlBackground)
+        }
+        return AnyShapeStyle(.ultraThinMaterial)
+    }
+}
+
+/// Geometry every detached panel shares.
+enum PanelMetrics {
+    /// Transparent padding around a panel's card so its `Elevation.panel`
+    /// shadow has room to draw inside the hosting view; the positioning math
+    /// subtracts it so the card lands where the anchor says.
+    static let shadowInset: CGFloat = 40
+}
+
+/// The limits of a floating menu's panel.
+public enum FloatingMenuMetrics {
+    /// The tallest a menu gets before it scrolls — long lists (hundreds of
+    /// items) otherwise ran off the screen.
+    public static let maxContentHeight: CGFloat = 420
+    /// Never cap a menu shorter than this, even jammed against a screen edge.
+    static let minScrollHeight: CGFloat = 120
+    /// Clearance kept between a menu and the screen's edge.
+    static var screenEdgeMargin: CGFloat { Spacing.sm }
+}
+
+/// How wide a floating menu is.
+public nonisolated enum FloatingMenuWidth: Sendable, Equatable {
+    /// As wide as its rows.
+    case content
+    /// As wide as the view it hangs off — a dropdown under its picker.
+    case matchesTrigger
+    /// A set width.
+    case fixed(CGFloat)
+}
 
 // MARK: - Environment Key for Menu Active State
 
@@ -92,9 +138,13 @@ struct MenuPresentationMotion: ViewModifier {
         _isAppeared = State(initialValue: !animatesIn)
     }
 
+    /// The entrance's starting scale and the exit's ending one.
+    static let entranceScale: CGFloat = 0.96
+    static let exitScale: CGFloat = 0.98
+
     private var scale: CGFloat {
         guard !reduceMotion, !isAppeared else { return 1 }
-        return isLeaving ? 0.98 : 0.96
+        return isLeaving ? Self.exitScale : Self.entranceScale
     }
 
     func body(content: Content) -> some View {
@@ -132,16 +182,16 @@ private struct FloatingMenuContentWrapper<Content: View>: View {
     /// The scroll's width — the content's own (the thumb sits in the menu's
     /// padding, so it takes no room from the rows).
     var scrollWidth: CGFloat? = nil
+    /// A width the menu is held to (`FloatingMenuWidth.matchesTrigger` /
+    /// `.fixed`); nil lets the rows set it.
+    var fixedWidth: CGFloat? = nil
 
-    @Environment(\.colorScheme) private var colorScheme
     /// Where a scrolling menu is, for its thumb. Read off the scroll view itself
     /// (`onScrollGeometryChange`): a GeometryReader inside the detached panel
     /// reports nothing, which is why `ScrollViewWithThinIndicator` can't be used.
     @State private var scrollMetrics = MenuScrollMetrics()
 
     // MARK: - Layout Constants
-    /// Padding to accommodate shadow rendering outside panel bounds
-    private let shadowPadding: CGFloat = 40
     /// Consistent corner radius
     private let cornerRadius: CGFloat = Sizing.radiusLarge
 
@@ -155,24 +205,6 @@ private struct FloatingMenuContentWrapper<Content: View>: View {
         case .trailing: 1
         }
         return UnitPoint(x: x, y: yPosition == .below ? 0 : 1)
-    }
-
-    /// Subtle border for definition, shared with all menu surfaces.
-    /// A step darker than the shared `menuBorder`, so the menu's edge holds on a
-    /// pale or tinted surface: the theme's border at full strength, or 12% black.
-    private var borderColor: Color {
-        if prefersIncreasedContrast { return Color.menuBorder }
-        if let palette = ThemeColors.activePalette { return palette.border.color }
-        return Color.primary.opacity(0.12)
-    }
-
-    /// Surface fill: a solid themed elevated color when a color theme is active so
-    /// menus match the theme; the vibrant material for the Default theme (unchanged).
-    private var surface: AnyShapeStyle {
-        if ThemeColors.activePalette != nil {
-            return AnyShapeStyle(Color.controlBackground)
-        }
-        return AnyShapeStyle(.ultraThinMaterial)
     }
 
     /// The content, scrolling when it was measured taller than its cap. The cap is
@@ -204,44 +236,28 @@ private struct FloatingMenuContentWrapper<Content: View>: View {
             }
         } else {
             content
+                .frame(width: fixedWidth)
         }
     }
 
     var body: some View {
-        let isDark = colorScheme == .dark
-
         sizedContent
-            // Themed elevated surface (Default theme keeps the vibrant material).
+            // Themed control surface (Default theme keeps the vibrant material).
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(surface)
+                    .fill(PanelSurface.fill)
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            // Border
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: 1)
+                    .strokeBorder(Color.menuBorder, lineWidth: 1)
             )
-            // Drop shadow cast from the (now material-filled) card silhouette.
-            // A separate dark caster shape would bleed through the translucent
-            // material, so the shadow rides on the clipped card itself. A touch
-            // stronger than a hairline-only card needs: at 10% it blended into a
-            // pale, tinted surface. Fits the 40pt shadow padding.
-            .shadow(
-                color: isDark ? Color.black.opacity(0.42) : Color.black.opacity(0.14),
-                radius: 18,
-                x: 0,
-                y: 8
-            )
-            .shadow(
-                color: isDark ? Color.black.opacity(0.25) : Color.black.opacity(0.08),
-                radius: 3,
-                x: 0,
-                y: 1
-            )
+            // The shadow rides on the clipped card itself: a separate dark
+            // caster shape would bleed through the translucent material.
+            .elevation(.panel)
             // Before the shadow padding, so the anchor is the card's own corner.
             .modifier(MenuPresentationMotion(anchor: scaleAnchor, animatesIn: animatesIn, animationState: animationState))
-            .padding(shadowPadding)
+            .padding(PanelMetrics.shadowInset)
             // Ensure the entire panel area (including the transparent shadow padding)
             // absorbs hover/click events so pointer events don't bleed through to
             // content in the main window below the floating panel.
@@ -261,16 +277,17 @@ private struct MenuScrollMetrics: Equatable {
 /// The thin thumb of a menu that scrolls: no track, a small rounded thumb in
 /// the menu's trailing padding, shown the whole time the menu has more rows
 /// than it shows (a menu is open briefly, and the thumb is what says there's
-/// more). The same look as `ScrollViewWithThinIndicator`'s, thinner.
+/// more). `ThinIndicatorMetrics`' menu sizes: the same look as
+/// `ScrollViewWithThinIndicator`'s, thinner.
 private struct MenuScrollThumb: View {
     let metrics: MenuScrollMetrics
 
-    private let thumbWidth: CGFloat = 4
-    private let minimumHeight: CGFloat = 24
+    private let thumbWidth: CGFloat = ThinIndicatorMetrics.menuThumbWidth
+    private let minimumHeight: CGFloat = ThinIndicatorMetrics.menuMinimumThumbHeight
     /// Clear of the rounded corners at the ends, and of the rows at the side
     /// (the menu's padding is wider than thumb + inset).
     private let endInset: CGFloat = Spacing.menuPadding
-    private let trailingInset: CGFloat = 1
+    private let trailingInset: CGFloat = ThinIndicatorMetrics.menuTrailingInset
 
     private var scrollableHeight: CGFloat { metrics.contentHeight - metrics.viewportHeight }
     private var trackHeight: CGFloat { metrics.viewportHeight - endInset * 2 }
@@ -289,7 +306,7 @@ private struct MenuScrollThumb: View {
     var body: some View {
         if scrollableHeight > 1, trackHeight > minimumHeight {
             Capsule()
-                .fill(Color.primary.opacity(0.35))
+                .fill(Color.primary.opacity(ThinIndicatorMetrics.thumbOpacity))
                 .frame(width: thumbWidth, height: thumbHeight)
                 .padding(.top, thumbOffset)
                 .padding(.trailing, trailingInset)
@@ -349,6 +366,8 @@ struct FloatingMenuModifier<MenuContent: View>: ViewModifier {
     let menuGap: CGFloat
     let xOffset: CGFloat
     let yOffset: CGFloat
+    var width: FloatingMenuWidth = .content
+    var maxHeight: CGFloat = FloatingMenuMetrics.maxContentHeight
     @ViewBuilder let menuContent: () -> MenuContent
 
     func body(content: Content) -> some View {
@@ -369,6 +388,8 @@ struct FloatingMenuModifier<MenuContent: View>: ViewModifier {
                     menuGap: menuGap,
                     xOffset: xOffset,
                     yOffset: yOffset,
+                    width: width,
+                    maxHeight: maxHeight,
                     menuContent: menuContent
                 )
             )
@@ -398,6 +419,8 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
     let menuGap: CGFloat
     let xOffset: CGFloat
     let yOffset: CGFloat
+    var width: FloatingMenuWidth = .content
+    var maxHeight: CGFloat = FloatingMenuMetrics.maxContentHeight
     @ViewBuilder let menuContent: () -> MenuContent
 
     func makeNSView(context: Context) -> NSView {
@@ -423,6 +446,8 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
                     yPosition: self.yPosition,
                     xOffset: self.xOffset,
                     yOffset: self.yOffset,
+                    width: self.width,
+                    maxHeight: self.maxHeight,
                     colorScheme: colorScheme,
                     onDismiss: { self.isPresented = false },
                     onFocusChange: { self.focusedIndex = $0 },
@@ -445,13 +470,14 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
     }
 
     class Coordinator {
-        /// The tallest a menu gets before it scrolls — long lists (hundreds of
-        /// items) otherwise ran off the screen.
-        static var maxContentHeight: CGFloat { 420 }
-        /// Never cap a menu shorter than this, even jammed against a screen edge.
-        static var minScrollHeight: CGFloat { 120 }
-        /// Clearance kept between a menu and the screen's edge.
-        static var screenEdgeMargin: CGFloat { 8 }
+        // Computed: a generic type's nested class can't hold stored statics.
+        /// Half a point: the sub-pixel noise a measured size is allowed to drift
+        /// before the panel re-frames.
+        private static var sizeTolerance: CGFloat { 0.5 }
+        /// A retry's delay when the anchor isn't in a window yet (toolbars).
+        private static var windowRetryDelay: TimeInterval { 0.05 }
+        /// The teardown fallback, just past `Animations.menuClose`'s duration.
+        private static var closeFallbackDelay: TimeInterval { 0.15 }
 
         weak var anchorView: NSView?
         var itemCount: Int = 0
@@ -487,6 +513,8 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
             yPosition: FloatingMenuYPosition,
             xOffset: CGFloat,
             yOffset: CGFloat,
+            width: FloatingMenuWidth = .content,
+            maxHeight: CGFloat = FloatingMenuMetrics.maxContentHeight,
             colorScheme: ColorScheme,
             onDismiss: @escaping () -> Void,
             onFocusChange: @escaping (Int?) -> Void,
@@ -510,7 +538,7 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
             // Wait for it to become available
             guard let parentWindow = anchorView.window else {
                 // Retry after a brief delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.windowRetryDelay) { [weak self] in
                     self?.showMenu(
                         content: content,
                         xPosition: xPosition,
@@ -518,6 +546,8 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
                         yPosition: yPosition,
                         xOffset: xOffset,
                         yOffset: yOffset,
+                        width: width,
+                        maxHeight: maxHeight,
                         colorScheme: colorScheme,
                         onDismiss: onDismiss,
                         onFocusChange: onFocusChange,
@@ -536,21 +566,29 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
             let animationState = MenuAnimationState()
             self.animationState = animationState
 
-            // Measure the content at its own size first.
-            let measuringView = NSHostingView(rootView: AnyView(FloatingMenuContentWrapper(
-                content: content,
-                yPosition: yPosition,
-                animationState: animationState
-            )))
-            let naturalSize = measuringView.fittingSize
-
             // Get the anchor view's frame in screen coordinates
             // First convert to window coordinates, then to screen coordinates
             let anchorFrameInWindow = anchorView.convert(anchorView.bounds, to: nil)
             let anchorOriginInScreen = parentWindow.convertPoint(toScreen: anchorFrameInWindow.origin)
 
+            // A held width: the trigger's, or the one asked for.
+            let fixedWidth: CGFloat? = switch width {
+            case .content: nil
+            case .matchesTrigger: anchorFrameInWindow.width
+            case .fixed(let value): value
+            }
+
+            // Measure the content at its own size first.
+            let measuringView = NSHostingView(rootView: AnyView(FloatingMenuContentWrapper(
+                content: content,
+                yPosition: yPosition,
+                animationState: animationState,
+                fixedWidth: fixedWidth
+            )))
+            let naturalSize = measuringView.fittingSize
+
             // Shadow padding added to content - need to offset positioning
-            let shadowPadding: CGFloat = 40
+            let shadowPadding = PanelMetrics.shadowInset
 
             // The screen the anchor is on, for overflow detection
             let screen = parentWindow.screen ?? NSScreen.main ?? NSScreen.screens.first
@@ -562,12 +600,12 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
 
             // Room on each side of the anchor, short of the screen edge.
             let anchorTopInScreen = anchorOriginInScreen.y + anchorFrameInWindow.height
-            let roomBelow = anchorOriginInScreen.y - menuGap - screenFrame.minY - Self.screenEdgeMargin
-            let roomAbove = screenFrame.maxY - anchorTopInScreen - menuGap - Self.screenEdgeMargin
+            let roomBelow = anchorOriginInScreen.y - menuGap - screenFrame.minY - FloatingMenuMetrics.screenEdgeMargin
+            let roomAbove = screenFrame.maxY - anchorTopInScreen - menuGap - FloatingMenuMetrics.screenEdgeMargin
 
             // Keep the asked-for side when the menu fits there (capped); otherwise
             // take whichever side has more room.
-            let wantedHeight = min(contentHeight, Self.maxContentHeight)
+            let wantedHeight = min(contentHeight, maxHeight)
             let effectiveYPosition: FloatingMenuYPosition
             switch yPosition {
             case .below:
@@ -577,8 +615,8 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
             }
 
             // A menu taller than its room scrolls inside a capped panel.
-            let heightCap = min(Self.maxContentHeight, max(effectiveYPosition == .below ? roomBelow : roomAbove, Self.minScrollHeight))
-            let scrolls = contentHeight > heightCap + 0.5
+            let heightCap = min(maxHeight, max(effectiveYPosition == .below ? roomBelow : roomAbove, FloatingMenuMetrics.minScrollHeight))
+            let scrolls = contentHeight > heightCap + Self.sizeTolerance
 
             // The menu at its final size and side (the side sets the entrance's
             // scale anchor).
@@ -589,7 +627,8 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
                 animationState: animationState,
                 animatesIn: !MenuMotion.opensInstantly,
                 maxScrollHeight: scrolls ? heightCap : nil,
-                scrollWidth: scrolls ? contentWidth : nil
+                scrollWidth: scrolls ? contentWidth : nil,
+                fixedWidth: fixedWidth
             )
             let correctedHostingView = NSHostingView(rootView: AnyView(menuView))
             let menuSize = correctedHostingView.fittingSize
@@ -817,7 +856,7 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
         /// padding). Shared by the initial open and live content-resize so the
         /// anchored edge stays fixed when the menu grows/shrinks while open.
         private static func menuFrame(for placement: PanelPlacement, menuSize: CGSize) -> NSRect {
-            let shadowPadding: CGFloat = 40
+            let shadowPadding = PanelMetrics.shadowInset
             let contentWidth = menuSize.width - (shadowPadding * 2)
             let anchorOriginInScreen = placement.anchorOriginInScreen
             let anchorFrameInWindow = placement.anchorFrameInWindow
@@ -891,7 +930,7 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
             DispatchQueue.main.async { [weak self] in
                 self?.refitPanelToContent()
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.windowRetryDelay) { [weak self] in
                 self?.refitPanelToContent()
             }
         }
@@ -907,8 +946,8 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
             let menuSize = hostingView.fittingSize
             guard menuSize.width > 1, menuSize.height > 1 else { return }
             // Ignore sub-pixel noise
-            guard abs(menuSize.width - panel.frame.width) > 0.5
-                || abs(menuSize.height - panel.frame.height) > 0.5
+            guard abs(menuSize.width - panel.frame.width) > Self.sizeTolerance
+                || abs(menuSize.height - panel.frame.height) > Self.sizeTolerance
             else { return }
 
             let newFrame = Self.menuFrame(for: placement, menuSize: menuSize)
@@ -974,7 +1013,7 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
 
             // Fallback in case the completion never fires, just above `menuClose`'s
             // duration so a swept-away submenu tears down promptly.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { close() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.closeFallbackDelay) { close() }
         }
 
         /// Whether `candidate` is `root` or a (recursive) child window of it.
@@ -998,17 +1037,22 @@ private struct FloatingMenuAnchor<MenuContent: View>: NSViewRepresentable {
 extension View {
     /// Floating menu with keyboard navigation support
     /// - Parameters:
+    ///   - menuGap: The gap between the trigger and the menu.
     ///   - xOffset: Additional horizontal offset for the menu (positive = right)
     ///   - yOffset: Additional vertical offset for the menu (positive = up)
+    ///   - width: As wide as its rows, as wide as the trigger, or a set width.
+    ///   - maxHeight: The tallest the menu gets before its rows scroll.
     public func floatingMenu<Content: View>(
         isPresented: Binding<Bool>,
         itemCount: Int,
         focusedIndex: Binding<Int?>,
         xPosition: FloatingMenuXPosition = .leading,
         yPosition: FloatingMenuYPosition = .above,
-        menuGap: CGFloat = 8,
+        menuGap: CGFloat = Spacing.sm,
         xOffset: CGFloat = 0,
         yOffset: CGFloat = 0,
+        width: FloatingMenuWidth = .content,
+        maxHeight: CGFloat = FloatingMenuMetrics.maxContentHeight,
         onSelect: ((Int) -> Void)? = nil,
         onMoveRight: (() -> Bool)? = nil,
         onMoveLeft: (() -> Bool)? = nil,
@@ -1031,6 +1075,8 @@ extension View {
                 menuGap: menuGap,
                 xOffset: xOffset,
                 yOffset: yOffset,
+                width: width,
+                maxHeight: maxHeight,
                 menuContent: content
             )
         )
@@ -1038,15 +1084,20 @@ extension View {
 
     /// Simple floating menu without keyboard navigation
     /// - Parameters:
+    ///   - menuGap: The gap between the trigger and the menu.
     ///   - xOffset: Additional horizontal offset for the menu (positive = right)
     ///   - yOffset: Additional vertical offset for the menu (positive = up)
+    ///   - width: As wide as its rows, as wide as the trigger, or a set width.
+    ///   - maxHeight: The tallest the menu gets before its rows scroll.
     public func floatingMenu<Content: View>(
         isPresented: Binding<Bool>,
         xPosition: FloatingMenuXPosition = .leading,
         yPosition: FloatingMenuYPosition = .above,
-        menuGap: CGFloat = 8,
+        menuGap: CGFloat = Spacing.sm,
         xOffset: CGFloat = 0,
         yOffset: CGFloat = 0,
+        width: FloatingMenuWidth = .content,
+        maxHeight: CGFloat = FloatingMenuMetrics.maxContentHeight,
         @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         modifier(
@@ -1060,6 +1111,8 @@ extension View {
                 menuGap: menuGap,
                 xOffset: xOffset,
                 yOffset: yOffset,
+                width: width,
+                maxHeight: maxHeight,
                 menuContent: content
             )
         )
@@ -1068,95 +1121,26 @@ extension View {
 
 // MARK: - Preview
 
-#Preview("Floating Menu") {
-    struct PreviewWrapper: View {
-        @State private var showingMenu = false
+#Preview("Floating Menu", traits: .fixedLayout(width: 400, height: 400)) {
+    @Previewable @State var showingMenu = false
+    VStack {
+        Spacer()
 
-        var body: some View {
-            VStack {
-                Spacer()
-
-                Button("Show Menu") {
-                    showingMenu.toggle()
-                }
-                .padding()
-                .floatingMenu(isPresented: $showingMenu) {
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Menu Item 1")
-                        Text("Menu Item 2")
-                        Text("Menu Item 3")
-                    }
-                    .padding()
-                    .frame(width: 200)
-                }
-
-                Spacer()
-                    .frame(height: 100)
-            }
-            .frame(width: 400, height: 400)
+        Button("Show Menu") {
+            showingMenu.toggle()
         }
-    }
-
-    return PreviewWrapper()
-}
-
-#Preview("Material Comparison") {
-    struct MaterialBox: View {
-        let title: String
-        let material: Material
-
-        @Environment(\.colorScheme) private var colorScheme
-
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("Menu Header")
-                    .font(Typography.bodySmallSemibold)
-                Divider()
-                Text("Option 1")
-                    .font(Typography.bodySmall)
-                Text("Option 2")
-                    .font(Typography.bodySmall)
-                Text("Option 3")
-                    .font(Typography.bodySmall)
+        .buttonStyle(SecondaryButtonStyle(compact: true))
+        .floatingMenu(isPresented: $showingMenu, width: .fixed(Sizing.menuMinWidth)) {
+            VStack(alignment: .leading, spacing: Spacing.hairline) {
+                QuickActionMenuItem(title: "Rename", icon: "pencil") { showingMenu = false }
+                QuickActionMenuItem(title: "Duplicate", icon: "plus.square.on.square") { showingMenu = false }
+                MenuDivider()
+                QuickActionMenuItem(title: "Delete", icon: "trash", isDestructive: true) { showingMenu = false }
             }
-            .padding(.horizontal, Spacing.md + 2)
-            .padding(.vertical, Spacing.md)
-            .frame(width: 180)
-            .background(
-                RoundedRectangle(cornerRadius: Sizing.radiusLarge - 2, style: .continuous)
-                    .fill(material)
-                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.08), radius: 1, x: 0, y: 1)
-                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.4 : 0.12), radius: 8, x: 0, y: 4)
-                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.15), radius: 24, x: 0, y: 12)
-                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 48, x: 0, y: 24)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusLarge - 2, style: .continuous))
-            .overlay(alignment: .bottom) {
-                Text(title)
-                    .font(Typography.captionSmall)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, Spacing.sm)
-                    .offset(y: 24)
-            }
+            .padding(Spacing.menuPadding)
         }
-    }
 
-    return ZStack {
-        // Colorful background to show material transparency
-        LinearGradient(
-            colors: [.blue, .purple, .pink, .orange],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        HStack(spacing: 40) {
-            MaterialBox(title: "ultraThin", material: .ultraThinMaterial)
-            MaterialBox(title: "thin", material: .thinMaterial)
-            MaterialBox(title: "regular", material: .regularMaterial)
-            MaterialBox(title: "thick", material: .thickMaterial)
-        }
-        .padding(60)
+        Spacer()
+            .frame(height: Spacing.xxxxxl)
     }
-    .frame(width: 900, height: 400)
 }

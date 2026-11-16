@@ -10,6 +10,27 @@
 
 import SwiftUI
 
+/// How a `TextLink` reads at rest.
+public enum TextLinkTone {
+    /// Dimmed text — a URL in a table column or a meta line.
+    case dimmed
+    /// Full text color — a link inside body copy.
+    case primary
+}
+
+/// The link's own numbers: the dotted rule and the dimmed tone.
+private enum TextLinkMetrics {
+    static let dimmedTextOpacity: Double = 0.55
+    static let ruleRestOpacity: Double = 0.18
+    static let ruleHoverOpacity: Double = 0.7
+    static let ruleWidth: CGFloat = 1
+    static let ruleDash: [CGFloat] = [1, 2]
+    /// The rule sits this far under the baseline, so it doesn't touch descenders.
+    static let ruleOffset: CGFloat = 2.5
+    /// The ring clears the rule by this much.
+    static let ringOutset: CGFloat = Spacing.xxs
+}
+
 public struct TextLink: View {
     let title: String
     /// Nil inherits the surrounding font (e.g. a monospaced meta line).
@@ -18,28 +39,47 @@ public struct TextLink: View {
     /// An SF Symbol shown after the text on hover. Its slot is always laid out, so
     /// hovering never reflows the line.
     let hoverSymbol: String?
+    let tone: TextLinkTone
+    let showsUnderline: Bool
     let action: () -> Void
 
     @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
 
     /// - Parameters:
     ///   - title: The link text, shown verbatim (usually the URL itself).
     ///   - font: Nil inherits the surrounding font.
     ///   - truncationMode: Where a long link is cut to fit one line.
     ///   - hoverSymbol: An SF Symbol shown after the text on hover.
+    ///   - tone: Dimmed (a URL column) or the full text color (body copy).
+    ///   - showsUnderline: Draw the dotted rule at rest; off, it shows on hover only.
     ///   - action: Opens the link.
     public init(
         _ title: String,
         font: Font? = nil,
         truncationMode: Text.TruncationMode = .tail,
         hoverSymbol: String? = nil,
+        tone: TextLinkTone = .dimmed,
+        showsUnderline: Bool = true,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.font = font
         self.truncationMode = truncationMode
         self.hoverSymbol = hoverSymbol
+        self.tone = tone
+        self.showsUnderline = showsUnderline
         self.action = action
+    }
+
+    private var textColor: Color {
+        if hovering { return Color.accent }
+        return tone == .primary ? Color.primary : Color.primary.opacity(TextLinkMetrics.dimmedTextOpacity)
+    }
+
+    private var ruleColor: Color {
+        if hovering { return Color.accent.opacity(TextLinkMetrics.ruleHoverOpacity) }
+        return showsUnderline ? Color.primary.opacity(TextLinkMetrics.ruleRestOpacity) : .clear
     }
 
     public var body: some View {
@@ -54,11 +94,11 @@ public struct TextLink: View {
                     .overlay(alignment: .bottom) {
                         DottedRule()
                             .stroke(
-                                hovering ? Color.accent.opacity(0.7) : Color.primary.opacity(0.18),
-                                style: StrokeStyle(lineWidth: 1, dash: [1, 2])
+                                ruleColor,
+                                style: StrokeStyle(lineWidth: TextLinkMetrics.ruleWidth, dash: TextLinkMetrics.ruleDash)
                             )
-                            .frame(height: 1)
-                            .offset(y: 2.5)
+                            .frame(height: TextLinkMetrics.ruleWidth)
+                            .offset(y: TextLinkMetrics.ruleOffset)
                     }
                 if let hoverSymbol {
                     Image(systemName: hoverSymbol)
@@ -67,13 +107,14 @@ public struct TextLink: View {
                         .accessibilityHidden(true)
                 }
             }
-            .foregroundStyle(hovering ? Color.accent : Color.primary.opacity(0.55))
+            .foregroundStyle(textColor)
             .contentShape(Rectangle())
         }
-        // 4pt out so the ring clears the dotted underline (offset 2.5pt below).
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 4))
+        // Out past the dotted underline, so the ring doesn't sit on it.
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: TextLinkMetrics.ringOutset))
+        .opacity(isEnabled ? 1 : Animations.disabledOpacity)
         .onHover { isHovering in
-            withAnimation(Animations.hover) { hovering = isHovering }
+            withAnimation(Animations.hover) { hovering = isEnabled && isHovering }
         }
         .linkCursor()
     }
@@ -98,7 +139,7 @@ private struct DottedRule: Shape {
 #Preview(traits: .fixedLayout(width: 320, height: 150)) {
     VStack(alignment: .leading, spacing: Spacing.md) {
         TextLink("example.com/docs", font: Typography.codeTiny) {}
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.xs) {
             TextLink("localhost:8080") {}
             Text(verbatim: "·")
             Text(verbatim: "pid 4120")
@@ -106,6 +147,7 @@ private struct DottedRule: Shape {
         .font(Typography.code)
         .foregroundStyle(.secondary)
         TextLink("example.com", font: Typography.code, hoverSymbol: "arrow.up.right") {}
+        TextLink("Read the design notes", tone: .primary, showsUnderline: false) {}
     }
     .padding()
 }

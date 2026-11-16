@@ -99,6 +99,27 @@ public nonisolated struct CodeHighlighter: Sendable {
     /// YAML: keys, quoted and plain values, numbers, booleans and null, list
     /// markers and comments.
     public static let yaml = CodeHighlighter { YAMLTokenizer.tokens(in: $0) }
+
+    /// JSON: keys, strings, numbers and the `true` / `false` / `null` literals.
+    public static let json = CodeHighlighter(rules: [
+        CodeHighlightRule(#""(?:[^"\\]|\\.)*"\s*(?=:)"#, kind: .key),
+        CodeHighlightRule(#""(?:[^"\\]|\\.)*""#, kind: .string),
+        CodeHighlightRule(#"-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"#, kind: .number),
+        CodeHighlightRule(#"\b(?:true|false|null)\b"#, kind: .literal),
+        CodeHighlightRule(#"[{}\[\]:,]"#, kind: .punctuation),
+    ])
+
+    /// Swift: keywords, strings, numbers, comments and the `true` / `false` /
+    /// `nil` literals — enough for a snippet in a docs page.
+    public static let swift = CodeHighlighter(rules: [
+        CodeHighlightRule(#"//[^\n]*"#, kind: .comment),
+        CodeHighlightRule(#"/\*[\s\S]*?\*/"#, kind: .comment),
+        CodeHighlightRule(#"\"\"\"[\s\S]*?\"\"\""#, kind: .string),
+        CodeHighlightRule(#""(?:[^"\\\n]|\\.)*""#, kind: .string),
+        CodeHighlightRule(#"\b(?:true|false|nil)\b"#, kind: .literal),
+        CodeHighlightRule(#"\b(?:associatedtype|class|deinit|enum|extension|fileprivate|func|import|init|inout|internal|let|open|operator|private|precedencegroup|protocol|public|rethrows|static|struct|subscript|typealias|var|break|case|catch|continue|default|defer|do|else|fallthrough|for|guard|if|in|repeat|return|throw|switch|where|while|Any|as|await|async|is|self|Self|super|throws|try|some|any|actor|nonisolated|override|final|lazy|weak|unowned|mutating|indirect|convenience|required|get|set|willSet|didSet)\b"#, kind: .keyword),
+        CodeHighlightRule(#"\b(?:0x[0-9A-Fa-f_]+|0b[01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d+)?)\b"#, kind: .number),
+    ])
 }
 
 /// A regex and the kind its matches get, for `CodeHighlighter(rules:)`.

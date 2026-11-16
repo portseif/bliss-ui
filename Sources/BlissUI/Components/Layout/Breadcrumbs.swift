@@ -12,6 +12,14 @@
 
 import SwiftUI
 
+/// What separates a breadcrumb's segments.
+public nonisolated enum BreadcrumbSeparator: Hashable, Sendable {
+    /// A chevron: Projects › BlissUI.
+    case chevron
+    /// A slash: Projects / BlissUI, the other Mac convention.
+    case slash
+}
+
 /// A clickable path of segments.
 ///
 /// ```swift
@@ -27,6 +35,8 @@ public struct Breadcrumbs<Item>: View {
     private let title: (Item) -> String
     private let systemImage: ((Item) -> String?)?
     private let font: Font
+    private let separator: BreadcrumbSeparator
+    private let maximumSegments: Int?
     private let onSelect: (Item) -> Void
 
     /// Each segment's natural width, measured off-screen.
@@ -42,18 +52,26 @@ public struct Breadcrumbs<Item>: View {
     ///   - title: Each segment's text.
     ///   - systemImage: An SF Symbol before a segment's text, or nil for none.
     ///   - font: The segments' font.
+    ///   - separator: A chevron or a slash between segments.
+    ///   - maximumSegments: Always fold the middle once the path has more
+    ///     segments than this, whatever the width; nil folds only when the
+    ///     path doesn't fit.
     ///   - onSelect: A click on any segment but the last.
     public init(
         _ items: [Item],
         title: @escaping (Item) -> String,
         systemImage: ((Item) -> String?)? = nil,
         font: Font = Typography.bodySmall,
+        separator: BreadcrumbSeparator = .chevron,
+        maximumSegments: Int? = nil,
         onSelect: @escaping (Item) -> Void
     ) {
         self.items = items
         self.title = title
         self.systemImage = systemImage
         self.font = font
+        self.separator = separator
+        self.maximumSegments = maximumSegments
         self.onSelect = onSelect
     }
 
@@ -62,13 +80,16 @@ public struct Breadcrumbs<Item>: View {
     private static var separatorSpacing: CGFloat { Spacing.sm }
 
     private var collapsed: Range<Int> {
-        guard segmentWidths.count >= items.count, availableWidth > 0 else { return 0..<0 }
-        return BreadcrumbCollapse.collapsedRange(
+        let forced = BreadcrumbCollapse.forcedRange(count: items.count, maximumSegments: maximumSegments)
+        guard segmentWidths.count >= items.count, availableWidth > 0 else { return forced }
+        let byWidth = BreadcrumbCollapse.collapsedRange(
             widths: items.indices.map { segmentWidths[$0] ?? 0 },
             separatorWidth: chevronWidth + Self.separatorSpacing * 2,
             overflowWidth: overflowWidth,
             availableWidth: availableWidth
         )
+        // Whichever folds more: both start after the first segment.
+        return byWidth.upperBound > forced.upperBound ? byWidth : forced
     }
 
     public var body: some View {
@@ -107,11 +128,20 @@ public struct Breadcrumbs<Item>: View {
 
     // MARK: Pieces
 
+    @ViewBuilder
     private var chevron: some View {
-        Image(systemName: "chevron.forward")
-            .font(Typography.captionTiny)
-            .foregroundStyle(.tertiary)
-            .accessibilityHidden(true)
+        switch separator {
+        case .chevron:
+            Image(systemName: "chevron.forward")
+                .font(Typography.captionTiny)
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        case .slash:
+            Text(verbatim: "/")
+                .font(font)
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
     }
 
     private func label(at index: Int) -> some View {
@@ -223,7 +253,7 @@ private struct BreadcrumbOverflowMenu: View {
     let onSelect: (Int) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             ForEach(titles.indices, id: \.self) { index in
                 row(at: index)
             }
@@ -249,6 +279,18 @@ private struct BreadcrumbOverflowMenu: View {
 // MARK: - Collapse math
 
 nonisolated enum BreadcrumbCollapse {
+    /// Half a point of slack: the measured widths are fractional.
+    static let measurementSlack: CGFloat = 0.5
+
+    /// The segments that fold past `maximumSegments` whatever the width:
+    /// the first stays, then the newest levels. Empty when there's no limit,
+    /// the path is within it, or it's too short to fold (under three).
+    static func forcedRange(count: Int, maximumSegments: Int?) -> Range<Int> {
+        guard let maximumSegments, count > 2, count > maximumSegments else { return 0..<0 }
+        let shown = max(maximumSegments, 2)
+        return 1..<(count - (shown - 1))
+    }
+
     /// The segments that fold into "…", given each one's width, the width a
     /// chevron and its spacing take, the "…" button's, and the room there is:
     /// empty when the whole path fits. The first and last segments always
@@ -265,8 +307,7 @@ nonisolated enum BreadcrumbCollapse {
         let count = widths.count
         guard count > 2 else { return 0..<0 }
         let fullWidth = widths.reduce(0, +) + separatorWidth * CGFloat(count - 1)
-        // Half a point of slack: the measured widths are fractional.
-        guard fullWidth > availableWidth + 0.5 else { return 0..<0 }
+        guard fullWidth > availableWidth + measurementSlack else { return 0..<0 }
 
         var usedWidth = widths[0] + separatorWidth + overflowWidth + separatorWidth + widths[count - 1]
         var firstShown = count - 1
@@ -295,6 +336,7 @@ private struct BreadcrumbsPreviewHost: View {
             Breadcrumbs(path, title: { $0 }) { selected = $0 }
             Breadcrumbs(path, title: { $0 }, systemImage: { $0.hasSuffix(".swift") ? "swift" : "folder" }) { selected = $0 }
                 .frame(width: 300)
+            Breadcrumbs(path, title: { $0 }, separator: .slash, maximumSegments: 3) { selected = $0 }
             Text(verbatim: selected)
                 .font(Typography.caption)
                 .foregroundStyle(.secondary)

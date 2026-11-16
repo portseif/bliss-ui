@@ -18,18 +18,30 @@ import SwiftUI
 public struct SettingsTableOfContentsItem<ID: Hashable>: Identifiable {
     public let id: ID
     public let title: LocalizedStringKey
+    /// An SF Symbol before the title, for an icon rail like System Settings'.
+    public var systemImage: String?
     /// A section with nothing to show (no search matches) dims and can't be picked.
     public var isEnabled: Bool
 
     /// - Parameters:
     ///   - id: The section's ID — the one its content passes to `.settingsSection(_:)`.
     ///   - title: The rail's label. Looked up in your app's strings.
+    ///   - systemImage: An SF Symbol before the title.
     ///   - isEnabled: Dims the row and makes it unpickable when false.
-    public init(_ id: ID, title: LocalizedStringKey, isEnabled: Bool = true) {
+    public init(_ id: ID, title: LocalizedStringKey, systemImage: String? = nil, isEnabled: Bool = true) {
         self.id = id
         self.title = title
+        self.systemImage = systemImage
         self.isEnabled = isEnabled
     }
+}
+
+/// How a `SettingsTableOfContents` marks the section in view.
+public enum SettingsTOCActiveStyle: Sendable {
+    /// A small accent dot before the title.
+    case dot
+    /// An accent bar on the row's leading edge.
+    case bar
 }
 
 // MARK: - Rail
@@ -41,28 +53,34 @@ public struct SettingsTableOfContentsItem<ID: Hashable>: Identifiable {
 public struct SettingsTableOfContents<ID: Hashable>: View {
     private let items: [SettingsTableOfContentsItem<ID>]
     private let activeID: ID?
+    private let activeStyle: SettingsTOCActiveStyle
     private let onSelect: (ID) -> Void
 
     /// - Parameters:
     ///   - items: The sections, in form order.
     ///   - activeID: The section in view, marked in the rail.
+    ///   - activeStyle: The mark on the section in view: a dot, or a bar on the leading edge.
     ///   - onSelect: A row was picked: scroll the form to that section.
     public init(
         _ items: [SettingsTableOfContentsItem<ID>],
         activeID: ID?,
+        activeStyle: SettingsTOCActiveStyle = .dot,
         onSelect: @escaping (ID) -> Void
     ) {
         self.items = items
         self.activeID = activeID
+        self.activeStyle = activeStyle
         self.onSelect = onSelect
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             ForEach(items) { item in
                 SettingsTableOfContentsRow(
                     title: item.title,
+                    systemImage: item.systemImage,
                     isActive: item.id == activeID,
+                    activeStyle: activeStyle,
                     isEnabled: item.isEnabled,
                     action: { onSelect(item.id) }
                 )
@@ -72,10 +90,12 @@ public struct SettingsTableOfContents<ID: Hashable>: View {
 }
 
 /// One rail row — text only, no fill. A fixed-width leading slot holds the
-/// active dot so the text never shifts as it appears.
+/// active dot (or the bar) so the text never shifts as it appears.
 private struct SettingsTableOfContentsRow: View {
     let title: LocalizedStringKey
+    let systemImage: String?
     let isActive: Bool
+    let activeStyle: SettingsTOCActiveStyle
     let isEnabled: Bool
     let action: () -> Void
 
@@ -83,15 +103,30 @@ private struct SettingsTableOfContentsRow: View {
 
     private var titleColor: Color {
         if isActive { return .primary }
-        return isHovering ? .secondary : Color.secondary.opacity(0.7)
+        return isHovering ? Color.textSecondary : Color.textTertiary
     }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: Spacing.sm) {
-                Circle()
-                    .fill(isActive ? Color.accent : .clear)
-                    .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
+                switch activeStyle {
+                case .dot:
+                    Circle()
+                        .fill(isActive ? Color.accent : .clear)
+                        .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
+                case .bar:
+                    Capsule()
+                        .fill(isActive ? Color.accent : .clear)
+                        .frame(width: Spacing.insetSpacing)
+                        .frame(maxHeight: .infinity)
+                }
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(Typography.labelMedium)
+                        .foregroundStyle(titleColor)
+                        .frame(width: Sizing.iconDefault)
+                        .accessibilityHidden(true)
+                }
                 Text(title)
                     .font(Typography.bodySmall)
                     .foregroundStyle(titleColor)
@@ -102,8 +137,8 @@ private struct SettingsTableOfContentsRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 3))
-        .opacity(isEnabled ? 1 : 0.3)
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: Spacing.ringOutset))
+        .opacity(isEnabled ? 1 : Animations.disabledOpacity)
         .disabled(!isEnabled)
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
         .onHover { isHovering = $0 }
@@ -218,6 +253,7 @@ public struct SettingsScrollView<ID: Hashable, Header: View, Content: View>: Vie
     private let externalActiveSection: Binding<ID?>?
     private let externalScrollTarget: Binding<ID?>?
     private let railWidth: CGFloat
+    private let railPlacement: HorizontalEdge
     private let header: Header
     private let content: Content
 
@@ -241,13 +277,15 @@ public struct SettingsScrollView<ID: Hashable, Header: View, Content: View>: Vie
     ///   - scrollTarget: Set a section to jump to it; it's cleared once the
     ///     jump lands.
     ///   - railWidth: The table of contents' width.
+    ///   - railPlacement: The rail on the form's leading edge, or its trailing one.
     ///   - header: Pinned above the form, beside the rail (a title, a search field).
     ///   - content: The form.
     public init(
         sections: [SettingsTableOfContentsItem<ID>],
         activeSection: Binding<ID?>? = nil,
         scrollTarget: Binding<ID?>? = nil,
-        railWidth: CGFloat = 176,
+        railWidth: CGFloat = Sizing.settingsRailWidth,
+        railPlacement: HorizontalEdge = .leading,
         @ViewBuilder header: () -> Header,
         @ViewBuilder content: () -> Content
     ) {
@@ -255,6 +293,7 @@ public struct SettingsScrollView<ID: Hashable, Header: View, Content: View>: Vie
         self.externalActiveSection = activeSection
         self.externalScrollTarget = scrollTarget
         self.railWidth = railWidth
+        self.railPlacement = railPlacement
         self.header = header()
         self.content = content()
     }
@@ -264,10 +303,15 @@ public struct SettingsScrollView<ID: Hashable, Header: View, Content: View>: Vie
 
     public var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            rail
+            if railPlacement == .leading {
+                rail
+            }
             VStack(alignment: .leading, spacing: 0) {
                 header
                 form
+            }
+            if railPlacement == .trailing {
+                rail
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -373,7 +417,8 @@ extension SettingsScrollView where Header == EmptyView {
         sections: [SettingsTableOfContentsItem<ID>],
         activeSection: Binding<ID?>? = nil,
         scrollTarget: Binding<ID?>? = nil,
-        railWidth: CGFloat = 176,
+        railWidth: CGFloat = Sizing.settingsRailWidth,
+        railPlacement: HorizontalEdge = .leading,
         @ViewBuilder content: () -> Content
     ) {
         self.init(
@@ -381,6 +426,7 @@ extension SettingsScrollView where Header == EmptyView {
             activeSection: activeSection,
             scrollTarget: scrollTarget,
             railWidth: railWidth,
+            railPlacement: railPlacement,
             header: { EmptyView() },
             content: content
         )
@@ -512,8 +558,9 @@ private enum PreviewPane: String, CaseIterable {
 
 #Preview("Table of contents", traits: .fixedLayout(width: 200, height: 180)) {
     SettingsTableOfContents(
-        PreviewPane.allCases.map { SettingsTableOfContentsItem($0, title: LocalizedStringKey($0.rawValue), isEnabled: $0 != .advanced) },
+        PreviewPane.allCases.map { SettingsTableOfContentsItem($0, title: LocalizedStringKey($0.rawValue), systemImage: "gearshape", isEnabled: $0 != .advanced) },
         activeID: PreviewPane.appearance,
+        activeStyle: .bar,
         onSelect: { _ in }
     )
     .padding(Spacing.lg)

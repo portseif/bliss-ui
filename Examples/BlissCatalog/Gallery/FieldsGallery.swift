@@ -11,13 +11,16 @@ import SwiftUI
 
 extension Gallery {
     static let fields: [GalleryEntry] = [
-        GalleryEntry("number-field", width: 420, height: 116) {
+        GalleryEntry("number-field", width: 420, height: 154) {
             VStack(spacing: Spacing.md) {
                 GalleryFieldRow("Keep backups for") {
                     NumberField("Days to keep", value: .constant(30), in: 1...365, unit: "days")
                 }
                 GalleryFieldRow("Line height") {
                     NumberField("Line height", value: .constant(1.5), in: 1...3, step: 0.1)
+                }
+                GalleryFieldRow("Price") {
+                    NumberField("Price", value: .constant(12), in: 0...999, unit: "$", unitPlacement: .leading, showsSteppers: false)
                 }
             }
         },
@@ -51,13 +54,13 @@ extension Gallery {
                     BlissSlider("Columns", value: .constant(3), in: 1...6, showsTicks: true, valueLabel: { Text($0, format: .number) })
                         .frame(width: 220)
                 }
-                GalleryFieldRow("Opacity") {
-                    BlissSlider("Opacity", value: .constant(0.8), step: 0.1)
+                GalleryFieldRow("Warmth") {
+                    BlissSlider("Warmth", value: .constant(0.4), color: Warning.warning500, minimumValueLabel: Text("Cool"), maximumValueLabel: Text("Warm"))
                         .frame(width: 220)
                 }
             }
         },
-        GalleryEntry("input-field", width: 420, height: 120) {
+        GalleryEntry("input-field", width: 420, height: 158) {
             VStack(spacing: Spacing.md) {
                 InputField("Search", text: .constant("focus ring"), systemImage: "magnifyingglass", isClearable: true, keyboardHint: "⌘K")
                 InputField("Domain", text: .constant("bliss"), isLoading: true) {
@@ -65,10 +68,22 @@ extension Gallery {
                         .font(Typography.bodySmall)
                         .foregroundStyle(.secondary)
                 }
+                InputField("Amount", text: .constant("1,284.00"), isReadOnly: true) {
+                    Text(verbatim: "$")
+                        .font(Typography.bodySmall)
+                        .foregroundStyle(.secondary)
+                } trailing: {
+                    Text(verbatim: "USD")
+                        .font(Typography.bodySmall)
+                        .foregroundStyle(.secondary)
+                }
             }
         },
-        GalleryEntry("one-time-code", width: 360, height: 90) {
-            OneTimeCodeField(code: .constant("4271"))
+        GalleryEntry("one-time-code", width: 360, height: 150) {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                OneTimeCodeField(code: .constant("4271"))
+                OneTimeCodeField("PIN", code: .constant("12"), length: 4, groupSize: nil, compact: true, isSecure: true)
+            }
         },
         GalleryEntry("text-area", width: 460, height: 168) {
             VStack(spacing: Spacing.md) {

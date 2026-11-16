@@ -35,7 +35,8 @@ public enum Spacing {
     /// 2px - Hairline spacing (use sparingly)
     public static let hairline: CGFloat = 2
 
-    /// 4px - Inset spacing for toolbar buttons on Tahoe+
+    /// 3px - Inset spacing for toolbar buttons on Tahoe+; also a regular pill's
+    /// vertical padding and a bare text button's ring outset
     public static let insetSpacing: CGFloat = 3
 
     /// 4px - Extra extra small
@@ -70,9 +71,11 @@ public enum Spacing {
 
     // MARK: - Semantic Spacing
 
-    /// Standard button internal padding (horizontal: 12px, vertical: 8px)
+    /// A compact button's inset (horizontal: 12px, vertical: 6px); regular
+    /// buttons use `lg + 2` / `sm`. The heights come from `Sizing.controlDefault`
+    /// / `controlMedium`, which the styles pin with `minHeight`.
     public static let buttonPaddingH: CGFloat = md
-    public static let buttonPaddingV: CGFloat = sm
+    public static let buttonPaddingV: CGFloat = xs
 
     /// 16px – Standard card padding
     public static let cardPadding: CGFloat = lg
@@ -102,15 +105,34 @@ public enum Spacing {
     /// 24px – Standard modal/sheet padding
     public static let sheetPadding: CGFloat = xl
 
-    /// Tag/badge internal padding (horizontal: 6px, vertical: 4px)
+    /// A regular pill's inset (horizontal: 6px, vertical: 3px); `BadgeSize`
+    /// derives the small and large pills from it
     public static let tagPaddingH: CGFloat = xs
-    public static let tagPaddingV: CGFloat = xxs
+    public static let tagPaddingV: CGFloat = insetSpacing
 
     /// 6px – Default menu padding
     public static let menuPadding: CGFloat = xs
     
     /// 2px – Vertical spacing between header and subheading
     public static let headingSpacing: CGFloat = hairline
+
+    /// 10px / 5px – A menu row's inset (`FilterMenuRow`, `QuickActionMenuItem`,
+    /// a picker's rows): a step tighter than a list row, with `Sizing.radiusDefault`
+    /// corners and `hairline` between rows.
+    public static let menuRowPaddingH: CGFloat = 10
+    public static let menuRowPaddingV: CGFloat = 5
+
+    /// 8px / 6px – A boxed single-line field's inset (`.inputBox` hosts and the
+    /// `.compact` text field); the field is `Sizing.controlDefault` tall.
+    public static let fieldPaddingH: CGFloat = sm
+    public static let fieldPaddingV: CGFloat = xs
+
+    /// 6px – A navigation row's vertical padding (sidebar, outline list, command
+    /// palette): a 13pt title makes a `Sizing.controlDefault` row.
+    public static let navRowPaddingV: CGFloat = xs
+
+    /// 3px – How far a bare text button's focus ring sits outside its label.
+    public static let ringOutset: CGFloat = insetSpacing
 }
 
 // MARK: - CGFloat Extension
@@ -207,6 +229,9 @@ public enum Sizing {
     /// 36px - Large control height
     public static let controlLarge: CGFloat = 36
 
+    /// 40px - Extra large control (a one-time code cell, a large avatar)
+    public static let controlXLarge: CGFloat = 40
+
     // MARK: - Border Radius
 
     /// 4px - Small radius
@@ -229,6 +254,14 @@ public enum Sizing {
 
     /// Full corner radius (capsule shape)
     public static let radiusFull: CGFloat = .infinity
+
+    /// A single-line text field's corners: a capsule on macOS 26, `radiusDefault`
+    /// before it. `.inputBox` defaults to it; buttons keep `radiusMedium`.
+    public static var fieldCornerRadius: CGFloat { isTahoeOrLater ? radiusFull : radiusDefault }
+
+    /// A multi-line or composite input's corners (text area, editor, composer,
+    /// token field, code box, one-time code cells) — a capsule can't wrap a box.
+    public static let textBoxCornerRadius: CGFloat = radiusMedium
 
     // MARK: - Common Widths
 
@@ -258,6 +291,34 @@ public enum Sizing {
 
     /// 600px - Default sheet width (extra large)
     public static let sheetWidthXLarge: CGFloat = 600
+
+    /// 480px - An `AppSheet` with no size preset
+    public static let sheetWidthDefault: CGFloat = 480
+
+    /// 180px - The narrowest a dropdown panel gets (`ComboBox`, `FloatingMenuPicker`, filter menus)
+    public static let menuMinWidth: CGFloat = 180
+
+    /// 18px - An inline icon button's chip (`HoverIconButton`, a field's clear or reveal button)
+    public static let inlineIconButton: CGFloat = 18
+
+    /// 340px - A `.slideoutPanel`
+    public static let slideoutPanelWidth: CGFloat = 340
+
+    /// 640px - The command palette card
+    public static let commandPaletteWidth: CGFloat = 640
+
+    /// 440px - A toast card
+    public static let toastWidth: CGFloat = 440
+
+    /// 100px - `DetailRow`'s label column
+    public static let detailLabelWidth: CGFloat = 100
+
+    /// 176px - `SettingsScrollView`'s table-of-contents rail
+    public static let settingsRailWidth: CGFloat = 176
+
+    /// 160px / 96px - A chart's plot floor, and the compact one
+    public static let chartMinimumHeight: CGFloat = 160
+    public static let chartCompactHeight: CGFloat = 96
 }
 
 // MARK: - Previews

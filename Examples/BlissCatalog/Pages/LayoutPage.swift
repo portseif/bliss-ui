@@ -5,6 +5,7 @@
 //  The "Layout & People" page.
 //
 
+import AppKit
 import BlissUI
 import SwiftUI
 
@@ -29,6 +30,17 @@ private enum LayoutSamples {
         "Ada Lovelace", "Grace Hopper", "Alan Turing", "Katherine Johnson", "Edsger Dijkstra",
         "Barbara Liskov", "Donald Knuth", "山田太郎", "Анна Каренина", "김민준",
     ]
+
+    /// A stand-in photo: a soft two-tone gradient with a figure, so the page
+    /// shows a picture in an avatar without shipping one.
+    static let photo = Image(nsImage: NSImage(size: NSSize(width: 80, height: 80), flipped: false) { rect in
+        NSGradient(colors: [NSColor(srgbRed: 0.96, green: 0.62, blue: 0.42, alpha: 1), NSColor(srgbRed: 0.45, green: 0.36, blue: 0.78, alpha: 1)])?
+            .draw(in: rect, angle: -45)
+        NSColor.white.withAlphaComponent(0.85).setFill()
+        NSBezierPath(ovalIn: NSRect(x: 28, y: 40, width: 24, height: 24)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 14, y: -6, width: 52, height: 40)).fill()
+        return true
+    })
 }
 
 // MARK: - Person row
@@ -44,6 +56,8 @@ private struct PersonRowDemo: View {
                 PersonRow(name: "Alan Turing", detail: "Invited") {
                     Button("Resend") {}.buttonStyle(SecondaryButtonStyle(compact: true))
                 }
+                PersonRow(name: "Barbara Liskov", detail: "Photo, rounded", image: LayoutSamples.photo, shape: .rounded, status: .online)
+                PersonRow(name: "Design Team", detail: "Large", size: .large, shape: .rounded)
             }
             .frame(maxWidth: 480)
         }
@@ -61,6 +75,11 @@ private struct CodeBlockDemo: View {
                 .fixedSize(horizontal: false, vertical: true)
             CodeBlock(CatalogMarkdown.shellSnippet, highlighter: .shell, showsLineNumbers: true)
                 .frame(maxWidth: 560)
+            Text("A titled block that wraps long lines, with the second line highlighted.")
+                .font(Typography.caption)
+                .foregroundStyle(.secondary)
+            CodeBlock(CatalogMarkdown.shellSnippet + "\nswift run BlissCatalog -gallery /tmp/shots -bliss.colorScheme Dark -bliss.theme system -galleryArea core", highlighter: .shell, showsLineNumbers: true, wraps: true, title: "Terminal", highlightedLines: [2])
+                .frame(maxWidth: 560)
         }
     }
 }
@@ -70,6 +89,7 @@ private struct CodeBlockDemo: View {
 private struct ResizableSplitDemo: View {
     @State private var splitWidth: CGFloat = 220
     @State private var splitDestination = CatalogDestination.today
+    @State private var splitIsCollapsed = false
 
     var body: some View {
         DemoBlock(title: "Resizable split") {
@@ -77,7 +97,9 @@ private struct ResizableSplitDemo: View {
                 .font(Typography.bodySmall)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            ResizableSplit(width: $splitWidth, in: 160...320, persistenceKey: "blissCatalog.splitWidth") {
+            Button(splitIsCollapsed ? "Show Sidebar" : "Hide Sidebar") { splitIsCollapsed.toggle() }
+                .buttonStyle(SecondaryButtonStyle(compact: true))
+            ResizableSplit(width: $splitWidth, in: 160...320, persistenceKey: "blissCatalog.splitWidth", isCollapsed: $splitIsCollapsed) {
                 Sidebar(selection: $splitDestination) {
                     SidebarSection {
                         SidebarRow("Inbox", icon: "tray", value: CatalogDestination.inbox, count: 4)
@@ -88,7 +110,7 @@ private struct ResizableSplitDemo: View {
                 .background(Color.appShell)
             } trailing: {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
-                    Text(verbatim: "\(Int(splitWidth)) pt")
+                    Text(verbatim: splitIsCollapsed ? "Collapsed — drag past the minimum collapses it too" : "\(Int(splitWidth)) pt")
                         .font(Typography.captionSmall)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -126,7 +148,7 @@ private struct KanbanDemo: View {
         ], color: Grey.grey500),
         KanbanColumn(id: "doing", title: "In progress", cards: [
             CatalogKanbanTask(id: 4, title: "Ship the Low Glare theme", tag: "Themes", assignee: "Katherine Johnson"),
-        ], color: Warning.warning500),
+        ], color: Warning.warning500, limit: 2),
         KanbanColumn(id: "done", title: "Done", cards: [
             CatalogKanbanTask(id: 5, title: "Polish the onboarding card", tag: "Design", assignee: "Ada Lovelace"),
         ], color: Success.success500),
@@ -135,12 +157,16 @@ private struct KanbanDemo: View {
 
     var body: some View {
         DemoBlock(title: "Kanban board") {
-            Text("Drag a card within its column or into another; the rest slide to make room. Tab to a card and press ⌥ with an arrow to move it.")
+            Text("Drag a card within its column or into another; the rest slide to make room. Tab to a card and press ⌥ with an arrow to move it. In progress takes two cards at most; nothing moves back out of Done; click a card to open it.")
                 .font(Typography.bodySmall)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             KanbanBoard(columns: $board, columnWidth: 240, onMove: { task, from, to in
                 lastMove = "\(task.title): \(from) → \(to)"
+            }, onOpen: { task in
+                ToastService.shared.showInfo(title: "Opened", message: task.title)
+            }, canMove: { _, from, _ in
+                from != "done"
             }) { task in
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text(verbatim: task.title)
@@ -210,6 +236,7 @@ private struct AvatarDemo: View {
                             case .small: "Small"
                             case .medium: "Medium"
                             case .large: "Large"
+                            case .xlarge: "XL"
                             }
                         })
                         SegmentedPills(options: [AvatarShape.circle, .rounded], selection: $shape, style: .compact, title: { $0 == .circle ? "Circle" : "Rounded" })
@@ -225,6 +252,15 @@ private struct AvatarDemo: View {
                 ForEach(LayoutSamples.people, id: \.self) { person in
                     Avatar(name: person, size: size, shape: shape)
                 }
+            }
+            Text("A symbol in place of initials, a brand tint, a photo with a hairline, and the extra-large size.")
+                .font(Typography.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: Spacing.md) {
+                Avatar(name: "Bliss Bot", size: .large, tint: Color.accent, symbol: "sparkles")
+                Avatar(name: "Design Team", size: .large, shape: .rounded, tint: Purple.purple400, symbol: "paintpalette")
+                Avatar(name: "Barbara Liskov", image: LayoutSamples.photo, size: .large, status: .online, showsBorder: true)
+                Avatar(name: "Ada Lovelace", size: .xlarge, status: .busy)
             }
         }
     }
@@ -242,6 +278,13 @@ private struct AvatarStackDemo: View {
                 AvatarStack(names: Array(LayoutSamples.people.prefix(count)), limit: limit, size: .small)
                 AvatarStack(names: Array(LayoutSamples.people.prefix(count)), limit: limit)
                 AvatarStack(names: Array(LayoutSamples.people.prefix(count)), limit: limit, size: .large)
+                AvatarStack(
+                    Array(LayoutSamples.people.prefix(count)),
+                    name: { $0 },
+                    status: { $0.hasPrefix("A") || $0.hasPrefix("G") ? .online : nil },
+                    limit: limit,
+                    onOverflowSelect: { ToastService.shared.showInfo(title: "Members", message: "\(count) people") }
+                )
             }
             HStack(spacing: Spacing.sm) {
                 Text("People").font(Typography.caption).foregroundStyle(.secondary)
@@ -281,6 +324,10 @@ private struct BreadcrumbsDemo: View {
                     .disabled(depth == Self.fullPath.count)
             }
             Text("Click a segment to go back to it. Segments that don't fit fold into the … menu.")
+                .font(Typography.caption)
+                .foregroundStyle(.secondary)
+            Breadcrumbs(Self.fullPath, title: { $0 }, separator: .slash, maximumSegments: 3) { _ in }
+            Text("Slashes, and never more than three segments.")
                 .font(Typography.caption)
                 .foregroundStyle(.secondary)
         }
@@ -427,10 +474,17 @@ private struct CodeFieldDemo: View {
                 .onSubmit {
                     ToastService.shared.showInfo(title: "Run", message: command)
                 }
-            Text("YAML")
+            Text("Compact, with a Run button in its trailing slot")
                 .font(Typography.caption)
                 .foregroundStyle(.secondary)
-            CodeField(text: $workflow, highlighter: .yaml, prompt: "name: Workflow", layout: .editor(height: 200), font: Typography.codeSmall)
+            CodeField(text: $command, highlighter: .shell, compact: true) {
+                Button("Run") { ToastService.shared.showInfo(title: "Run", message: command) }
+                    .buttonStyle(GhostButtonStyle(compact: true))
+            }
+            Text("YAML, with line numbers")
+                .font(Typography.caption)
+                .foregroundStyle(.secondary)
+            CodeField(text: $workflow, highlighter: .yaml, prompt: "name: Workflow", layout: .editor(height: 200), font: Typography.codeSmall, showsLineNumbers: true)
             Text("A rule-based highlighter (SQL) — apps add their own languages")
                 .font(Typography.caption)
                 .foregroundStyle(.secondary)

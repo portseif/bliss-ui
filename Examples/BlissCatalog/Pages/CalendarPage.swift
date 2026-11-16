@@ -17,6 +17,9 @@ struct CalendarPage: View {
     @State private var period = DateRangePreset.lastDays(7).range()
     @State private var trip: ClosedRange<Date>?
     @State private var inlineRange: ClosedRange<Date>? = DateRangePreset.thisMonth.range()
+    @State private var invoiceDate = Date()
+    @State private var startTime: Date?
+    @State private var standup = Calendar.current.date(bySettingHour: 9, minute: 30, second: 0, of: Date()) ?? Date()
 
     private var today: Date { Calendar.current.startOfDay(for: Date()) }
 
@@ -39,14 +42,19 @@ struct CalendarPage: View {
             }
 
             DemoBlock(title: "Compact calendar") {
+                Text("The second keeps weekends and the past off; the third has no header and hides the neighbouring months' days.")
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
                 HStack(alignment: .top, spacing: Spacing.xl) {
                     MonthCalendar(selection: $pickedDay, style: .compact)
                     MonthCalendar(
                         selection: $pickedDay,
                         minimumDate: today,
                         maximumDate: Calendar.current.date(byAdding: .day, value: 20, to: today),
+                        isDateEnabled: { !Calendar.current.isDateInWeekend($0) },
                         style: .compact
                     )
+                    MonthCalendar(selection: $pickedDay, style: .compact, showsHeader: false, showsOutOfMonthDays: false)
                 }
             }
 
@@ -55,6 +63,23 @@ struct CalendarPage: View {
                     DatePickerField("Due date", selection: $dueDate, minimumDate: today)
                     DatePickerField("Reminder", selection: $reminder, showsTime: true)
                     DatePickerField("Ends", selection: $endDate, placeholder: "Never")
+                    DatePickerField("Invoiced", selection: $invoiceDate, dateStyle: .numeric)
+                    RoundedSection(divided: true) {
+                        SettingsRow("Starts", detail: "The row shows the title, so the field hides its own.") {
+                            DatePickerField("Starts", selection: $pickedDay, showsTitle: false)
+                        }
+                    }
+                }
+                .frame(maxWidth: 420)
+            }
+
+            DemoBlock(title: "Time field") {
+                Text("Hour, minute and AM/PM in the locale's order. Tab between the segments; ↑ / ↓ step one, digits type into it.")
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    TimeField("Starts", selection: $startTime)
+                    TimeField("Stand-up", selection: $standup, showsSeconds: true)
                 }
                 .frame(maxWidth: 420)
             }
@@ -68,7 +93,10 @@ struct CalendarPage: View {
             }
 
             DemoBlock(title: "Range calendar") {
-                DateRangeCalendar(selection: $inlineRange, presets: DateRangePreset.standard + [.yesterday, .lastMonth])
+                Text("Presets above the grid for a narrow host; the picker's popover keeps them beside it.")
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+                DateRangeCalendar(selection: $inlineRange, presets: DateRangePreset.standard + [.yesterday, .lastMonth], presetPlacement: .above)
                     .background {
                         RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
                             .strokeBorder(Color.menuBorder, lineWidth: 1)

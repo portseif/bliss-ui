@@ -14,26 +14,21 @@ import SwiftUI
 /// ```swift
 /// ProgressRing(value: 0.4)
 /// ProgressRing(value: done, total: steps, center: .percentage, size: 48)
-/// ProgressRing(value: 3, total: 5, center: .text("3/5"), tint: Success.success500)
+/// ProgressRing(value: 3, total: 5, center: .text("3/5"), tint: Success.success500, label: "Steps")
 /// ```
 public struct ProgressRing: View {
-    /// What sits inside the ring.
-    public enum CenterLabel {
-        /// Nothing — a bare ring (the compact size for a row or a button).
-        case none
-        /// The whole percent, rounded down.
-        case percentage
-        /// Your own short text ("3/5"), looked up in your app's strings.
-        case text(LocalizedStringKey)
-    }
+    /// What sits inside the ring: `ProgressReadout`, the same choices as a
+    /// bar's readout.
+    public typealias CenterLabel = ProgressReadout
 
     private let value: Double
     private let total: Double
-    private let center: CenterLabel
+    private let center: ProgressReadout
     private let tint: Color
     private let size: CGFloat
     private let lineWidth: CGFloat
     private let font: Font?
+    private let label: LocalizedStringKey?
     private let accessibilityLabel: LocalizedStringKey?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -44,17 +39,22 @@ public struct ProgressRing: View {
     ///   - center: The label inside the ring.
     ///   - tint: The arc — a mark, like `ProgressBar`'s fill.
     ///   - size: The ring's diameter.
-    ///   - lineWidth: The arc's thickness.
+    ///   - lineWidth: The arc's thickness; nil picks one for `size` (3 up to
+    ///     40pt, 4 up to 64, 6 past that).
     ///   - font: The center label's font; nil picks one that fits `size`.
-    ///   - accessibilityLabel: What VoiceOver calls the ring ("Progress" when nil).
+    ///   - label: A caption under the ring, looked up in your app's strings.
+    ///     Also what VoiceOver calls the ring unless `accessibilityLabel` says otherwise.
+    ///   - accessibilityLabel: What VoiceOver calls the ring ("Progress" when
+    ///     neither label is set).
     public init(
         value: Double,
         total: Double = 1,
-        center: CenterLabel = .none,
+        center: ProgressReadout = .none,
         tint: Color = Color.accent,
-        size: CGFloat = 32,
-        lineWidth: CGFloat = 3,
+        size: CGFloat = Sizing.controlMedium,
+        lineWidth: CGFloat? = nil,
         font: Font? = nil,
+        label: LocalizedStringKey? = nil,
         accessibilityLabel: LocalizedStringKey? = nil
     ) {
         self.value = value
@@ -62,13 +62,30 @@ public struct ProgressRing: View {
         self.center = center
         self.tint = tint
         self.size = size
-        self.lineWidth = lineWidth
+        self.lineWidth = lineWidth ?? Self.lineWidth(for: size)
         self.font = font
+        self.label = label
         self.accessibilityLabel = accessibilityLabel
     }
 
     public var body: some View {
         let fraction = DataMetrics.fraction(value, of: total)
+        VStack(spacing: Spacing.xs) {
+            ring(fraction)
+            if let label {
+                Text(label)
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel((accessibilityLabel ?? label).map { Text($0) } ?? Text("Progress", bundle: .module))
+        .accessibilityValue(Text(fraction, format: DataMetrics.percentFormat))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private func ring(_ fraction: Double) -> some View {
         ZStack {
             Circle()
                 .inset(by: lineWidth / 2)
@@ -85,14 +102,11 @@ public struct ProgressRing: View {
                 .monospacedDigit()
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(DataMetrics.minimumScaleFactor)
+                // Clear of the arc by a point: the label's box is the inner diameter.
                 .padding(.horizontal, lineWidth + 1)
         }
         .frame(width: size, height: size)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel.map { Text($0) } ?? Text("Progress", bundle: .module))
-        .accessibilityValue(Text(fraction, format: DataMetrics.percentFormat))
-        .accessibilityAddTraits(.updatesFrequently)
     }
 
     @ViewBuilder
@@ -109,7 +123,19 @@ public struct ProgressRing: View {
         }
     }
 
-    /// The largest token whose "100%" still fits inside the ring.
+    /// The arc for a diameter: a hair thicker as the ring grows, so a 72pt
+    /// ring doesn't draw a 32pt ring's thread.
+    static func lineWidth(for size: CGFloat) -> CGFloat {
+        let medium = Sizing.controlXLarge
+        let large = Sizing.controlXLarge + Sizing.iconLarge
+        if size < medium { return 3 }
+        if size < large { return 4 }
+        return 6
+    }
+
+    /// The largest token whose "100%" still fits inside the ring. The
+    /// breakpoints are measured: the inner diameter at which "100%" in the
+    /// next token up stops fitting.
     static func centerFont(innerDiameter: CGFloat) -> Font {
         switch innerDiameter {
         case ..<28: return Typography.labelXTiny
@@ -123,12 +149,12 @@ public struct ProgressRing: View {
 
 // MARK: - Preview
 
-#Preview(traits: .fixedLayout(width: 320, height: 120)) {
-    HStack(spacing: Spacing.lg) {
+#Preview(traits: .fixedLayout(width: 360, height: 140)) {
+    HStack(alignment: .top, spacing: Spacing.lg) {
         ProgressRing(value: 0.25)
         ProgressRing(value: 0.62, center: .percentage, size: 44)
-        ProgressRing(value: 3, total: 5, center: .text("3/5"), tint: Success.success500, size: 56, lineWidth: 4)
-        ProgressRing(value: 0.9, center: .percentage, tint: Warning.warning500, size: 72, lineWidth: 6)
+        ProgressRing(value: 3, total: 5, center: .text("3/5"), tint: Success.success500, size: 56, label: "Steps")
+        ProgressRing(value: 0.9, center: .percentage, tint: Warning.warning500, size: 72)
     }
     .padding(Spacing.xl)
 }

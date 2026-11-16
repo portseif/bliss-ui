@@ -58,6 +58,14 @@ public nonisolated enum TimeSeriesChartKind: Sendable {
     case area
 }
 
+/// Which way a bar chart's bars run.
+public nonisolated enum BarChartOrientation: Sendable {
+    /// Bars stand up from a category axis along the bottom.
+    case vertical
+    /// Bars run from a category axis down the leading edge — for long labels.
+    case horizontal
+}
+
 // MARK: - Series grouping
 
 /// The samples of one series, with its color.
@@ -82,12 +90,19 @@ private func orderedSeriesNames(_ names: [String]) -> [String] {
     return names.filter { seen.insert($0).inserted }
 }
 
+/// A series' color: the app's choice for that name, else the palette's for
+/// its position.
+private func seriesColor(named name: String, at index: Int, overrides: [String: Color]) -> Color {
+    overrides[name] ?? ChartPalette.color(forSeriesAt: index)
+}
+
 // MARK: - Time series chart
 
 /// A line or area chart of dated samples, one line per series.
 ///
 /// ```swift
 /// TimeSeriesChart(.area, samples: dailyVisits)
+/// TimeSeriesChart(samples: cpu, range: 0...100, compact: true)
 /// ```
 ///
 /// Hovering shows a cursor at the nearest date and a card with each series'
@@ -98,6 +113,10 @@ public struct TimeSeriesChart: View {
     private let samples: [ChartSample]
     private let showsLegend: Bool
     private let valueFormat: FloatingPointFormatStyle<Double>
+    private let compact: Bool
+    private let range: ClosedRange<Double>?
+    private let seriesColors: [String: Color]
+    private let isInteractive: Bool
 
     @State private var hoveredDate: Date?
 
@@ -107,16 +126,30 @@ public struct TimeSeriesChart: View {
     ///   - showsLegend: Draws a `ChartLegend` under the chart when there are
     ///     two or more named series.
     ///   - valueFormat: How values read in the hover card and for VoiceOver.
+    ///   - compact: A shorter plot with no axis labels, for a tile or a sidebar.
+    ///   - range: A fixed value scale (0...100 for percentages, one scale
+    ///     across sibling charts); nil fits the data.
+    ///   - seriesColors: A color per series name, for a series that must keep
+    ///     its color wherever it lands in order; the rest take the palette.
+    ///   - isInteractive: The hover cursor and callout; off for a static chart.
     public init(
         _ kind: TimeSeriesChartKind = .line,
         samples: [ChartSample],
         showsLegend: Bool = true,
-        valueFormat: FloatingPointFormatStyle<Double> = .number
+        valueFormat: FloatingPointFormatStyle<Double> = .number,
+        compact: Bool = false,
+        range: ClosedRange<Double>? = nil,
+        seriesColors: [String: Color] = [:],
+        isInteractive: Bool = true
     ) {
         self.kind = kind
         self.samples = samples
         self.showsLegend = showsLegend
         self.valueFormat = valueFormat
+        self.compact = compact
+        self.range = range
+        self.seriesColors = seriesColors
+        self.isInteractive = isInteractive
     }
 
     private var seriesNames: [String] {
@@ -127,7 +160,7 @@ public struct TimeSeriesChart: View {
         seriesNames.enumerated().map { index, name in
             SampleSeries(
                 name: name,
-                color: ChartPalette.color(forSeriesAt: index),
+                color: seriesColor(named: name, at: index, overrides: seriesColors),
                 samples: samples.filter { $0.series == name }.sorted { $0.date < $1.date }
             )
         }
@@ -137,35 +170,46 @@ public struct TimeSeriesChart: View {
         seriesNames.filter { !$0.isEmpty }
     }
 
+    private var minimumHeight: CGFloat {
+        compact ? Sizing.chartCompactHeight : Sizing.chartMinimumHeight
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             if samples.isEmpty {
-                ChartEmptyState()
+                ChartEmptyState(minHeight: minimumHeight)
             } else {
-                Chart {
-                    hoverRule
-                    ForEach(groups) { group in
-                        seriesMarks(for: group)
-                    }
-                    hoverPoints
-                }
-                .blissChartStyle()
-                .chartOverlay { proxy in
-                    TimeSeriesHoverOverlay(
-                        proxy: proxy,
-                        hoveredDate: $hoveredDate,
-                        snap: nearestDate(to:),
-                        values: hoveredValues,
-                        valueFormat: valueFormat
-                    )
-                }
-                .frame(minHeight: 160)
+                chart
+                    .frame(minHeight: minimumHeight)
             }
             if showsLegend && namedSeries.count >= 2 {
-                ChartLegend(series: namedSeries)
+                ChartLegend(series: namedSeries, colors: groups.map(\.color))
             }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var chart: some View {
+        Chart {
+            hoverRule
+            ForEach(groups) { group in
+                seriesMarks(for: group)
+            }
+            hoverPoints
+        }
+        .blissChartStyle(showsAxes: !compact)
+        .modifier(ChartRange(range: range))
+        .chartOverlay { proxy in
+            if isInteractive {
+                TimeSeriesHoverOverlay(
+                    proxy: proxy,
+                    hoveredDate: $hoveredDate,
+                    snap: nearestDate(to:),
+                    values: hoveredValues,
+                    valueFormat: valueFormat
+                )
+            }
+        }
     }
 
     // MARK: Marks
@@ -189,7 +233,8 @@ public struct TimeSeriesChart: View {
             series: .value("Series", group.name),
             stacking: .unstacked
         )
-        .foregroundStyle(group.color.opacity(0.15))
+        // On the tint: a lifted mark at low opacity goes grey on dark.
+        .foregroundStyle(group.color.statusTint.opacity(ChartMetrics.areaWashOpacity))
         .interpolationMethod(.monotone)
         .accessibilityHidden(true)
     }
@@ -201,7 +246,7 @@ public struct TimeSeriesChart: View {
             series: .value("Series", group.name)
         )
         .foregroundStyle(group.color)
-        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+        .lineStyle(StrokeStyle(lineWidth: DataMetrics.lineWidth, lineCap: .round, lineJoin: .round))
         .interpolationMethod(.monotone)
         .accessibilityLabel(Text(verbatim: group.name))
         .accessibilityValue(Text(sample.value, format: valueFormat))
@@ -223,7 +268,7 @@ public struct TimeSeriesChart: View {
             ForEach(hoveredValues) { value in
                 PointMark(x: .value("Date", hoveredDate), y: .value("Value", value.value))
                     .foregroundStyle(value.color)
-                    .symbolSize(40)
+                    .symbolSize(ChartMetrics.hoverPointArea)
                     .accessibilityHidden(true)
             }
         }
@@ -243,6 +288,19 @@ public struct TimeSeriesChart: View {
             let nearest = group.samples.min { abs($0.date.timeIntervalSince(hoveredDate)) < abs($1.date.timeIntervalSince(hoveredDate)) }
             guard let nearest else { return nil }
             return HoveredValue(name: group.name, color: group.color, value: nearest.value)
+        }
+    }
+}
+
+/// A fixed value scale, when the chart has one.
+private struct ChartRange: ViewModifier {
+    let range: ClosedRange<Double>?
+
+    func body(content: Content) -> some View {
+        if let range {
+            content.chartYScale(domain: range)
+        } else {
+            content
         }
     }
 }
@@ -287,6 +345,7 @@ private struct TimeSeriesHoverOverlay: View {
 /// ```swift
 /// BarChart(bars: downloadsByMonth)
 /// BarChart(bars: revenueByRegion, stacked: true)
+/// BarChart(bars: topPages, orientation: .horizontal)
 /// ```
 ///
 /// Hovering a category shows a card with each series' value in it.
@@ -295,6 +354,10 @@ public struct BarChart: View {
     private let stacked: Bool
     private let showsLegend: Bool
     private let valueFormat: FloatingPointFormatStyle<Double>
+    private let compact: Bool
+    private let seriesColors: [String: Color]
+    private let isInteractive: Bool
+    private let orientation: BarChartOrientation
 
     @State private var hoveredCategory: String?
 
@@ -304,16 +367,28 @@ public struct BarChart: View {
     ///   - showsLegend: Draws a `ChartLegend` under the chart when there are
     ///     two or more named series.
     ///   - valueFormat: How values read in the hover card and for VoiceOver.
+    ///   - compact: A shorter plot with no axis labels, for a tile or a sidebar.
+    ///   - seriesColors: A color per series name; the rest take the palette.
+    ///   - isInteractive: The hover rule and callout; off for a static chart.
+    ///   - orientation: Bars standing up, or running sideways for long labels.
     public init(
         bars: [ChartBar],
         stacked: Bool = false,
         showsLegend: Bool = true,
-        valueFormat: FloatingPointFormatStyle<Double> = .number
+        valueFormat: FloatingPointFormatStyle<Double> = .number,
+        compact: Bool = false,
+        seriesColors: [String: Color] = [:],
+        isInteractive: Bool = true,
+        orientation: BarChartOrientation = .vertical
     ) {
         self.bars = bars
         self.stacked = stacked
         self.showsLegend = showsLegend
         self.valueFormat = valueFormat
+        self.compact = compact
+        self.seriesColors = seriesColors
+        self.isInteractive = isInteractive
+        self.orientation = orientation
     }
 
     private var seriesNames: [String] {
@@ -326,50 +401,66 @@ public struct BarChart: View {
 
     private var groups: [BarSeries] {
         seriesNames.enumerated().map { index, name in
-            BarSeries(name: name, color: ChartPalette.color(forSeriesAt: index), bars: bars.filter { $0.series == name })
+            BarSeries(name: name, color: seriesColor(named: name, at: index, overrides: seriesColors), bars: bars.filter { $0.series == name })
         }
     }
+
+    private var minimumHeight: CGFloat {
+        compact ? Sizing.chartCompactHeight : Sizing.chartMinimumHeight
+    }
+
+    private var isHorizontal: Bool { orientation == .horizontal }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             if bars.isEmpty {
-                ChartEmptyState()
+                ChartEmptyState(minHeight: minimumHeight)
             } else {
-                Chart {
-                    hoverRule
-                    ForEach(groups) { group in
-                        ForEach(group.bars) { bar in
-                            barMark(bar, in: group)
-                        }
-                    }
-                }
-                .blissChartStyle()
-                .chartOverlay { proxy in
-                    BarHoverOverlay(
-                        proxy: proxy,
-                        hoveredCategory: $hoveredCategory,
-                        values: hoveredValues,
-                        valueFormat: valueFormat
-                    )
-                }
-                .frame(minHeight: 160)
+                chart
+                    .frame(minHeight: minimumHeight)
             }
             if showsLegend && namedSeries.count >= 2 {
-                ChartLegend(series: namedSeries)
+                ChartLegend(series: namedSeries, colors: groups.map(\.color))
             }
         }
         .accessibilityElement(children: .contain)
     }
 
+    private var chart: some View {
+        Chart {
+            hoverRule
+            ForEach(groups) { group in
+                ForEach(group.bars) { bar in
+                    barMark(bar, in: group)
+                }
+            }
+        }
+        .blissChartStyle(showsAxes: !compact)
+        .chartOverlay { proxy in
+            if isInteractive {
+                BarHoverOverlay(
+                    proxy: proxy,
+                    isHorizontal: isHorizontal,
+                    hoveredCategory: $hoveredCategory,
+                    values: hoveredValues,
+                    valueFormat: valueFormat
+                )
+            }
+        }
+    }
+
     // MARK: Marks
 
     private func barMark(_ bar: ChartBar, in group: BarSeries) -> some ChartContent {
-        let mark = BarMark(x: .value("Category", bar.category), y: .value("Value", bar.value))
+        let mark = isHorizontal
+            ? BarMark(x: .value("Value", bar.value), y: .value("Category", bar.category))
+            : BarMark(x: .value("Category", bar.category), y: .value("Value", bar.value))
+        let styled = mark
             .foregroundStyle(group.color)
-            .cornerRadius(Sizing.radiusSmall)
+            .cornerRadius(ChartMetrics.barCornerRadius)
             .accessibilityLabel(Text(verbatim: group.name.isEmpty ? bar.category : "\(bar.category), \(group.name)"))
             .accessibilityValue(Text(bar.value, format: valueFormat))
-        return groupedIfNeeded(mark, series: group.name)
+        return groupedIfNeeded(styled, series: group.name)
     }
 
     /// Side by side unless stacked; a lone series needs no grouping either way.
@@ -385,10 +476,17 @@ public struct BarChart: View {
     @ChartContentBuilder
     private var hoverRule: some ChartContent {
         if let hoveredCategory {
-            RuleMark(x: .value("Category", hoveredCategory))
-                .foregroundStyle(Color.menuBorder)
-                .lineStyle(StrokeStyle(lineWidth: 1))
-                .accessibilityHidden(true)
+            if isHorizontal {
+                RuleMark(y: .value("Category", hoveredCategory))
+                    .foregroundStyle(Color.menuBorder)
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .accessibilityHidden(true)
+            } else {
+                RuleMark(x: .value("Category", hoveredCategory))
+                    .foregroundStyle(Color.menuBorder)
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .accessibilityHidden(true)
+            }
         }
     }
 
@@ -407,6 +505,7 @@ public struct BarChart: View {
 /// callout beside it.
 private struct BarHoverOverlay: View {
     let proxy: ChartProxy
+    let isHorizontal: Bool
     @Binding var hoveredCategory: String?
     let values: [HoveredValue]
     let valueFormat: FloatingPointFormatStyle<Double>
@@ -416,11 +515,14 @@ private struct BarHoverOverlay: View {
             let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? .zero
             ChartHoverLayer(
                 plotFrame: plotFrame,
-                markX: hoveredCategory.flatMap { proxy.position(forX: $0) },
+                markX: isHorizontal ? nil : hoveredCategory.flatMap { proxy.position(forX: $0) },
+                markY: isHorizontal ? hoveredCategory.flatMap { proxy.position(forY: $0) } : nil,
                 callout: callout,
                 onHover: { location in
                     guard let location else { return hoveredCategory = nil }
-                    hoveredCategory = proxy.value(atX: location.x - plotFrame.minX)
+                    hoveredCategory = isHorizontal
+                        ? proxy.value(atY: location.y - plotFrame.minY)
+                        : proxy.value(atX: location.x - plotFrame.minX)
                 }
             )
         }
@@ -461,14 +563,19 @@ private enum ChartPreviewData {
 }
 
 #Preview("Area chart", traits: .fixedLayout(width: 520, height: 300)) {
-    TimeSeriesChart(.area, samples: ChartPreviewData.visits)
+    TimeSeriesChart(.area, samples: ChartPreviewData.visits, range: 0...200)
         .padding(Spacing.xl)
 }
 
 #Preview("Bar chart", traits: .fixedLayout(width: 520, height: 300)) {
     VStack(spacing: Spacing.lg) {
         BarChart(bars: ChartPreviewData.downloads)
-        BarChart(bars: ChartPreviewData.downloads, stacked: true, showsLegend: false)
+        BarChart(bars: ChartPreviewData.downloads, stacked: true, showsLegend: false, compact: true)
     }
     .padding(Spacing.xl)
+}
+
+#Preview("Horizontal bars", traits: .fixedLayout(width: 520, height: 300)) {
+    BarChart(bars: ChartPreviewData.downloads, orientation: .horizontal)
+        .padding(Spacing.xl)
 }

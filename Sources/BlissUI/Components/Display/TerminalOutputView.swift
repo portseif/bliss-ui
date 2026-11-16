@@ -2,7 +2,8 @@
 //  TerminalOutputView.swift
 //  BlissUI
 //
-//  Created by Chris Seifert on 12/17/25.
+//  A console: lines of command output in the code font under a header strip,
+//  as a rounded box or docked flush along a pane's bottom.
 //
 
 import SwiftUI
@@ -29,33 +30,63 @@ public nonisolated struct TerminalOutputLine: Identifiable, Equatable, Sendable 
     }
 }
 
+// MARK: - Metrics
+
+/// The console's geometry.
+public enum TerminalMetrics {
+    /// The body's height cap.
+    public static let maxHeight: CGFloat = 200
+    /// The timestamp column.
+    public static let timestampWidth: CGFloat = 60
+    /// Between lines.
+    public static let lineSpacing: CGFloat = Spacing.hairline
+}
+
 // MARK: - Terminal Output View
 
 /// A terminal-like view that displays command output with monospace font,
-/// auto-scrolling, and error highlighting. A rounded card by default; `isDocked`
+/// auto-scrolling, and error highlighting. A rounded box by default; `isDocked`
 /// makes it a flush panel with a hairline on top, for a console docked along
-/// the bottom of a pane (like Xcode's).
-public struct TerminalOutputView: View {
+/// the bottom of a pane (like Xcode's). Pass `isExpanded` to own the collapse
+/// (a toolbar button that reopens a docked console); `wrapsLines: false`
+/// scrolls sideways like a real console.
+public struct TerminalOutputView<HeaderAccessory: View>: View {
     let lines: [TerminalOutputLine]
     var title: String = String(localized: "Output", bundle: .module)
-    var maxHeight: CGFloat = 200
+    var maxHeight: CGFloat = TerminalMetrics.maxHeight
     var isCollapsible: Bool = true
     var showTimestamps: Bool = false
     var isDocked: Bool = false
-    var contentInset: CGFloat = 12
+    var contentInset: CGFloat = Spacing.md
+    var wrapsLines: Bool = true
+    let externalIsExpanded: Binding<Bool>?
+    let headerAccessory: HeaderAccessory
 
-    @State private var isExpanded = true
+    @State private var internalIsExpanded = true
     @Environment(\.colorScheme) private var colorScheme
-    @State private var scrollProxy: ScrollViewProxy?
 
+    /// - Parameters:
+    ///   - lines: The output.
+    ///   - title: The header's title.
+    ///   - maxHeight: The body's height cap; past it the output scrolls.
+    ///   - isCollapsible: A chevron that folds the body under the header.
+    ///   - showTimestamps: A time column before each line.
+    ///   - isDocked: Flush along a pane's bottom, square, with a hairline on top.
+    ///   - contentInset: The horizontal inset of the header and the lines.
+    ///   - isExpanded: Whether the body shows; nil lets the view keep it.
+    ///   - wrapsLines: Long lines wrap; false scrolls them sideways.
+    ///   - headerAccessory: Clear, Copy all or Save in the header.
     public init(
         lines: [TerminalOutputLine],
         title: String = String(localized: "Output", bundle: .blissUI),
-        maxHeight: CGFloat = 200,
+        maxHeight: CGFloat = TerminalMetrics.maxHeight,
         isCollapsible: Bool = true,
         showTimestamps: Bool = false,
         isDocked: Bool = false,
-        contentInset: CGFloat = 12
+        contentInset: CGFloat = Spacing.md,
+        isExpanded: Binding<Bool>? = nil,
+        wrapsLines: Bool = true,
+        @ViewBuilder headerAccessory: () -> HeaderAccessory
     ) {
         self.lines = lines
         self.title = title
@@ -64,10 +95,15 @@ public struct TerminalOutputView: View {
         self.showTimestamps = showTimestamps
         self.isDocked = isDocked
         self.contentInset = contentInset
+        self.externalIsExpanded = isExpanded
+        self.wrapsLines = wrapsLines
+        self.headerAccessory = headerAccessory()
     }
 
+    private var isExpanded: Binding<Bool> { externalIsExpanded ?? $internalIsExpanded }
+
     /// Square when docked: it meets the pane's edges.
-    private var cornerRadius: CGFloat { isDocked ? 0 : 8 }
+    private var cornerRadius: CGFloat { isDocked ? 0 : Sizing.textBoxCornerRadius }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -75,23 +111,23 @@ public struct TerminalOutputView: View {
             headerView
 
             // Terminal content
-            if isExpanded {
+            if isExpanded.wrappedValue {
                 terminalContent
                     .frame(maxHeight: maxHeight)
-                    .transition(.asymmetric(
+                    .transition(.motion(.asymmetric(
                         insertion: .push(from: .top).combined(with: .opacity),
                         removal: .push(from: .bottom).combined(with: .opacity)
-                    ))
+                    )))
             }
         }
         // Docked, no fill: the pane it's docked in shows through, so the log
-        // reads on the regular content background. As a card, the theme's row
-        // tint over whatever it sits on. A hairline around the card, or along
-        // the top edge when docked.
+        // reads on the regular content background. As a box, the resting fill
+        // every box has. A hairline around the box, or along the top edge
+        // when docked.
         .background {
             if !isDocked {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(RowTint.hover(colorScheme))
+                    .fill(Color.restingFill)
             }
         }
         .overlay {
@@ -110,7 +146,7 @@ public struct TerminalOutputView: View {
     // MARK: - Header View
 
     private var headerView: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.sm) {
             // Terminal icon
             Image(systemName: "terminal")
                 .font(Typography.labelXSmall)
@@ -122,46 +158,41 @@ public struct TerminalOutputView: View {
 
             Spacer()
 
+            headerAccessory
+
             // Line count badge
             if !lines.isEmpty {
-                Text("\(lines.count) line\(lines.count == 1 ? "" : "s")", bundle: .module)
-                    .font(Typography.captionTiny)
-                    // Secondary: tertiary is under 4.5:1 on a tinted header.
-                    .foregroundStyle(Color.textSecondary)
+                Badge(.verbatim(String(localized: "\(lines.count) line\(lines.count == 1 ? "" : "s")", bundle: .module)))
+                    .badgeStyle(.secondary)
+                    .badgeSize(.small)
             }
 
             // Expand/collapse button
             if isCollapsible {
-                Button {
+                HoverIconButton(
+                    systemImage: isExpanded.wrappedValue ? "chevron.up" : "chevron.down",
+                    help: isExpanded.wrappedValue
+                        ? String(localized: "Collapse output", bundle: .module)
+                        : String(localized: "Expand output", bundle: .module)
+                ) {
                     withAnimation(Animations.accordion) {
-                        isExpanded.toggle()
+                        isExpanded.wrappedValue.toggle()
                     }
-                } label: {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(Typography.labelTinySemibold)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 16, height: 16)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 2))
-                .tooltip(configuration: .iconHint, position: .above) {
-                    Text(isExpanded ? "Collapse output" : "Expand output", bundle: .module).font(Typography.labelSmall)
-                }
-                .accessibilityLabel(Text("Output", bundle: .module))
-                .accessibilityValue(isExpanded ? Text("Expanded", bundle: .module) : Text("Collapsed", bundle: .module))
+                .accessibilityValue(isExpanded.wrappedValue ? Text("Expanded", bundle: .module) : Text("Collapsed", bundle: .module))
             }
         }
         .padding(.horizontal, contentInset)
-        .padding(.vertical, 8)
+        .padding(.vertical, Spacing.sm)
         .background {
-            // A step above the body: the theme's tint (gray under System).
-            RowTint.hover(colorScheme)
+            // A step above the body: the shared band.
+            RowTint.band(colorScheme)
         }
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: cornerRadius,
-                bottomLeadingRadius: isExpanded ? 0 : cornerRadius,
-                bottomTrailingRadius: isExpanded ? 0 : cornerRadius,
+                bottomLeadingRadius: isExpanded.wrappedValue ? 0 : cornerRadius,
+                bottomTrailingRadius: isExpanded.wrappedValue ? 0 : cornerRadius,
                 topTrailingRadius: cornerRadius
             )
         )
@@ -171,8 +202,8 @@ public struct TerminalOutputView: View {
 
     private var terminalContent: some View {
         ScrollViewReader { proxy in
-            ScrollView(.vertical) {
-                LazyVStack(alignment: .leading, spacing: 2) {
+            ScrollView(wrapsLines ? .vertical : [.vertical, .horizontal]) {
+                LazyVStack(alignment: .leading, spacing: TerminalMetrics.lineSpacing) {
                     if lines.isEmpty {
                         emptyStateView
                     } else {
@@ -185,13 +216,13 @@ public struct TerminalOutputView: View {
                     }
                 }
                 .padding(.horizontal, contentInset)
-                .padding(.vertical, 12)
+                .padding(.vertical, Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .onChange(of: lines.count) { _, newCount in
                 // Auto-scroll to bottom when new lines are added
                 guard newCount > 0 else { return }
-                withAnimation(.easeOut(duration: 0.1)) {
+                withAnimation(prefersReducedMotion ? nil : Animations.scrollIndicator) {
                     proxy.scrollTo(newCount - 1, anchor: .bottom)
                 }
             }
@@ -207,21 +238,21 @@ public struct TerminalOutputView: View {
     // MARK: - Line View
 
     private func lineView(for line: TerminalOutputLine) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Spacing.sm) {
             if showTimestamps {
                 Text(line.timestamp, format: .dateTime.hour().minute().second())
-                    .font(Typography.codeTiny)
+                    .font(Typography.codeSmall)
                     .foregroundStyle(Color.textTertiary)
-                    .frame(width: 60, alignment: .leading)
+                    .frame(width: TerminalMetrics.timestampWidth, alignment: .leading)
             }
 
             Text(line.text)
-                .font(Typography.codeTiny)
+                .font(Typography.codeSmall)
                 .foregroundStyle(colorForLineType(line.type))
                 .textSelection(.enabled)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(wrapsLines ? nil : 1)
+                .fixedSize(horizontal: !wrapsLines, vertical: true)
+                .frame(maxWidth: wrapsLines ? .infinity : nil, alignment: .leading)
         }
     }
 
@@ -231,11 +262,11 @@ public struct TerminalOutputView: View {
         HStack {
             Spacer()
             Text("Waiting for output...", bundle: .module)
-                .font(Typography.codeTiny)
+                .font(Typography.codeSmall)
                 .foregroundStyle(Color.textTertiary)
             Spacer()
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, Spacing.lg)
     }
 
     // MARK: - Helpers
@@ -252,28 +283,49 @@ public struct TerminalOutputView: View {
     }
 }
 
-// MARK: - Convenience Initializer
+// MARK: - Convenience Initializers
 
-extension TerminalOutputView {
+extension TerminalOutputView where HeaderAccessory == EmptyView {
+    /// A console with no header accessory.
+    public init(
+        lines: [TerminalOutputLine],
+        title: String = String(localized: "Output", bundle: .blissUI),
+        maxHeight: CGFloat = TerminalMetrics.maxHeight,
+        isCollapsible: Bool = true,
+        showTimestamps: Bool = false,
+        isDocked: Bool = false,
+        contentInset: CGFloat = Spacing.md,
+        isExpanded: Binding<Bool>? = nil,
+        wrapsLines: Bool = true
+    ) {
+        self.init(
+            lines: lines,
+            title: title,
+            maxHeight: maxHeight,
+            isCollapsible: isCollapsible,
+            showTimestamps: showTimestamps,
+            isDocked: isDocked,
+            contentInset: contentInset,
+            isExpanded: isExpanded,
+            wrapsLines: wrapsLines,
+            headerAccessory: { EmptyView() }
+        )
+    }
+
     /// Create a terminal view from an array of strings (all treated as stdout)
-    public init(output: [String], title: String = String(localized: "Output", bundle: .blissUI), maxHeight: CGFloat = 200) {
-        self.lines = output.map { TerminalOutputLine($0, type: .stdout) }
-        self.title = title
-        self.maxHeight = maxHeight
-        self.isCollapsible = true
-        self.showTimestamps = false
+    public init(output: [String], title: String = String(localized: "Output", bundle: .blissUI), maxHeight: CGFloat = TerminalMetrics.maxHeight) {
+        self.init(lines: output.map { TerminalOutputLine($0, type: .stdout) }, title: title, maxHeight: maxHeight)
     }
 }
 
 // MARK: - Previews
 
-#Preview("Empty State") {
+#Preview("Empty State", traits: .fixedLayout(width: 520, height: 140)) {
     TerminalOutputView(lines: [])
-        .frame(width: 500)
         .padding()
 }
 
-#Preview("With Output") {
+#Preview("With Output", traits: .fixedLayout(width: 520, height: 280)) {
     TerminalOutputView(
         lines: [
             TerminalOutputLine("$ git clone https://github.com/example/demo.git", type: .system),
@@ -286,25 +338,23 @@ extension TerminalOutputView {
             TerminalOutputLine("Build complete! (4.21s)"),
         ],
         title: "Build Output"
-    )
-    .frame(width: 500)
+    ) {
+        HoverIconButton(systemImage: "trash", help: "Clear") {}
+    }
     .padding()
 }
 
-#Preview("With Errors") {
+#Preview("With Errors", traits: .fixedLayout(width: 520, height: 260)) {
     TerminalOutputView(
         lines: [
             TerminalOutputLine("$ swift build", type: .system),
             TerminalOutputLine("Fetching https://github.com/example/demo-kit.git"),
-            TerminalOutputLine("Computing version for https://github.com/example/demo-kit.git"),
             TerminalOutputLine("error: Dependencies could not be resolved because no versions of 'demo-kit' match the requirement 2.0.0..<3.0.0.", type: .stderr),
-            TerminalOutputLine("", type: .stderr),
             TerminalOutputLine("  'demo' depends on 'demo-kit' 2.0.0..<3.0.0", type: .stderr),
-            TerminalOutputLine("    - The newest published version is 1.4.2, which does not satisfy that requirement.", type: .stderr),
         ],
-        title: "Build Output"
+        title: "Build Output",
+        wrapsLines: false
     )
-    .frame(width: 500)
     .padding()
 }
 
@@ -324,7 +374,7 @@ extension TerminalOutputView {
     }
 }
 
-#Preview("With Timestamps") {
+#Preview("With Timestamps", traits: .fixedLayout(width: 600, height: 240)) {
     TerminalOutputView(
         lines: [
             TerminalOutputLine("Starting build process...", type: .system),
@@ -336,36 +386,5 @@ extension TerminalOutputView {
         title: "Build Log",
         showTimestamps: true
     )
-    .frame(width: 600)
-    .padding()
-}
-
-#Preview("Long Output") {
-    TerminalOutputView(
-        lines: (1...50).map { index in
-            TerminalOutputLine("Line \(index): This is a sample output line that demonstrates scrolling behavior in the terminal view")
-        },
-        title: "Scrollable Output",
-        maxHeight: 200
-    )
-    .frame(width: 500)
-    .padding()
-}
-
-#Preview("Collapsed") {
-    VStack(spacing: 20) {
-        TerminalOutputView(
-            lines: [
-                TerminalOutputLine("Some output here"),
-            ],
-            title: "Collapsed Terminal",
-            isCollapsible: true
-        )
-
-        Text("The terminal above can be collapsed")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-    }
-    .frame(width: 500)
     .padding()
 }

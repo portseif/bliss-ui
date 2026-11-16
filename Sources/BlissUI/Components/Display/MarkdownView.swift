@@ -17,6 +17,41 @@
 
 import SwiftUI
 
+/// The size a `MarkdownView` reads at.
+public enum MarkdownSize: Hashable, Sendable {
+    /// `bodySmall` (13pt) — a sheet, a side pane.
+    case small
+    /// `contentMedium` (14pt, the content font) — a help page, release notes.
+    case regular
+
+    var bodyFont: Font {
+        switch self {
+        case .small: Typography.bodySmall
+        case .regular: Typography.contentMedium
+        }
+    }
+}
+
+private struct MarkdownSizeKey: EnvironmentKey {
+    static let defaultValue: MarkdownSize = .small
+}
+
+private struct MarkdownCompactKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var markdownSize: MarkdownSize {
+        get { self[MarkdownSizeKey.self] }
+        set { self[MarkdownSizeKey.self] = newValue }
+    }
+
+    var markdownIsCompact: Bool {
+        get { self[MarkdownCompactKey.self] }
+        set { self[MarkdownCompactKey.self] = newValue }
+    }
+}
+
 // MARK: - Markdown View
 
 /// A Markdown document with headings, lists, quotes and code blocks.
@@ -29,23 +64,34 @@ import SwiftUI
 /// ```
 ///
 /// Links open through the environment's `openURL`, as a `Text` link does.
+/// `size: .regular` sets the body in the content font for a help page;
+/// `compact` halves the gap between blocks for a tooltip-sized note.
 public struct MarkdownView: View {
     private let groups: [MarkdownGroup]
+    private let size: MarkdownSize
+    private let compact: Bool
 
-    /// - Parameter markdown: The document. A document that doesn't parse shows
-    ///   as one plain paragraph.
-    public init(_ markdown: String) {
+    /// - Parameters:
+    ///   - markdown: The document. A document that doesn't parse shows as one
+    ///     plain paragraph.
+    ///   - size: `bodySmall` (13pt) or the content font (14pt).
+    ///   - compact: Half the gap between blocks.
+    public init(_ markdown: String, size: MarkdownSize = .small, compact: Bool = false) {
         self.groups = MarkdownGroup.groups(from: MarkdownBlock.blocks(from: markdown))
+        self.size = size
+        self.compact = compact
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
+        VStack(alignment: .leading, spacing: compact ? Spacing.xs : Spacing.md) {
             ForEach(groups) { group in
                 MarkdownGroupView(group: group)
             }
         }
         .textSelection(.enabled)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .environment(\.markdownSize, size)
+        .environment(\.markdownIsCompact, compact)
     }
 }
 
@@ -105,12 +151,15 @@ struct MarkdownBlock: Identifiable {
         return blocks.map(trimmed)
     }
 
+    /// The wash under inline code.
+    static let inlineCodeWashOpacity: Double = 0.08
+
     /// Inline code in the code font on a faint wash; links in the accent.
     /// Bold, italic and strikethrough stay as intents, which `Text` draws.
     private static func styleInline(_ piece: inout AttributedString, intent: InlinePresentationIntent?) {
         if intent?.contains(.code) == true {
             piece.font = Typography.codeSmall
-            piece.backgroundColor = Color.primary.opacity(0.08)
+            piece.backgroundColor = Color.primary.opacity(inlineCodeWashOpacity)
         }
         if piece.link != nil {
             piece.foregroundColor = Color.accent
@@ -258,22 +307,26 @@ struct MarkdownGroup: Identifiable {
 
 private struct MarkdownGroupView: View {
     let group: MarkdownGroup
+    @Environment(\.markdownIsCompact) private var isCompact
+
+    /// The quote's bar.
+    private static let quoteBarWidth: CGFloat = Spacing.insetSpacing
 
     var body: some View {
         switch group.kind {
         case .block(let block):
             MarkdownBlockView(block: block)
         case .list(let items):
-            VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: isCompact ? Spacing.hairline : Spacing.xs) {
                 ForEach(items) { item in
                     MarkdownBlockView(block: item)
                 }
             }
         case .quote(let inner):
             HStack(alignment: .top, spacing: Spacing.md) {
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                RoundedRectangle(cornerRadius: Self.quoteBarWidth / 2, style: .continuous)
                     .fill(Color.menuBorder)
-                    .frame(width: 3)
+                    .frame(width: Self.quoteBarWidth)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     ForEach(inner) { group in
@@ -291,11 +344,12 @@ private struct MarkdownGroupView: View {
 
 private struct MarkdownBlockView: View {
     let block: MarkdownBlock
+    @Environment(\.markdownSize) private var size
 
     var body: some View {
         switch block.kind {
         case .paragraph:
-            text(font: Typography.bodySmall)
+            text(font: size.bodyFont)
         case .heading(let level):
             text(font: headingFont(level))
         case .listItem(let ordinal, let depth):
@@ -318,10 +372,10 @@ private struct MarkdownBlockView: View {
     private func listItem(ordinal: Int?, depth: Int) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
             Text(verbatim: ordinal.map { "\($0)." } ?? "•")
-                .font(Typography.bodySmall.monospacedDigit())
+                .font(size.bodyFont.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(minWidth: Spacing.lg, alignment: .trailing)
-            text(font: Typography.bodySmall)
+            text(font: size.bodyFont)
         }
         .padding(.leading, CGFloat(max(depth - 1, 0)) * Spacing.lg)
     }

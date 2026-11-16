@@ -14,6 +14,7 @@ import SwiftUI
 ///
 /// ```swift
 /// OneTimeCodeField(code: $code) { code in verify(code) }
+/// OneTimeCodeField("PIN", code: $pin, length: 4, groupSize: nil, compact: true, isSecure: true)
 /// ```
 public struct OneTimeCodeField: View {
     private let title: LocalizedStringKey?
@@ -21,6 +22,8 @@ public struct OneTimeCodeField: View {
     private let length: Int
     private let groupSize: Int?
     private let allowsLetters: Bool
+    private let compact: Bool
+    private let isSecure: Bool
     private let onComplete: ((String) -> Void)?
 
     @FocusState private var isFocused: Bool
@@ -32,6 +35,9 @@ public struct OneTimeCodeField: View {
     ///   - length: How many characters the code has.
     ///   - groupSize: A gap after every `groupSize` boxes ("123 456"); nil for none.
     ///   - allowsLetters: Accept letters (uppercased) as well as digits.
+    ///   - compact: Field-sized boxes with the field's type, for a code inside
+    ///     a sheet or a settings row rather than a hero screen.
+    ///   - isSecure: Draw a dot for each typed character (a PIN).
     ///   - onComplete: Called with the code once the last box fills.
     public init(
         _ title: LocalizedStringKey? = nil,
@@ -39,6 +45,8 @@ public struct OneTimeCodeField: View {
         length: Int = 6,
         groupSize: Int? = 3,
         allowsLetters: Bool = false,
+        compact: Bool = false,
+        isSecure: Bool = false,
         onComplete: ((String) -> Void)? = nil
     ) {
         self.title = title
@@ -46,6 +54,8 @@ public struct OneTimeCodeField: View {
         self.length = max(length, 1)
         self.groupSize = groupSize
         self.allowsLetters = allowsLetters
+        self.compact = compact
+        self.isSecure = isSecure
         self.onComplete = onComplete
     }
 
@@ -53,6 +63,8 @@ public struct OneTimeCodeField: View {
     private var activeIndex: Int {
         min(code.count, length - 1)
     }
+
+    private var metrics: OneTimeCodeMetrics { OneTimeCodeMetrics(compact: compact) }
 
     public var body: some View {
         ZStack {
@@ -83,7 +95,7 @@ public struct OneTimeCodeField: View {
             }
             .contentShape(Rectangle())
             .onTapGesture { isFocused = true }
-            .opacity(isEnabled ? 1 : 0.5)
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .accessibilityHidden(true)
         }
         .fixedSize()
@@ -93,18 +105,18 @@ public struct OneTimeCodeField: View {
         let isActive = isFocused && index == activeIndex
         let character = index < code.count ? String(code[code.index(code.startIndex, offsetBy: index)]) : ""
         return ZStack {
-            Text(verbatim: character)
-                .font(Typography.headingMedium.monospacedDigit())
+            Text(verbatim: character.isEmpty ? "" : (isSecure ? OneTimeCodeMetrics.secureMark : character))
+                .font(metrics.font)
                 .foregroundStyle(.primary)
             // The caret, in the box the next character fills.
             if isActive && character.isEmpty {
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                RoundedRectangle(cornerRadius: OneTimeCodeMetrics.caretWidth / 2, style: .continuous)
                     .fill(Color.accent)
-                    .frame(width: 1.5, height: 18)
+                    .frame(width: OneTimeCodeMetrics.caretWidth, height: metrics.caretHeight)
             }
         }
-        .frame(width: 36, height: 40)
-        .inputBox(isFocused: isActive, cornerRadius: Sizing.radiusDefault)
+        .frame(width: metrics.boxWidth, height: metrics.boxHeight)
+        .inputBox(isFocused: isActive, cornerRadius: Sizing.textBoxCornerRadius)
     }
 
     /// Keeps only the characters the code takes, at most `length` of them, and
@@ -123,14 +135,36 @@ public struct OneTimeCodeField: View {
     }
 }
 
+// MARK: - Metrics
+
+/// The two box sizes: a hero 36 × 40 cell with a heading-sized digit, and a
+/// field-sized 28 × 32 cell with the field's type. The font is read on every
+/// access so it follows the user's font settings.
+private struct OneTimeCodeMetrics {
+    let compact: Bool
+
+    var boxWidth: CGFloat { compact ? Sizing.controlDefault : Sizing.controlLarge }
+    var boxHeight: CGFloat { compact ? Sizing.controlMedium : Sizing.controlXLarge }
+    var font: Font { (compact ? Typography.labelMedium : Typography.headingMedium).monospacedDigit() }
+    /// About the digit's cap height, so the caret reads as the text's.
+    var caretHeight: CGFloat { compact ? Sizing.iconSmall : Sizing.inlineIconButton }
+
+    /// A text caret's width.
+    static let caretWidth: CGFloat = 1.5
+    /// What a secure field draws for each typed character.
+    static let secureMark = "•"
+}
+
 // MARK: - Preview
 
-#Preview("One-time code", traits: .fixedLayout(width: 360, height: 160)) {
+#Preview("One-time code", traits: .fixedLayout(width: 360, height: 220)) {
     @Previewable @State var code = "42"
     @Previewable @State var pairing = ""
+    @Previewable @State var pin = "12"
     VStack(spacing: Spacing.lg) {
         OneTimeCodeField(code: $code)
         OneTimeCodeField(code: $pairing, length: 4, groupSize: nil, allowsLetters: true)
+        OneTimeCodeField("PIN", code: $pin, length: 4, groupSize: nil, compact: true, isSecure: true)
     }
     .padding(Spacing.xl)
 }

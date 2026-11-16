@@ -56,15 +56,28 @@ public struct SkeletonBlock: View {
         self.height = height
     }
 
-    /// A line of text: a short rounded bar.
-    public static func line(width: CGFloat? = nil, height: CGFloat = 10) -> SkeletonBlock {
-        SkeletonBlock(.rectangle(cornerRadius: height / 2), width: width, height: height)
+    /// The bar a line of body text redacts to.
+    public static let lineHeight: CGFloat = 10
+
+    /// A line of text: a short capsule bar.
+    public static func line(width: CGFloat? = nil, height: CGFloat = SkeletonBlock.lineHeight) -> SkeletonBlock {
+        SkeletonBlock(.capsule, width: width, height: height)
+    }
+
+    /// A button or field placeholder: a capsule at the control tier's height.
+    public static func control(width: CGFloat? = nil, compact: Bool = true) -> SkeletonBlock {
+        SkeletonBlock(.capsule, width: width, height: compact ? Sizing.controlDefault : Sizing.controlMedium)
+    }
+
+    /// A paragraph: `lines` bars, the last one `lastLineFraction` of the width.
+    public static func paragraph(lines: Int = 3, lastLineFraction: CGFloat = 0.6) -> some View {
+        SkeletonParagraph(lines: max(lines, 1), lastLineFraction: lastLineFraction)
     }
 
     private var resolvedHeight: CGFloat {
         if let height { return height }
         if case .circle = shape, let width { return width }
-        return 12
+        return Self.lineHeight
     }
 
     public var body: some View {
@@ -73,6 +86,27 @@ public struct SkeletonBlock: View {
             .frame(width: width, height: resolvedHeight)
             .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
             .accessibilityHidden(true)
+    }
+}
+
+/// The paragraph placeholder: full-width lines and a short last one.
+private struct SkeletonParagraph: View {
+    let lines: Int
+    let lastLineFraction: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            ForEach(0..<lines, id: \.self) { index in
+                if index == lines - 1 {
+                    GeometryReader { geometry in
+                        SkeletonBlock.line(width: geometry.size.width * lastLineFraction)
+                    }
+                    .frame(height: SkeletonBlock.lineHeight)
+                } else {
+                    SkeletonBlock.line()
+                }
+            }
+        }
     }
 }
 
@@ -236,9 +270,10 @@ private struct SkeletonClipShape: Shape {
                     SkeletonBlock.line(width: 110, height: 8)
                 }
                 Spacer()
-                SkeletonBlock(.capsule, width: 56, height: 18)
+                SkeletonBlock.control(width: 56)
             }
         }
+        SkeletonBlock.paragraph()
     }
     .padding(Spacing.lg)
 }

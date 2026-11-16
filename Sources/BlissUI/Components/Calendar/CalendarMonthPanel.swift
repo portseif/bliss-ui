@@ -17,6 +17,23 @@
 
 import SwiftUI
 
+// MARK: - Metrics
+
+/// The calendar grid's geometry, at the regular and the compact size.
+enum CalendarMetrics {
+    /// A compact day: room for the number alone.
+    static let compactCellHeight: CGFloat = Sizing.controlDefault + Spacing.hairline
+    /// A regular day: the number over a row of marker dots.
+    static let regularCellHeight: CGFloat = Sizing.controlLarge + Spacing.xs
+    /// Half the gap between neighboring days: the range band runs through it,
+    /// the day fills stop short of it.
+    static let compactDayInset: CGFloat = Spacing.hairline / 2
+    static let regularDayInset: CGFloat = Spacing.hairline
+    static let cornerRadius: CGFloat = Sizing.radiusDefault
+    /// At most this many marker dots; the rest read as "+N".
+    static let maximumDots = 3
+}
+
 // MARK: - Selection
 
 /// What the day grid draws as picked.
@@ -64,10 +81,17 @@ struct CalendarMonthPanel: View {
     var focusesOnAppear = false
     /// Today picks today (a single-date calendar); otherwise it only shows it.
     var todayPicks = true
+    /// The month title and its ‹ Today › controls.
+    var showsHeader = true
+    /// The previous month's tail and the next month's head, dimmed; off, those
+    /// cells are blank.
+    var showsOutOfMonthDays = true
+    /// The app's own month binding, when it drives (or follows) the month shown.
+    var externalMonth: Binding<Date>? = nil
     let onPick: (Date) -> Void
 
     @Environment(\.calendar) private var calendar
-    @State private var displayedMonth: Date
+    @State private var internalMonth: Date
     @State private var focusedDay: Date
     @FocusState private var gridIsFocused: Bool
 
@@ -80,6 +104,9 @@ struct CalendarMonthPanel: View {
         handlesReturn: Bool = false,
         focusesOnAppear: Bool = false,
         todayPicks: Bool = true,
+        showsHeader: Bool = true,
+        showsOutOfMonthDays: Bool = true,
+        displayedMonth: Binding<Date>? = nil,
         onPick: @escaping (Date) -> Void
     ) {
         self.selection = selection
@@ -90,12 +117,15 @@ struct CalendarMonthPanel: View {
         self.handlesReturn = handlesReturn
         self.focusesOnAppear = focusesOnAppear
         self.todayPicks = todayPicks
+        self.showsHeader = showsHeader
+        self.showsOutOfMonthDays = showsOutOfMonthDays
+        self.externalMonth = displayedMonth
         self.onPick = onPick
         // Seeded from the selection; `onAppear` re-seeds with the environment's
         // calendar (a `.blissTheme()` re-ID rebuilds this state anyway).
         let calendar = Calendar.current
         let opening = bounds.clamp(calendar.startOfDay(for: Self.anchor(of: selection) ?? Date()))
-        _displayedMonth = State(initialValue: CalendarGridMath.startOfMonth(opening, calendar: calendar))
+        _internalMonth = State(initialValue: CalendarGridMath.startOfMonth(opening, calendar: calendar))
         _focusedDay = State(initialValue: opening)
     }
 
@@ -105,6 +135,18 @@ struct CalendarMonthPanel: View {
         switch selection {
         case .day(let day): return day
         case .range(let range, let pendingStart): return pendingStart ?? range?.upperBound
+        }
+    }
+
+    /// The month shown: the app's binding when it passed one, else our own.
+    private var displayedMonth: Date {
+        get { externalMonth?.wrappedValue ?? internalMonth }
+        nonmutating set {
+            if let externalMonth {
+                externalMonth.wrappedValue = newValue
+            } else {
+                internalMonth = newValue
+            }
         }
     }
 
@@ -120,18 +162,20 @@ struct CalendarMonthPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: isCompact ? Spacing.xs : Spacing.sm) {
-            CalendarMonthHeader(
-                month: displayedMonth,
-                isCompact: isCompact,
-                canShowPrevious: previousMonth.map { bounds.containsAnyDay(inMonthStartingAt: $0, calendar: calendar) } ?? false,
-                canShowNext: nextMonth.map { bounds.containsAnyDay(inMonthStartingAt: $0, calendar: calendar) } ?? false,
-                isTodayEnabled: todayPicks
-                    ? bounds.contains(today)
-                    : bounds.containsAnyDay(inMonthStartingAt: CalendarGridMath.startOfMonth(today, calendar: calendar), calendar: calendar),
-                onPrevious: { showMonth(previousMonth) },
-                onToday: showToday,
-                onNext: { showMonth(nextMonth) }
-            )
+            if showsHeader {
+                CalendarMonthHeader(
+                    month: displayedMonth,
+                    isCompact: isCompact,
+                    canShowPrevious: previousMonth.map { bounds.containsAnyDay(inMonthStartingAt: $0, calendar: calendar) } ?? false,
+                    canShowNext: nextMonth.map { bounds.containsAnyDay(inMonthStartingAt: $0, calendar: calendar) } ?? false,
+                    isTodayEnabled: todayPicks
+                        ? bounds.contains(today)
+                        : bounds.containsAnyDay(inMonthStartingAt: CalendarGridMath.startOfMonth(today, calendar: calendar), calendar: calendar),
+                    onPrevious: { showMonth(previousMonth) },
+                    onToday: showToday,
+                    onNext: { showMonth(nextMonth) }
+                )
+            }
             CalendarWeekdayHeader(isCompact: isCompact)
             CalendarDayGrid(
                 month: displayedMonth,
@@ -141,6 +185,7 @@ struct CalendarMonthPanel: View {
                 tint: tint,
                 bounds: bounds,
                 isCompact: isCompact,
+                showsOutOfMonthDays: showsOutOfMonthDays,
                 markers: markers,
                 handlesReturn: handlesReturn,
                 onPick: pick,
@@ -156,14 +201,21 @@ struct CalendarMonthPanel: View {
             Task { @MainActor in gridIsFocused = true }
         }
         .onChange(of: selection) { _, newSelection in follow(newSelection) }
+        .onChange(of: externalMonth?.wrappedValue) { _, month in
+            // The app turned the month: the keyboard's day comes along.
+            guard let month, !isDisplayed(focusedDay) else { return }
+            focusedDay = bounds.clamp(CalendarGridMath.startOfMonth(month, calendar: calendar))
+        }
     }
 
     // MARK: Actions
 
     private func reseed() {
         let opening = bounds.clamp(calendar.startOfDay(for: Self.anchor(of: selection) ?? Date()))
-        displayedMonth = CalendarGridMath.startOfMonth(opening, calendar: calendar)
-        focusedDay = opening
+        if externalMonth == nil {
+            displayedMonth = CalendarGridMath.startOfMonth(opening, calendar: calendar)
+        }
+        focusedDay = isDisplayed(opening) ? opening : bounds.clamp(CalendarGridMath.startOfMonth(displayedMonth, calendar: calendar))
     }
 
     /// A click or a key picked `day`: focus lands on it, and a day from the
@@ -293,21 +345,30 @@ struct CalendarMonthHeader: View {
     @ViewBuilder
     private var todayButton: some View {
         let button = Button(action: onToday) {
-            Text("Today", bundle: .module).font(Typography.labelSmall)
+            Text("Today", bundle: .module)
         }
         if isCompact {
-            button.buttonStyle(GhostButtonStyle(compact: true))
+            // Hugging its label keeps the 238pt header wide enough for "September 2026".
+            button.buttonStyle(GhostButtonStyle(compact: true, hugsLabel: true))
         } else {
             button.buttonStyle(SecondaryButtonStyle(compact: true))
         }
     }
 
+    /// The toolbar icon button: the same height as Today beside it, and the
+    /// compact (24pt) one in the pickers' 238pt header, where two 28pt arrows
+    /// beside Today would push a long month title into an ellipsis.
     private func monthArrow(_ symbol: String, label: String, isEnabled: Bool, action: @escaping () -> Void) -> some View {
         // backward / forward, not left / right: they mirror in right-to-left
         // layouts, where the previous month sits on the right.
-        HoverIconButton(systemImage: symbol, size: Sizing.iconTiny, chipPadding: Spacing.xs, help: label, action: action)
-            .disabled(!isEnabled)
-            .opacity(isEnabled ? 1 : 0.4)
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(isCompact ? Typography.labelSmall : Typography.labelMedium)
+        }
+        .buttonStyle(ToolbarIconButtonStyle(compact: isCompact))
+        .disabled(!isEnabled)
+        .accessibilityLabel(Text(verbatim: label))
+        .tooltip(.verbatim(label))
     }
 }
 
@@ -326,7 +387,7 @@ struct CalendarWeekdayHeader: View {
             // be their own IDs.
             ForEach(Array(CalendarGridMath.weekdaySymbols(calendar).enumerated()), id: \.offset) { _, symbol in
                 Text(verbatim: symbol)
-                    .font(isCompact ? Typography.captionSmall : Typography.captionTiny)
+                    .font(isCompact ? Typography.captionTiny : Typography.captionSmall)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity)
             }
@@ -346,6 +407,7 @@ struct CalendarDayGrid: View {
     let tint: CalendarSelectionTint
     let bounds: CalendarBounds
     let isCompact: Bool
+    var showsOutOfMonthDays = true
     let markers: ((Date) -> [CalendarDayMarker])?
     let handlesReturn: Bool
     let onPick: (Date) -> Void
@@ -455,41 +517,52 @@ struct CalendarDayGrid: View {
 
     // MARK: Cells
 
+    @ViewBuilder
     private func cell(for day: Date, column: Int, shownRange: (range: ClosedRange<Date>, isPreview: Bool)?) -> some View {
-        let isEnabled = bounds.contains(day)
-        let picked = isPicked(day, shownRange: shownRange)
-        return CalendarDayCell(
-            day: day,
-            isInMonth: calendar.isDate(day, equalTo: month, toGranularity: .month),
-            isToday: calendar.isDateInToday(day),
-            isEnabled: isEnabled,
-            isPicked: picked,
-            band: band(for: day, column: column, shownRange: shownRange),
-            tint: tint,
-            isHovered: hoveredDay == day,
-            hasKeyboardFocus: gridIsFocused.wrappedValue && focusedDay == day,
-            markers: markers?(day) ?? [],
-            isCompact: isCompact
-        )
-        .onHover { hovering in
-            guard isEnabled else { return }
-            withAnimation(Animations.hover) {
-                if hovering {
-                    hoveredDay = day
-                } else if hoveredDay == day {
-                    hoveredDay = nil
+        let isInMonth = calendar.isDate(day, equalTo: month, toGranularity: .month)
+        if !showsOutOfMonthDays && !isInMonth {
+            // A blank cell holds the column; the keys can still walk into the
+            // month it belongs to, which then comes in.
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: isCompact ? CalendarMetrics.compactCellHeight : CalendarMetrics.regularCellHeight)
+                .accessibilityHidden(true)
+        } else {
+            let isEnabled = bounds.contains(day)
+            let picked = isPicked(day, shownRange: shownRange)
+            CalendarDayCell(
+                day: day,
+                isInMonth: isInMonth,
+                isToday: calendar.isDateInToday(day),
+                isEnabled: isEnabled,
+                isPicked: picked,
+                band: band(for: day, column: column, shownRange: shownRange),
+                tint: tint,
+                isHovered: hoveredDay == day,
+                hasKeyboardFocus: gridIsFocused.wrappedValue && focusedDay == day,
+                markers: markers?(day) ?? [],
+                isCompact: isCompact
+            )
+            .onHover { hovering in
+                guard isEnabled else { return }
+                withAnimation(Animations.hover) {
+                    if hovering {
+                        hoveredDay = day
+                    } else if hoveredDay == day {
+                        hoveredDay = nil
+                    }
                 }
             }
-        }
-        .onTapGesture {
-            guard isEnabled else { return }
-            // A click puts the keys here too, so the arrows carry on from it.
-            gridIsFocused.wrappedValue = true
-            onPick(day)
-        }
-        .accessibilityAction {
-            guard isEnabled else { return }
-            onPick(day)
+            .onTapGesture {
+                guard isEnabled else { return }
+                // A click puts the keys here too, so the arrows carry on from it.
+                gridIsFocused.wrappedValue = true
+                onPick(day)
+            }
+            .accessibilityAction {
+                guard isEnabled else { return }
+                onPick(day)
+            }
         }
     }
 }
@@ -515,15 +588,9 @@ private struct CalendarDayCell: View {
     @Environment(\.calendar) private var calendar
     @Environment(\.locale) private var locale
 
-    /// At most this many dots; the rest read as "+N".
-    private let maximumDots = 3
-
-    /// Half the gap between neighboring days: the band runs through it, the
-    /// day fills stop short of it.
-    private var inset: CGFloat { isCompact ? Spacing.hairline / 2 : Spacing.hairline }
-    private let cornerRadius = Sizing.radiusDefault
-    /// Room for the number over a row of marker dots, or the number alone.
-    private var height: CGFloat { isCompact ? Sizing.controlDefault + Spacing.hairline : Sizing.controlLarge + Spacing.xs }
+    private var inset: CGFloat { isCompact ? CalendarMetrics.compactDayInset : CalendarMetrics.regularDayInset }
+    private var height: CGFloat { isCompact ? CalendarMetrics.compactCellHeight : CalendarMetrics.regularCellHeight }
+    private let cornerRadius = CalendarMetrics.cornerRadius
 
     private var dayShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -549,21 +616,23 @@ private struct CalendarDayCell: View {
         return isInMonth ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
     }
 
+    /// The compact grid's 30pt cell carries the small label; the regular
+    /// 42pt cell the field-size one.
     private var numberFont: Font {
         if isCompact {
-            return isPicked || isToday ? Typography.bodySmallSemibold : Typography.labelMedium
+            return isPicked || isToday ? Typography.captionSemibold : Typography.labelSmall
         }
-        return isPicked || isToday ? Typography.captionSemibold : Typography.labelSmall
+        return isPicked || isToday ? Typography.bodySmallSemibold : Typography.labelMedium
     }
 
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: Spacing.insetSpacing) {
             Text(day, format: Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).day())
                 .font(numberFont)
                 .foregroundStyle(numberStyle)
             if !isCompact {
                 markerDots
-                    .opacity(isInMonth && isEnabled ? 1 : 0.4)
+                    .opacity(isInMonth && isEnabled ? 1 : Animations.disabledOpacity)
             }
         }
         .frame(maxWidth: .infinity)
@@ -572,7 +641,7 @@ private struct CalendarDayCell: View {
         .overlay {
             // Today: a quiet accent ring, dropped once the day is picked.
             if isToday && !isPicked {
-                dayShape.strokeBorder(Color.accent.opacity(0.5), lineWidth: 1)
+                dayShape.strokeBorder(StatusWash.border(Color.accent, scheme), lineWidth: 1)
             }
         }
         .focusRing(isFocused: hasKeyboardFocus, cornerRadius: cornerRadius)
@@ -607,13 +676,13 @@ private struct CalendarDayCell: View {
 
     private var markerDots: some View {
         HStack(spacing: Spacing.hairline) {
-            ForEach(Array(markers.prefix(maximumDots).enumerated()), id: \.offset) { _, marker in
+            ForEach(Array(markers.prefix(CalendarMetrics.maximumDots).enumerated()), id: \.offset) { _, marker in
                 Circle()
                     .fill(marker.color)
                     .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
             }
-            if markers.count > maximumDots {
-                Text(verbatim: "+" + (markers.count - maximumDots).formatted(.number.locale(locale)))
+            if markers.count > CalendarMetrics.maximumDots {
+                Text(verbatim: "+" + (markers.count - CalendarMetrics.maximumDots).formatted(.number.locale(locale)))
                     .font(Typography.captionTiny)
                     .foregroundStyle(.secondary)
             }

@@ -31,35 +31,44 @@ public struct AvatarStack<Item>: View {
     private let items: [Item]
     private let name: (Item) -> String
     private let image: (Item) -> Image?
+    private let status: ((Item) -> AvatarStatus?)?
     private let limit: Int
     private let size: AvatarSize
     private let shape: AvatarShape
     private let overflowStyle: AvatarStackOverflowStyle
+    private let onOverflowSelect: (() -> Void)?
 
     /// - Parameters:
     ///   - items: The people, in order; the first sits on top.
     ///   - name: Each one's name (initials, color, tooltip and VoiceOver).
     ///   - image: Each one's picture; nil shows initials.
+    ///   - status: Each one's presence dot (a channel header); nil shows none.
     ///   - limit: How many avatars show before the rest fold into `+N`.
-    ///   - size: Small (20pt), medium (28pt) or large (40pt).
+    ///   - size: Small (20pt), medium (28pt), large (40pt) or extra large (56pt).
     ///   - shape: A circle, or a rounded square.
     ///   - overflowStyle: `+N` in a filled chip, or as plain text.
+    ///   - onOverflowSelect: A click on `+N` (open the member list); the chip
+    ///     becomes a button and a Tab stop.
     public init(
         _ items: [Item],
         name: @escaping (Item) -> String,
         image: @escaping (Item) -> Image? = { _ in nil },
+        status: ((Item) -> AvatarStatus?)? = nil,
         limit: Int = 4,
         size: AvatarSize = .medium,
         shape: AvatarShape = .circle,
-        overflowStyle: AvatarStackOverflowStyle = .chip
+        overflowStyle: AvatarStackOverflowStyle = .chip,
+        onOverflowSelect: (() -> Void)? = nil
     ) {
         self.items = items
         self.name = name
         self.image = image
+        self.status = status
         self.limit = max(1, limit)
         self.size = size
         self.shape = shape
         self.overflowStyle = overflowStyle
+        self.onOverflowSelect = onOverflowSelect
     }
 
     /// Avatars with initials only, from a list of names.
@@ -68,9 +77,10 @@ public struct AvatarStack<Item>: View {
         limit: Int = 4,
         size: AvatarSize = .medium,
         shape: AvatarShape = .circle,
-        overflowStyle: AvatarStackOverflowStyle = .chip
+        overflowStyle: AvatarStackOverflowStyle = .chip,
+        onOverflowSelect: (() -> Void)? = nil
     ) where Item == String {
-        self.init(names, name: { $0 }, limit: limit, size: size, shape: shape, overflowStyle: overflowStyle)
+        self.init(names, name: { $0 }, limit: limit, size: size, shape: shape, overflowStyle: overflowStyle, onOverflowSelect: onOverflowSelect)
     }
 
     /// How many avatars show, and how many fold into the `+N` chip. A chip
@@ -89,14 +99,22 @@ public struct AvatarStack<Item>: View {
         HStack(spacing: -size.stackOverlap) {
             ForEach(0..<visibleCount, id: \.self) { index in
                 let item = items[index]
-                Avatar(name: name(item), image: image(item), size: size, shape: shape)
+                Avatar(name: name(item), image: image(item), size: size, shape: shape, status: status?(item))
                     .cut(byLeadingNeighborAt: index > 0 ? step : nil)
                     .zIndex(Double(visibleCount - index))
             }
             if overflow > 0 {
                 switch overflowStyle {
                 case .chip:
-                    AvatarOverflowChip(count: overflow, size: size, shape: shape, neighborDistance: step)
+                    if let onOverflowSelect {
+                        Button(action: onOverflowSelect) {
+                            AvatarOverflowChip(count: overflow, size: size, shape: shape, neighborDistance: step)
+                        }
+                        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: shape == .circle ? Sizing.radiusFull : size.cornerRadius))
+                        .accessibilityLabel(Text("\(overflow) more", bundle: .module))
+                    } else {
+                        AvatarOverflowChip(count: overflow, size: size, shape: shape, neighborDistance: step)
+                    }
                 case .plain:
                     AvatarOverflowLabel(count: overflow, size: size)
                 }
@@ -179,23 +197,24 @@ private struct AvatarOverflowCount: View {
 }
 
 extension AvatarSize {
-    /// The `+N` chip's label: a step up from the initials, so the count reads
-    /// at a glance.
+    /// The `+N` chip is a pill: it takes the pill size's bold face, so a
+    /// stack's count and a `Badge` beside it read as one family.
     var overflowFont: Font {
+        pillSize.boldFont
+    }
+
+    /// The pill size whose metrics the `+N` chip shares.
+    var pillSize: BadgeSize {
         switch self {
-        case .small: Typography.captionSmallSemibold
-        case .medium: Typography.bodySmallSemibold
-        case .large: Typography.bodyMediumSemibold
+        case .small: .small
+        case .medium: .regular
+        case .large, .xlarge: .large
         }
     }
 
     /// Space on each side of the `+N` label inside its pill.
     var overflowPadding: CGFloat {
-        switch self {
-        case .small: Spacing.xs
-        case .medium: Spacing.sm
-        case .large: Spacing.sm
-        }
+        pillSize.horizontalPadding
     }
 }
 

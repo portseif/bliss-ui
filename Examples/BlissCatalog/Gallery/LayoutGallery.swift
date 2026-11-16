@@ -20,7 +20,7 @@ extension Gallery {
                     Avatar(name: "Alan Turing", size: .large, status: .busy)
                     Avatar(name: "Katherine Johnson", size: .large, status: .away)
                     Avatar(name: "Edsger Dijkstra", size: .large, status: .offline)
-                    Avatar(name: "Design Team", size: .large, shape: .rounded, status: .online)
+                    Avatar(name: "Design Team", size: .large, shape: .rounded, status: .online, tint: Purple.purple400, symbol: "paintpalette")
                 }
                 HStack(spacing: Spacing.md) {
                     Avatar(name: "山田太郎", size: .large)
@@ -66,11 +66,12 @@ extension Gallery {
         GalleryEntry("resizable-split", width: 560, height: 260) {
             GalleryResizableSplit()
         },
-        GalleryEntry("breadcrumbs", width: 560, height: 110) {
+        GalleryEntry("breadcrumbs", width: 560, height: 140) {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 Breadcrumbs(["Projects", "BlissUI", "Sources", "Layout"], title: { $0 }) { _ in }
                 Breadcrumbs(GallerySamples.deepPath, title: { $0 }, systemImage: { $0.hasSuffix(".swift") ? "swift" : "folder" }) { _ in }
                     .frame(width: 340, alignment: .leading)
+                Breadcrumbs(GallerySamples.deepPath, title: { $0 }, separator: .slash, maximumSegments: 3) { _ in }
             }
         },
         GalleryEntry("inspector-split", width: 640, height: 260) {

@@ -60,16 +60,21 @@ public enum MonthCalendarStyle: Sendable {
 /// ```
 ///
 /// `markers` is asked for each of the 42 days shown, on every render — keep it
-/// a lookup (a dictionary keyed by `Calendar.startOfDay`), not a scan. Weekdays,
-/// the first day of the week and the month names follow the environment's
-/// `calendar` and `locale` (the user's Language & Region settings).
+/// a lookup (a dictionary keyed by `Calendar.startOfDay`), not a scan; bind
+/// `displayedMonth` to know which month to load. Weekdays, the first day of
+/// the week and the month names follow the environment's `calendar` and
+/// `locale` (the user's Language & Region settings).
 public struct MonthCalendar<DayDetail: View>: View {
     private let selection: Binding<Date?>
     private let markers: (Date) -> [CalendarDayMarker]
     private let legend: [CalendarDayMarker]
     private let minimumDate: Date?
     private let maximumDate: Date?
+    private let isDateEnabled: ((Date) -> Bool)?
     private let style: MonthCalendarStyle
+    private let displayedMonth: Binding<Date>?
+    private let showsHeader: Bool
+    private let showsOutOfMonthDays: Bool
     private let dayDetail: ((Date) -> DayDetail)?
 
     @Environment(\.calendar) private var calendar
@@ -79,17 +84,28 @@ public struct MonthCalendar<DayDetail: View>: View {
     ///   - selection: The selected day. A pick keeps the time of day already in it.
     ///   - minimumDate: The first day that can be selected (any time on it).
     ///   - maximumDate: The last day that can be selected.
+    ///   - isDateEnabled: Turns single days inside the bounds down (weekends,
+    ///     booked days); asked with the start of the day.
     ///   - markers: The dots for a day (passed as the start of the day).
     ///   - legend: Markers with labels, listed under the grid.
     ///   - style: Regular days with markers, or the pickers' compact ones.
+    ///   - displayedMonth: The month shown, to drive it (an agenda's toolbar)
+    ///     or to know which month's markers to load; nil keeps it internal.
+    ///   - showsHeader: The month title with its ‹ Today › controls.
+    ///   - showsOutOfMonthDays: The previous month's tail and the next month's
+    ///     head, dimmed; off, those cells are blank.
     ///   - dayDetail: The panel beside the grid, for the selected day.
     public init(
         selection: Binding<Date>,
         minimumDate: Date? = nil,
         maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
         markers: @escaping (Date) -> [CalendarDayMarker] = { _ in [] },
         legend: [CalendarDayMarker] = [],
         style: MonthCalendarStyle = .regular,
+        displayedMonth: Binding<Date>? = nil,
+        showsHeader: Bool = true,
+        showsOutOfMonthDays: Bool = true,
         @ViewBuilder dayDetail: @escaping (Date) -> DayDetail
     ) {
         self.selection = Binding(
@@ -98,9 +114,13 @@ public struct MonthCalendar<DayDetail: View>: View {
         )
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
         self.markers = markers
         self.legend = legend
         self.style = style
+        self.displayedMonth = displayedMonth
+        self.showsHeader = showsHeader
+        self.showsOutOfMonthDays = showsOutOfMonthDays
         self.dayDetail = dayDetail
     }
 
@@ -129,8 +149,11 @@ public struct MonthCalendar<DayDetail: View>: View {
                 selection: .day(selection.wrappedValue),
                 tint: style == .compact ? .accent : .neutral,
                 isCompact: style == .compact,
-                bounds: CalendarBounds(minimum: minimumDate, maximum: maximumDate, calendar: calendar),
+                bounds: CalendarBounds(minimum: minimumDate, maximum: maximumDate, isDateEnabled: isDateEnabled, calendar: calendar),
                 markers: markers,
+                showsHeader: showsHeader,
+                showsOutOfMonthDays: showsOutOfMonthDays,
+                displayedMonth: displayedMonth,
                 onPick: { day in
                     withAnimation(Animations.selection) {
                         selection.wrappedValue = CalendarGridMath.day(day, keepingTimeOf: selection.wrappedValue, calendar: calendar)
@@ -152,16 +175,24 @@ extension MonthCalendar where DayDetail == EmptyView {
     ///   - selection: The selected day. A pick keeps the time of day already in it.
     ///   - minimumDate: The first day that can be selected (any time on it).
     ///   - maximumDate: The last day that can be selected.
+    ///   - isDateEnabled: Turns single days inside the bounds down; asked with the start of the day.
     ///   - markers: The dots for a day (passed as the start of the day).
     ///   - legend: Markers with labels, listed under the grid.
     ///   - style: Regular days with markers, or the pickers' compact ones.
+    ///   - displayedMonth: The month shown, driven or observed from outside; nil keeps it internal.
+    ///   - showsHeader: The month title with its ‹ Today › controls.
+    ///   - showsOutOfMonthDays: The neighboring months' days, dimmed; off, blank cells.
     public init(
         selection: Binding<Date>,
         minimumDate: Date? = nil,
         maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
         markers: @escaping (Date) -> [CalendarDayMarker] = { _ in [] },
         legend: [CalendarDayMarker] = [],
-        style: MonthCalendarStyle = .regular
+        style: MonthCalendarStyle = .regular,
+        displayedMonth: Binding<Date>? = nil,
+        showsHeader: Bool = true,
+        showsOutOfMonthDays: Bool = true
     ) {
         self.selection = Binding(
             get: { selection.wrappedValue },
@@ -169,9 +200,13 @@ extension MonthCalendar where DayDetail == EmptyView {
         )
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
         self.markers = markers
         self.legend = legend
         self.style = style
+        self.displayedMonth = displayedMonth
+        self.showsHeader = showsHeader
+        self.showsOutOfMonthDays = showsOutOfMonthDays
         self.dayDetail = nil
     }
 
@@ -181,16 +216,24 @@ extension MonthCalendar where DayDetail == EmptyView {
         selection: Binding<Date?>,
         minimumDate: Date? = nil,
         maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
         markers: @escaping (Date) -> [CalendarDayMarker] = { _ in [] },
         legend: [CalendarDayMarker] = [],
-        style: MonthCalendarStyle = .regular
+        style: MonthCalendarStyle = .regular,
+        displayedMonth: Binding<Date>? = nil,
+        showsHeader: Bool = true,
+        showsOutOfMonthDays: Bool = true
     ) {
         self.selection = selection
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
         self.markers = markers
         self.legend = legend
         self.style = style
+        self.displayedMonth = displayedMonth
+        self.showsHeader = showsHeader
+        self.showsOutOfMonthDays = showsOutOfMonthDays
         self.dayDetail = nil
     }
 }

@@ -210,6 +210,9 @@ enum NumberFieldText {
     /// U+2212, the minus some locales format negatives with.
     static let unicodeMinus = "\u{2212}"
 
+    /// How many digits an unbounded range sizes its field to.
+    static let fallbackTemplateDigits = 6
+
     /// A string as wide as the widest of `samples`, digits widened to "0", so
     /// a field sized to it fits every value in range without resizing.
     static func widthTemplate(for samples: [String], maximumLength: Int = 10) -> String {

@@ -17,10 +17,11 @@ extension Gallery {
                 StatCard("Error rate", value: "0.4%", change: StatChange("0.1 pt", direction: .up, isPositive: false), detail: "vs last week", systemImage: "exclamationmark.triangle", sparkline: [3, 2, 2, 4, 3, 5, 4, 6])
             }
         },
-        GalleryEntry("progress-bar", height: 132) {
+        GalleryEntry("progress-bar", height: 160) {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 ProgressBar(value: 0.62, label: "Uploading", showsPercentage: true)
-                ProgressBar(value: 0.88, tint: Success.success500, height: 4)
+                ProgressBar(value: 0.88, tint: Success.success500, thickness: .thin)
+                ProgressBar(value: 0.4, label: "Importing", readout: .text("4 of 10"), thickness: .thick)
                 ProgressBar(value: nil, label: "Preparing…")
             }
         },
@@ -90,7 +91,7 @@ extension Gallery {
             HStack(spacing: Spacing.sm) {
                 StatusPill("Running", isActive: true)
                 StatusPill("Stopped", isActive: false)
-                StatusPill("Connected", isActive: true, color: Info.info500)
+                StatusPill("Connected", isActive: true, color: Info.info500, size: .regular, icon: "bolt.fill")
             }
         },
         GalleryEntry("key-hint-pill", width: 300, height: 64) {

@@ -171,6 +171,7 @@ enum Gallery {
                 Badge.status("Healthy", color: Success.success500)
                 Badge.pro()
                 Badge.lifetime()
+                Badge("v6.2").badgeStyle(.outline)
             }
         },
         GalleryEntry("status-dot-pill", height: 60) {
@@ -178,6 +179,8 @@ enum Gallery {
                 StatusDotPill(label: "Running", color: Success.success500)
                 StatusDotPill(label: "Degraded", color: Warning.warning500, bordered: true)
                 StatusDotPill(label: "Stopped", color: Danger.danger500)
+                StatusDotPill(label: "Synced", color: Info.info500, size: .regular, icon: "arrow.triangle.2.circlepath")
+                StatusDotPill(label: "Offline", color: Grey.grey500, isActive: false)
             }
         },
         GalleryEntry("spinner-shimmer", height: 60) {
@@ -192,6 +195,7 @@ enum Gallery {
                 SlidingNumber(value: 128, font: Typography.displaySmall)
                 ShortcutKey("⌘K")
                 ShortcutKey("⇧⌘P")
+                ShortcutKey("esc", outlined: true)
                 TimeAgoLabel(date: Date().addingTimeInterval(-3_600))
                     .foregroundStyle(.secondary)
                 InfoButton(text: "Explains a setting.")
@@ -290,8 +294,13 @@ enum Gallery {
                 selection: .constant(0)
             )
         },
-        GalleryEntry("step-indicator", height: 52) {
-            StepIndicator(stepCount: 5, currentIndex: 2)
+        GalleryEntry("step-indicator", width: 420, height: 104) {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                StepIndicator(stepCount: 5, currentIndex: 2)
+                StepIndicator(stepCount: 4, currentIndex: 1, style: .segments)
+                    .frame(width: 200)
+                StepIndicator(stepCount: 3, currentIndex: 1, labels: ["Account", "Plan", "Done"])
+            }
         },
 
         // Tables & grids

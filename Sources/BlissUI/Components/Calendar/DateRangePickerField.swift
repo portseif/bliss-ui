@@ -22,32 +22,46 @@ import SwiftUI
 /// Both bounds of the range are the start of their day.
 public struct DateRangePickerField: View {
     private let title: LocalizedStringKey?
+    private let showsTitle: Bool
     private let selection: Binding<ClosedRange<Date>?>
     private let isOptional: Bool
     private let placeholder: LocalizedStringKey?
     private let presets: [DateRangePreset]
     private let minimumDate: Date?
     private let maximumDate: Date?
+    private let isDateEnabled: ((Date) -> Bool)?
+    private let dateStyle: Date.FormatStyle.DateStyle
 
     @Environment(\.calendar) private var calendar
     @Environment(\.locale) private var locale
+    @Environment(\.formFieldIsInvalid) private var isInvalid
     @State private var isPresented = false
 
     /// A field that always holds a range.
     /// - Parameters:
-    ///   - title: A label before the field, looked up in your app's strings; nil for none.
+    ///   - title: A label before the field, looked up in your app's strings;
+    ///     nil for none. It stays the field's VoiceOver label with
+    ///     `showsTitle: false`.
     ///   - selection: The days; both bounds are the start of their day.
     ///   - presets: Named ranges listed beside the calendar.
     ///   - minimumDate: The first day that can be picked (any time on it).
     ///   - maximumDate: The last day that can be picked.
+    ///   - isDateEnabled: Turns single days inside the bounds down; asked with the start of the day.
+    ///   - showsTitle: Draws the title before the field. Off inside a
+    ///     `SettingsRow`, which shows it already.
+    ///   - dateStyle: How the days are written: `.numeric` for a dense table.
     public init(
         _ title: LocalizedStringKey? = nil,
         selection: Binding<ClosedRange<Date>>,
         presets: [DateRangePreset] = [],
         minimumDate: Date? = nil,
-        maximumDate: Date? = nil
+        maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
+        showsTitle: Bool = true,
+        dateStyle: Date.FormatStyle.DateStyle = .abbreviated
     ) {
         self.title = title
+        self.showsTitle = showsTitle
         self.selection = Binding(
             get: { selection.wrappedValue },
             set: { newValue in if let newValue { selection.wrappedValue = newValue } }
@@ -57,45 +71,59 @@ public struct DateRangePickerField: View {
         self.presets = presets
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
+        self.dateStyle = dateStyle
     }
 
     /// A field that can be empty: it shows `placeholder` until a range is
     /// picked, and the calendar offers Clear.
     /// - Parameters:
-    ///   - title: A label before the field, looked up in your app's strings; nil for none.
+    ///   - title: A label before the field, looked up in your app's strings;
+    ///     nil for none. It stays the field's VoiceOver label with
+    ///     `showsTitle: false`.
     ///   - selection: The days, or nil; both bounds are the start of their day.
     ///   - placeholder: Shown while empty, from your app's strings; nil for "Select dates".
     ///   - presets: Named ranges listed beside the calendar.
     ///   - minimumDate: The first day that can be picked (any time on it).
     ///   - maximumDate: The last day that can be picked.
+    ///   - isDateEnabled: Turns single days inside the bounds down; asked with the start of the day.
+    ///   - showsTitle: Draws the title before the field.
+    ///   - dateStyle: How the days are written.
     public init(
         _ title: LocalizedStringKey? = nil,
         selection: Binding<ClosedRange<Date>?>,
         placeholder: LocalizedStringKey? = nil,
         presets: [DateRangePreset] = [],
         minimumDate: Date? = nil,
-        maximumDate: Date? = nil
+        maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
+        showsTitle: Bool = true,
+        dateStyle: Date.FormatStyle.DateStyle = .abbreviated
     ) {
         self.title = title
+        self.showsTitle = showsTitle
         self.selection = selection
         self.isOptional = true
         self.placeholder = placeholder
         self.presets = presets
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
+        self.dateStyle = dateStyle
     }
 
     private var valueText: Text {
         guard let range = selection.wrappedValue else {
             return placeholder.map { Text($0) } ?? Text("Select dates", bundle: .module)
         }
-        return Text(verbatim: DateRangeFormatting.string(for: range, calendar: calendar, locale: locale))
+        return Text(verbatim: DateRangeFormatting.string(for: range, calendar: calendar, locale: locale, dateStyle: dateStyle))
     }
 
     public var body: some View {
         HStack(spacing: Spacing.sm) {
-            if let title {
+            if let title, showsTitle {
                 Text(title)
+                    .font(Typography.bodySmall)
                 Spacer()
             }
             Button {
@@ -104,6 +132,7 @@ public struct DateRangePickerField: View {
                 DateFieldLabel(text: valueText, isPlaceholder: selection.wrappedValue == nil)
             }
             .buttonStyle(FloatingMenuPickerButtonStyle(isActive: isPresented))
+            .invalidFieldOutline(isInvalid)
             .accessibilityLabel(title.map { Text($0) } ?? Text("Date range", bundle: .module))
             .accessibilityValue(valueText)
             .popover(isPresented: $isPresented, arrowEdge: .bottom) {
@@ -120,6 +149,10 @@ public struct DateRangePickerField: View {
             presets: presets,
             minimumDate: minimumDate,
             maximumDate: maximumDate,
+            isDateEnabled: isDateEnabled,
+            maximumLength: nil,
+            presetPlacement: .beside,
+            showsFooter: true,
             isInPopover: true,
             onCommit: { isPresented = false }
         )

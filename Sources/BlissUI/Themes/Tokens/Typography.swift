@@ -114,6 +114,11 @@ public enum Typography {
         FontResolver.font(.ui, size: 32, weight: .regular)
     }
 
+    /// Large display light variant (32px light) — a hero glyph (`EmptyState`)
+    public static var displayLargeLight: Font {
+        FontResolver.font(.ui, size: 32, weight: .light)
+    }
+
     /// Medium display for section headers (28px semibold)
     public static var displayMedium: Font {
         FontResolver.font(.ui, size: FontSize.title, weight: .regular)
@@ -374,6 +379,16 @@ public enum Typography {
 
     /// Small caption semibold (11px semibold) — the checkmark in a selection box
     public static var labelXSmallBold: Font {
+        FontResolver.font(.ui, size: FontSize.caption2, weight: .semibold)
+    }
+
+    /// Caption bold (12px semibold) — a large gradient badge's label
+    public static var captionBold: Font {
+        FontResolver.font(.ui, size: FontSize.caption, weight: .semibold)
+    }
+
+    /// Small caption bold (11px semibold) — a regular gradient badge's label
+    public static var captionSmallBold: Font {
         FontResolver.font(.ui, size: FontSize.caption2, weight: .semibold)
     }
 

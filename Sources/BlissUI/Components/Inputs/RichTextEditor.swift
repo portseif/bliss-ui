@@ -15,6 +15,39 @@
 import AppKit
 import SwiftUI
 
+// MARK: - Tools
+
+/// Which formatting tools an editor offers. A comment box wants
+/// `[.inlineStyles, .link]`; the default is everything.
+public struct RichTextTools: OptionSet, Sendable {
+    public let rawValue: Int
+
+    public init(rawValue: Int) {
+        self.rawValue = rawValue
+    }
+
+    /// Bold, italic, underline, strikethrough.
+    public static let inlineStyles = RichTextTools(rawValue: 1 << 0)
+    /// Body and the three headings.
+    public static let headings = RichTextTools(rawValue: 1 << 1)
+    /// Bulleted and numbered lists.
+    public static let lists = RichTextTools(rawValue: 1 << 2)
+    public static let link = RichTextTools(rawValue: 1 << 3)
+    public static let code = RichTextTools(rawValue: 1 << 4)
+    public static let quote = RichTextTools(rawValue: 1 << 5)
+
+    public static let all: RichTextTools = [.inlineStyles, .headings, .lists, .link, .code, .quote]
+}
+
+/// The editor's measures (public so `minimumHeight` can default to one).
+public enum RichTextEditorMetrics {
+    /// How tall the text area is before it has that much text.
+    public static let minimumHeight: CGFloat = 160
+    /// The least a caller can ask for: one line and its insets.
+    public static let minimumHeightFloor: CGFloat = Sizing.controlXLarge
+    static let linkPopoverWidth: CGFloat = 340
+}
+
 // MARK: - Editor
 
 /// A rich text field with a formatting toolbar, bound to an `AttributedString`.
@@ -27,13 +60,17 @@ import SwiftUI
 /// like `TextArea`'s, because the hosted text view needs a resolved string.
 /// ⌘B, ⌘I and ⌘U toggle bold, italic and underline; ⌘K opens the link
 /// popover. The field is at least `minimumHeight` tall and grows with its
-/// text; put it in a scroll view when it can grow past the window.
+/// text; past `maximumHeight` it scrolls with the thin indicator, like
+/// `TextArea` (without one, put it in a scroll view when it can grow past
+/// the window).
 public struct RichTextEditor: View {
     private let title: LocalizedStringResource
     @Binding private var text: AttributedString
     private let prompt: Text?
     private let minimumHeight: CGFloat
+    private let maximumHeight: CGFloat?
     private let showsToolbar: Bool
+    private let tools: RichTextTools
 
     @Environment(\.isEnabled) private var isEnabled
     @State private var controller = RichTextController()
@@ -43,32 +80,42 @@ public struct RichTextEditor: View {
     @State private var contentHeight: CGFloat = 0
     @State private var isLinkPopoverPresented = false
     @State private var linkURL = ""
+    @State private var scrollMetrics = TextAreaScrollMetrics()
+    @State private var isHovering = false
+    @State private var isScrolling = false
+    @State private var scrollEndTask: Task<Void, Never>?
 
     /// - Parameters:
     ///   - title: What VoiceOver reads for the text view.
     ///   - text: The formatted text.
     ///   - prompt: Shown while the text is empty.
     ///   - minimumHeight: How tall the text area is before it has that much text.
+    ///   - maximumHeight: Past it the text scrolls; nil grows without limit.
     ///   - showsToolbar: The formatting toolbar above the text; without it the
     ///     keyboard shortcuts still work.
+    ///   - tools: Which formatting tools the toolbar offers.
     public init(
         _ title: LocalizedStringResource,
         text: Binding<AttributedString>,
         prompt: Text? = nil,
-        minimumHeight: CGFloat = 160,
-        showsToolbar: Bool = true
+        minimumHeight: CGFloat = RichTextEditorMetrics.minimumHeight,
+        maximumHeight: CGFloat? = nil,
+        showsToolbar: Bool = true,
+        tools: RichTextTools = .all
     ) {
         self.title = title
         self._text = text
         self.prompt = prompt
-        self.minimumHeight = max(minimumHeight, 40)
+        self.minimumHeight = max(minimumHeight, RichTextEditorMetrics.minimumHeightFloor)
+        self.maximumHeight = maximumHeight.map { max($0, max(minimumHeight, RichTextEditorMetrics.minimumHeightFloor)) }
         self.showsToolbar = showsToolbar
+        self.tools = tools
     }
 
     public var body: some View {
         VStack(spacing: 0) {
-            if showsToolbar {
-                RichTextToolbar(controller: controller, isLinkPopoverPresented: $isLinkPopoverPresented, onLink: presentLinkPopover) {
+            if showsToolbar, !tools.isEmpty {
+                RichTextToolbar(controller: controller, tools: tools, isLinkPopoverPresented: $isLinkPopoverPresented, onLink: presentLinkPopover) {
                     linkPopover
                 }
                 .padding(.horizontal, Spacing.xs)
@@ -84,17 +131,36 @@ public struct RichTextEditor: View {
                 accessibilityLabel: String(localized: title),
                 isEnabled: isEnabled,
                 minimumHeight: minimumHeight,
+                maximumHeight: maximumHeight,
                 contentHeight: contentHeight,
                 focusRequest: focusRequest,
                 controller: controller,
                 onFocusChange: { isFocused = $0 },
-                onContentHeightChange: { contentHeight = $0 }
+                onContentHeightChange: { contentHeight = $0 },
+                onScroll: handleScroll
             )
             .overlay(alignment: .topLeading) { placeholder }
+            .overlay(alignment: .topTrailing) {
+                TextBoxScrollThumb(metrics: scrollMetrics, isVisible: isHovering || isScrolling)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .inputBox(isFocused: isFocused, cornerRadius: Sizing.radiusLarge)
+        .inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius)
+        .onHover { isHovering = $0 }
+        .onDisappear { scrollEndTask?.cancel() }
         .onAppear { controller.onLinkShortcut = presentLinkPopover }
+    }
+
+    private func handleScroll(_ metrics: TextAreaScrollMetrics, didScroll: Bool) {
+        scrollMetrics = metrics
+        guard didScroll else { return }
+        isScrolling = true
+        scrollEndTask?.cancel()
+        scrollEndTask = Task {
+            try? await Task.sleep(for: TextBoxMetrics.scrollIndicatorHideDelay)
+            guard !Task.isCancelled else { return }
+            withAnimation(Animations.scrollIndicator) { isScrolling = false }
+        }
     }
 
     @ViewBuilder
@@ -141,9 +207,11 @@ public struct RichTextEditor: View {
 
 // MARK: - Toolbar
 
-/// The formatting buttons, lit for the text under the caret.
+/// The formatting buttons, lit for the text under the caret. The groups the
+/// editor asks for, a hairline between them.
 private struct RichTextToolbar<LinkPopover: View>: View {
     let controller: RichTextController
+    let tools: RichTextTools
     @Binding var isLinkPopoverPresented: Bool
     let onLink: () -> Void
     @ViewBuilder let linkPopover: () -> LinkPopover
@@ -153,36 +221,57 @@ private struct RichTextToolbar<LinkPopover: View>: View {
 
     private var formatting: RichTextFormatting { controller.formatting }
 
+    /// The groups in toolbar order, so a separator sits only between two
+    /// that show.
+    private var groups: [RichTextTools] {
+        [.inlineStyles, .headings, .lists, [.link, .code, .quote]].filter { !tools.isDisjoint(with: $0) }
+    }
+
     var body: some View {
         HStack(spacing: Spacing.hairline) {
-            toolButton("bold", label: Text("Bold", bundle: .module), isActive: formatting.isBold, action: controller.toggleBold)
-            toolButton("italic", label: Text("Italic", bundle: .module), isActive: formatting.isItalic, action: controller.toggleItalic)
-            toolButton("underline", label: Text("Underline", bundle: .module), isActive: formatting.isUnderlined, action: controller.toggleUnderline)
-            toolButton("strikethrough", label: Text("Strikethrough", bundle: .module), isActive: formatting.isStruck, action: controller.toggleStrikethrough)
-
-            separator
-
-            headingButton
-
-            separator
-
-            toolButton("list.bullet", label: Text("Bulleted list", bundle: .module), isActive: formatting.list == .bulleted) {
-                controller.toggleList(.bulleted)
-            }
-            toolButton("list.number", label: Text("Numbered list", bundle: .module), isActive: formatting.list == .numbered) {
-                controller.toggleList(.numbered)
+            ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
+                if index > 0 { separator }
+                if group == .inlineStyles { inlineStyleButtons }
+                if group == .headings { headingButton }
+                if group == .lists { listButtons }
+                if group == [.link, .code, .quote] { inlineBlockButtons }
             }
 
-            separator
+            Spacer(minLength: 0)
+        }
+    }
 
+    @ViewBuilder
+    private var inlineStyleButtons: some View {
+        toolButton("bold", label: Text("Bold", bundle: .module), isActive: formatting.isBold, action: controller.toggleBold)
+        toolButton("italic", label: Text("Italic", bundle: .module), isActive: formatting.isItalic, action: controller.toggleItalic)
+        toolButton("underline", label: Text("Underline", bundle: .module), isActive: formatting.isUnderlined, action: controller.toggleUnderline)
+        toolButton("strikethrough", label: Text("Strikethrough", bundle: .module), isActive: formatting.isStruck, action: controller.toggleStrikethrough)
+    }
+
+    @ViewBuilder
+    private var listButtons: some View {
+        toolButton("list.bullet", label: Text("Bulleted list", bundle: .module), isActive: formatting.list == .bulleted) {
+            controller.toggleList(.bulleted)
+        }
+        toolButton("list.number", label: Text("Numbered list", bundle: .module), isActive: formatting.list == .numbered) {
+            controller.toggleList(.numbered)
+        }
+    }
+
+    @ViewBuilder
+    private var inlineBlockButtons: some View {
+        if tools.contains(.link) {
             toolButton("link", label: Text("Link", bundle: .module), isActive: formatting.isLink, action: onLink)
                 .popover(isPresented: $isLinkPopoverPresented, arrowEdge: .bottom) {
                     linkPopover()
                 }
+        }
+        if tools.contains(.code) {
             toolButton("chevron.left.forwardslash.chevron.right", label: Text("Code", bundle: .module), isActive: formatting.isCode, action: controller.toggleCode)
+        }
+        if tools.contains(.quote) {
             toolButton("text.quote", label: Text("Quote", bundle: .module), isActive: formatting.isQuote, action: controller.toggleQuote)
-
-            Spacer(minLength: 0)
         }
     }
 
@@ -191,7 +280,7 @@ private struct RichTextToolbar<LinkPopover: View>: View {
             Image(systemName: systemImage)
         }
         .buttonStyle(ToolbarIconButtonStyle(isActive: isActive, compact: true))
-        .tooltip(position: .above) { label.font(Typography.labelSmall) }
+        .tooltip(position: .above) { label }
         .accessibilityLabel(label)
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
     }
@@ -212,7 +301,7 @@ private struct RichTextToolbar<LinkPopover: View>: View {
             Image(systemName: "textformat")
         }
         .buttonStyle(ToolbarIconButtonStyle(isActive: formatting.heading.isHeading || isHeadingMenuPresented, compact: true))
-        .tooltip(position: .above) { Text("Text style", bundle: .module).font(Typography.labelSmall) }
+        .tooltip(position: .above) { Text("Text style", bundle: .module) }
         .accessibilityLabel(Text("Text style", bundle: .module))
         .accessibilityValue(Text(verbatim: RichTextHeadingMenu.title(for: formatting.heading)))
         .floatingMenu(
@@ -246,7 +335,7 @@ private struct RichTextHeadingMenu: View {
     let onPick: (Int) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             ForEach(Array(RichTextHeading.allCases.enumerated()), id: \.offset) { index, heading in
                 let isCurrent = controller.formatting.heading == heading
                 FilterMenuRow(.verbatim(Self.title(for: heading)), isFocused: focusedIndex == index, isSelected: isCurrent) {
@@ -262,7 +351,7 @@ private struct RichTextHeadingMenu: View {
             }
         }
         .padding(Spacing.menuPadding)
-        .frame(minWidth: 160)
+        .frame(minWidth: Sizing.menuMinWidth)
         .fixedSize(horizontal: true, vertical: false)
     }
 
@@ -318,7 +407,7 @@ private struct RichTextLinkPopover: View {
             }
         }
         .padding(Spacing.lg)
-        .frame(width: 340)
+        .frame(width: RichTextEditorMetrics.linkPopoverWidth)
     }
 
     private func add() {
@@ -357,8 +446,12 @@ enum RichTextSample {
     }
 }
 
-#Preview("Rich text editor", traits: .fixedLayout(width: 560, height: 320)) {
+#Preview("Rich text editor", traits: .fixedLayout(width: 560, height: 440)) {
     @Previewable @State var text = RichTextSample.article
-    RichTextEditor("Release notes", text: $text, prompt: Text("Write something…"))
-        .padding(Spacing.lg)
+    @Previewable @State var comment = AttributedString()
+    VStack(spacing: Spacing.lg) {
+        RichTextEditor("Release notes", text: $text, prompt: Text("Write something…"))
+        RichTextEditor("Comment", text: $comment, prompt: Text("Leave a comment…"), minimumHeight: 60, tools: [.inlineStyles, .link])
+    }
+    .padding(Spacing.lg)
 }

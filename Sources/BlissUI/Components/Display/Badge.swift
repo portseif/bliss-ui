@@ -45,7 +45,7 @@ public struct Badge: View {
     
     private enum BadgeContent {
         case text(LocalizedStringKey, icon: String?)
-        case count(Int)
+        case count(Int, maximum: Int)
     }
     
         // MARK: - Initializers
@@ -55,9 +55,10 @@ public struct Badge: View {
         self.content = .text(text, icon: icon)
     }
     
-        /// Create a count badge (circular notification style)
-    public init(count: Int) {
-        self.content = .count(count)
+        /// Create a count badge (circular notification style). Past `maximum`
+        /// it reads "99+" (or "999+" for a mail count).
+    public init(count: Int, maximum: Int = 99) {
+        self.content = .count(count, maximum: maximum)
         self.style = .solid(.notification)
     }
     
@@ -67,8 +68,8 @@ public struct Badge: View {
         switch content {
             case .text(let text, let icon):
                 textBadge(text: text, icon: icon)
-            case .count(let count):
-                countBadge(count: count)
+            case .count(let count, let maximum):
+                countBadge(count: count, maximum: maximum)
         }
     }
     
@@ -87,9 +88,10 @@ public struct Badge: View {
 
         // MARK: - Count Badge
 
-    private func countBadge(count: Int) -> some View {
+    private func countBadge(count: Int, maximum: Int) -> some View {
         CountBadgeContent(
             count: count,
+            maximum: maximum,
             style: style,
             size: size
         )
@@ -131,6 +133,7 @@ private struct TextBadgeContent: View {
         }
         .padding(.horizontal, size.horizontalPadding)
         .padding(.vertical, size.verticalPadding)
+        .frame(height: size.minHeight)
         .background {
             shapeBackground
         }
@@ -170,6 +173,7 @@ private struct TextBadgeContent: View {
 
 private struct CountBadgeContent: View {
     let count: Int
+    let maximum: Int
     let style: BadgeStyle
     let size: BadgeSize
 
@@ -178,11 +182,11 @@ private struct CountBadgeContent: View {
     var body: some View {
         Group {
             if count > 0 {
-                Text(count > 99 ? "99+" : "\(count)")
+                Text(count > maximum ? "\(maximum)+" : "\(count)")
                     .font(size.countFont)
                     .foregroundStyle(style.textColor(for: colorScheme))
                     .frame(minWidth: size.countMinSize, minHeight: size.countMinSize)
-                    .padding(.horizontal, count > 9 ? 4 : 0)
+                    .padding(.horizontal, count > 9 ? Spacing.xxs : 0)
                     .background(style.backgroundColor(for: colorScheme))
                     .clipShape(Capsule())
             }
@@ -243,6 +247,9 @@ public enum BadgeStyle {
     case error
     case info
 
+        // A hairline and secondary text, no wash: a version or kind tag ("v6.2", "beta").
+    case outline
+
         // Solid color (no border)
     case solid(Color)
 
@@ -298,6 +305,7 @@ public enum BadgeStyle {
             // than green or amber and a deep red label reads as muddy.
             case .error: return Danger.danger500
             case .info: return scheme == .dark || StatusTones.isThemed(.info) ? Info.info500 : Info.info700
+            case .outline: return Color.textSecondary
             case .status(let color): return color.legibleOnDark(scheme)
             case .solid: return .white
             case .gradient: return .white
@@ -320,6 +328,7 @@ public enum BadgeStyle {
             case .solid: return .white.opacity(0.9)
             case .gradient: return .white.opacity(0.9)
             case .custom(_, let icon, _, _): return icon
+            case .outline: return Color.textSecondary
         }
     }
 
@@ -329,22 +338,15 @@ public enum BadgeStyle {
     /// but vanished; the wash keeps the `*700` labels and the red mark legible.
     func backgroundColor(for scheme: ColorScheme) -> AnyShapeStyle {
         switch self {
-            case .primary:
-                return AnyShapeStyle(scheme == .dark ? Color.accent.opacity(0.2) : Color.accent.opacity(0.1))
+            case .primary: return AnyShapeStyle(StatusWash.fill(Color.accent, scheme))
             case .secondary:
                 return AnyShapeStyle(scheme == .dark ? Grey.grey500.opacity(0.15) : Grey.grey100)
-            case .success:
-                return AnyShapeStyle(scheme == .dark ? Success.tint.opacity(0.2) : Success.tint.opacity(0.1))
-            case .warning:
-                return AnyShapeStyle(scheme == .dark ? Warning.tint.opacity(0.2) : Warning.tint.opacity(0.1))
-            case .error:
-                return AnyShapeStyle(scheme == .dark ? Danger.tint.opacity(0.2) : Danger.tint.opacity(0.1))
-            case .info:
-                return AnyShapeStyle(scheme == .dark ? Info.tint.opacity(0.2) : Info.tint.opacity(0.1))
-            case .status(let color):
-                // A touch more fill on dark, where the lifted label needs a
-                // surface to sit on rather than floating over the pane.
-                return AnyShapeStyle(color.statusTint.opacity(scheme == .dark ? 0.18 : 0.12))
+            case .success: return AnyShapeStyle(StatusWash.fill(Success.success500, scheme))
+            case .warning: return AnyShapeStyle(StatusWash.fill(Warning.warning500, scheme))
+            case .error: return AnyShapeStyle(StatusWash.fill(Danger.danger500, scheme))
+            case .info: return AnyShapeStyle(StatusWash.fill(Info.info500, scheme))
+            case .status(let color): return AnyShapeStyle(StatusWash.fill(color, scheme))
+            case .outline: return AnyShapeStyle(Color.clear)
             case .solid(let color): return AnyShapeStyle(color)
             case .gradient(let preset):
                 return AnyShapeStyle(
@@ -360,12 +362,12 @@ public enum BadgeStyle {
 
     func borderColor(for scheme: ColorScheme) -> Color {
         switch self {
-            case .primary: return scheme == .dark ? Color.accent.opacity(0.4) : Color.accent.opacity(0.3)
-            case .secondary: return scheme == .dark ? Grey.grey500.opacity(0.3) : Grey.grey200
-            case .success: return scheme == .dark ? Success.tint.opacity(0.4) : Success.tint.opacity(0.3)
-            case .warning: return scheme == .dark ? Warning.tint.opacity(0.4) : Warning.tint.opacity(0.3)
-            case .error: return scheme == .dark ? Danger.tint.opacity(0.4) : Danger.tint.opacity(0.3)
-            case .info: return scheme == .dark ? Info.tint.opacity(0.4) : Info.tint.opacity(0.3)
+            case .primary: return StatusWash.border(Color.accent, scheme)
+            case .secondary, .outline: return Color.menuBorder
+            case .success: return StatusWash.border(Success.success500, scheme)
+            case .warning: return StatusWash.border(Warning.warning500, scheme)
+            case .error: return StatusWash.border(Danger.danger500, scheme)
+            case .info: return StatusWash.border(Info.info500, scheme)
             case .status, .solid, .gradient: return .clear
             case .custom(_, _, _, let border): return border ?? .clear
         }
@@ -379,11 +381,11 @@ public enum BadgeStyle {
         }
     }
 
-        /// Label font — Typography tokens, except the gradient badges (Pro /
-        /// Lifetime) which keep their bold rounded face (no rounded token exists).
+        /// Label font — the size's token; the gradient badges (Pro / Lifetime)
+        /// take its bold face.
     func font(for size: BadgeSize) -> Font {
         switch self {
-            case .gradient: return .system(size: size.fontSize, weight: .bold, design: .rounded)
+            case .gradient: return size.boldFont
             default: return size.font
         }
     }
@@ -391,27 +393,38 @@ public enum BadgeStyle {
 
     // MARK: - Badge Size
 
+/// The pill size every chip in the library shares: `Badge`, `StatusPill`,
+/// `StatusDotPill`, `ShortcutKey` and the count chips read the same table, so
+/// a small status pill and a small badge sit at one cap height.
 public enum BadgeSize {
     case small
     case regular
     case large
-    
-        /// Raw point size — only for the gradient badges' bold rounded face;
-        /// everything else goes through `font`.
-    var fontSize: CGFloat {
-        switch self {
-            case .small: return 10
-            case .regular: return 11
-            case .large: return 12
-        }
-    }
 
-        /// Label font (10/11/12 medium)
+        /// Label font (10/11/12 regular)
     var font: Font {
         switch self {
             case .small: return Typography.labelTiny
             case .regular: return Typography.captionSmall
             case .large: return Typography.caption
+        }
+    }
+
+        /// Label font with emphasis (10/11/12 semibold) — the gradient badges
+    var boldFont: Font {
+        switch self {
+            case .small: return Typography.labelTinyBold
+            case .regular: return Typography.captionSmallBold
+            case .large: return Typography.captionBold
+        }
+    }
+
+        /// The pill's height: 16 / 20 / 24
+    public var minHeight: CGFloat {
+        switch self {
+            case .small: return Sizing.iconDefault
+            case .regular: return Sizing.iconMedium
+            case .large: return Sizing.controlSmall
         }
     }
 
@@ -435,57 +448,61 @@ public enum BadgeSize {
 
     var iconSpacing: CGFloat {
         switch self {
-            case .small: return 3
-            case .regular: return 4
-            case .large: return 5
+            case .small: return Spacing.insetSpacing
+            case .regular: return Spacing.xxs
+            case .large: return Spacing.xs
         }
     }
     
-    var horizontalPadding: CGFloat {
+        /// 6 / 6 / 8 — `Spacing.tagPaddingH` for the regular pill
+    public var horizontalPadding: CGFloat {
         switch self {
-            case .small: return 5
-            case .regular: return 6
-            case .large: return 8
+            case .small: return Spacing.xs
+            case .regular: return Spacing.tagPaddingH
+            case .large: return Spacing.sm
         }
     }
     
-    var verticalPadding: CGFloat {
+        /// 2 / 3 / 4 — `Spacing.tagPaddingV` for the regular pill
+    public var verticalPadding: CGFloat {
         switch self {
-            case .small: return 2
-            case .regular: return 3
-            case .large: return 4
+            case .small: return Spacing.hairline
+            case .regular: return Spacing.tagPaddingV
+            case .large: return Spacing.xxs
         }
     }
     
-    var cornerRadius: CGFloat {
+        /// 4 / 6 / 8 for a `.roundedRect` pill
+    public var cornerRadius: CGFloat {
         switch self {
-            case .small: return 4
-            case .regular: return 5
-            case .large: return 6
+            case .small: return Sizing.radiusSmall
+            case .regular: return Sizing.radiusDefault
+            case .large: return Sizing.radiusMedium
         }
     }
     
-    var dotSize: CGFloat {
+        /// The status dot: `Sizing.statusCircle` a point either side
+    public var dotSize: CGFloat {
         switch self {
-            case .small: return 5
-            case .regular: return 6
-            case .large: return 7
+            case .small: return Sizing.statusCircle - 1
+            case .regular: return Sizing.statusCircle
+            case .large: return Sizing.statusCircle + 1
         }
     }
     
     var countMinSize: CGFloat {
         switch self {
-            case .small: return 14
-            case .regular: return 16
-            case .large: return 20
+            case .small: return Sizing.iconSmall
+            case .regular: return Sizing.iconDefault
+            case .large: return Sizing.iconMedium
         }
     }
 
     var stepSize: CGFloat {
         switch self {
-            case .small: return 18
-            case .regular: return 20
-            case .large: return 24
+            case .small: return Sizing.inlineIconButton
+            case .regular: return Sizing.iconMedium
+            case .large: return Sizing.iconLarge
         }
     }
 }
@@ -534,26 +551,16 @@ public struct BadgeDot {
 extension Badge {
         /// Create a step number badge (circular, aspect-ratio 1:1)
     public static func step(_ number: Int, size: BadgeSize = .small) -> some View {
-        Text("\(number)")
-            .font(size.font)
-            .foregroundStyle(size == .small ? Info.info600 : Info.info500)
-            .frame(width: size.stepSize, height: size.stepSize)
-            .background {
-                Circle()
-                    .fill(Info.tint.opacity(0.15))
-            }
-            .overlay {
-                Circle()
-                    .strokeBorder(Info.tint.opacity(0.3), lineWidth: 1)
-            }
+        StepBadge(number: number, size: size)
     }
 
         /// Tinted status pill — colored dot + label on a soft same-color tint
-        /// (Healthy / Completed / Needs setup …). The one shape for status chips.
-    public static func status(_ title: LocalizedStringKey, color: Color) -> Badge {
+        /// (Healthy / Completed / Needs setup …). The one shape for status chips;
+        /// `.small` sits in a table cell, `.large` heads a detail pane.
+    public static func status(_ title: LocalizedStringKey, color: Color, size: BadgeSize = .large) -> Badge {
         Badge(title)
             .badgeStyle(.status(color))
-            .badgeSize(.large)
+            .badgeSize(size)
             .dot(color)
     }
 
@@ -574,12 +581,34 @@ extension Badge {
     }
 }
 
+/// The step disc: the info mark on the info wash.
+private struct StepBadge: View {
+    let number: Int
+    let size: BadgeSize
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Text("\(number)")
+            .font(size.font)
+            .foregroundStyle(Info.info500)
+            .frame(width: size.stepSize, height: size.stepSize)
+            .background {
+                Circle()
+                    .fill(StatusWash.fill(Info.info500, colorScheme))
+            }
+            .overlay {
+                Circle()
+                    .strokeBorder(StatusWash.border(Info.info500, colorScheme), lineWidth: 1)
+            }
+    }
+}
+
     // MARK: - Previews
 
 #Preview("Badge Styles", traits: .fixedLayout(width: 400, height: 600)) {
     VStack(alignment: .leading, spacing: 16) {
         Text("Semantic Styles")
-            .font(.headline)
+            .font(Typography.bodySmallSemibold)
 
         HStack(spacing: 8) {
             Badge("Secondary")
@@ -594,12 +623,13 @@ extension Badge {
 
         HStack(spacing: 8) {
             Badge("Info", icon: "info.circle").badgeStyle(.info)
+            Badge("v6.2").badgeStyle(.outline)
         }
 
         Divider()
 
         Text("Gradient Styles")
-            .font(.headline)
+            .font(Typography.bodySmallSemibold)
 
         HStack(spacing: 8) {
             Badge.pro()
@@ -611,7 +641,7 @@ extension Badge {
         Divider()
 
         Text("Count Badges")
-            .font(.headline)
+            .font(Typography.bodySmallSemibold)
 
         HStack(spacing: 12) {
             Badge(count: 3)
@@ -623,7 +653,7 @@ extension Badge {
         Divider()
 
         Text("Sizes")
-            .font(.headline)
+            .font(Typography.bodySmallSemibold)
 
         HStack(spacing: 12) {
             Badge("Small", icon: "star").badgeStyle(.primary).badgeSize(.small)

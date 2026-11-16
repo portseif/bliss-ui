@@ -14,39 +14,56 @@ import SwiftUI
 /// checkbox's.
 public struct RadioGlyph: View {
     let isOn: Bool
-    var size: CGFloat = 14
+    var size: CGFloat = Sizing.iconSmall
+    let tint: Color?
 
     @Environment(\.isEnabled) private var isEnabled
 
-    public init(isOn: Bool, size: CGFloat = 14) {
+    /// The dot's share of the circle.
+    private static let dotRatio: CGFloat = 0.4
+
+    /// - Parameters:
+    ///   - isOn: Filled with a dot.
+    ///   - size: The circle's diameter; `Sizing.iconSmall` by default, the
+    ///     checkbox's side.
+    ///   - tint: The fill when on; the accent by default. A status color for a
+    ///     severity picker.
+    public init(isOn: Bool, size: CGFloat = Sizing.iconSmall, tint: Color? = nil) {
         self.isOn = isOn
         self.size = size
+        self.tint = tint
     }
+
+    /// The accent, or the caller's color as a tint that holds white.
+    private var fill: Color { tint?.statusTint ?? Color.accent }
+
+    private var dotColor: Color { tint == nil ? AccentHue.contrastForeground : .white }
 
     public var body: some View {
         ZStack {
             if isOn {
-                Circle().fill(Color.accent)
+                Circle().fill(fill)
                 Circle()
-                    .fill(AccentHue.contrastForeground)
-                    .frame(width: size * 0.4, height: size * 0.4)
+                    .fill(dotColor)
+                    .frame(width: size * Self.dotRatio, height: size * Self.dotRatio)
             } else {
-                Circle().strokeBorder(Color.secondary.opacity(0.7), lineWidth: 1.25)
+                Circle().strokeBorder(Color.secondary, lineWidth: 1)
             }
         }
         .frame(width: size, height: size)
-        .opacity(isEnabled ? 1 : 0.45)
+        .opacity(isEnabled ? 1 : Animations.disabledOpacity)
         .accessibilityHidden(true)
     }
 }
 
 // MARK: - Previews
 
-#Preview("Radio", traits: .fixedLayout(width: 220, height: 80)) {
+#Preview("Radio", traits: .fixedLayout(width: 260, height: 80)) {
     HStack(spacing: Spacing.lg) {
         RadioGlyph(isOn: false)
         RadioGlyph(isOn: true)
-        RadioGlyph(isOn: true, size: 18)
+        RadioGlyph(isOn: true, size: Sizing.iconDefault)
+        RadioGlyph(isOn: true, tint: Warning.warning500)
         RadioGlyph(isOn: false).disabled(true)
     }
     .padding(Spacing.lg)

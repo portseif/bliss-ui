@@ -8,58 +8,13 @@
 
 import SwiftUI
 
-// MARK: - Circular Progress Indicator
-
-/// A circular progress ring. Shows the numeric percentage in the center when
-/// `showsValue` is true; pass `false` for a compact ring whose percentage is
-/// rendered inline elsewhere (the progress pill).
-private struct CircularProgressIndicator: View {
-    let progress: Double
-    var color: Color = Primary.primary500
-    var size: CGFloat = 40
-    var lineWidth: CGFloat = 3
-    var showsValue: Bool = true
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var trackColor: Color {
-        colorScheme == .dark ? Grey.grey700 : Grey.grey200
-    }
-
-    var body: some View {
-        ZStack {
-            // Track circle
-            Circle()
-                .stroke(trackColor, lineWidth: lineWidth)
-
-            // Progress arc
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(Animations.disclosure, value: progress)
-
-            // Percentage text
-            if showsValue {
-                SlidingNumber(
-                    value: Int(progress * 100),
-                    font: .system(size: 14, weight: .regular, design: .default),
-                    color: color,
-                    tracking: -0.5
-                )
-            }
-        }
-        .frame(width: size, height: size)
-    }
-}
-
 // MARK: - Status Icon
 
 /// Filled status circle with a white glyph (the leading badge on success/error/info pills).
 private struct ToastStatusIcon: View {
     let glyph: String
     let color: Color
-    var size: CGFloat = 20
+    var size: CGFloat = Sizing.iconMedium
 
     var body: some View {
         ZStack {
@@ -67,7 +22,7 @@ private struct ToastStatusIcon: View {
             // (light mint, amber, cyan) wouldn't read.
             Circle().fill(color.statusTint)
             Image(systemName: glyph)
-                .font(.system(size: size * 0.5, weight: .bold))
+                .font(Typography.labelTinyBold)
                 .foregroundStyle(.white)
         }
         .frame(width: size, height: size)
@@ -94,7 +49,7 @@ private struct ToastDismissButton: View {
                     .font(Typography.labelXTinySemibold)
                     .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
             }
-            .frame(width: 20, height: 20)
+            .frame(width: Sizing.iconMedium, height: Sizing.iconMedium)
             .contentShape(Rectangle())
         }
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
@@ -142,19 +97,8 @@ public struct ToastNotification: View {
         self.isTucked = isTucked
     }
 
-    /// The theme's raised surface (like a menu's), else white / near-black.
-    private var backgroundColor: Color {
-        if let palette = ThemeColors.activePalette { return palette.elevatedBackground.color }
-        return colorScheme == .dark ? Color(white: 0.12) : .white
-    }
-
-    private var shadowColor: Color {
-        colorScheme == .dark ? Color.black.opacity(0.4) : Color.black.opacity(0.12)
-    }
-
-    private var shadowRadius: CGFloat {
-        colorScheme == .dark ? 16 : 12
-    }
+    /// The control surface every floating panel sits on.
+    private var backgroundColor: Color { Color.controlBackground }
 
     /// Primary label for the in-progress pill: the live phase message with its trailing
     /// ellipsis trimmed (the spinner/ring already signals "ongoing").
@@ -194,22 +138,21 @@ public struct ToastNotification: View {
     private var progressBody: some View {
         // Finite collapsed radius (≈ half the pill height) so the corner radius can
         // interpolate during the morph — `.infinity` would jump.
-        let cornerRadius: CGFloat = expanded ? Sizing.radiusLarge : 22
+        let cornerRadius: CGFloat = expanded ? Sizing.radiusLarge : ToastMetrics.collapsedCornerRadius
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Spacing.sm) {
                 // Leading indicator: determinate ring (percentage shown inline, not centered)
                 // when we have a value, otherwise the indeterminate spinner.
                 if let progress = toast.style.progressValue {
-                    CircularProgressIndicator(
-                        progress: progress,
-                        color: toast.style.iconColor,
-                        size: 18,
-                        lineWidth: 2.5,
-                        showsValue: false
+                    ProgressRing(
+                        value: progress,
+                        tint: toast.style.iconColor,
+                        size: ToastMetrics.ringSize,
+                        lineWidth: ToastMetrics.ringLineWidth
                     )
                 } else {
-                    ThinkingSpinner(size: 16, lineWidth: 2, color: toast.style.iconColor)
+                    ThinkingSpinner(size: Sizing.iconDefault, color: toast.style.iconColor)
                 }
 
                 // Label · percent · elapsed, on one line. Expanded, the title takes
@@ -225,9 +168,7 @@ public struct ToastNotification: View {
                         text: expanded ? toast.title : inlineLabel,
                         font: Typography.labelMedium,
                         baseColor: .secondary,
-                        shimmerColor: .primary,
-                        duration: 2.2,
-                        shimmerWidth: 0.4
+                        shimmerColor: .primary
                     )
                     .lineLimit(1)
 
@@ -270,22 +211,21 @@ public struct ToastNotification: View {
         .opacity(isTucked ? 0 : 1)
         .disabled(isTucked)   // hidden buttons stay out of the Tab loop
         .padding(.leading, Spacing.md)
-        .padding(.trailing, (onCancel != nil ? Spacing.sm : Spacing.md) + Spacing.hairline)
-        .padding(.vertical, Spacing.sm + 2)
+        .padding(.trailing, onCancel != nil ? ToastMetrics.trailingPadding : Spacing.md + Spacing.hairline)
+        .padding(.vertical, ToastMetrics.verticalPadding)
         .cardWidth(uniformWidth)
         .background {
-            shape
-                .fill(backgroundColor)
-                .shadow(color: shadowColor, radius: shadowRadius, y: 4)
+            shape.fill(backgroundColor)
         }
         .overlay {
             shape
                 .strokeBorder(pillBorderColor, lineWidth: 1)
         }
+        .elevation(.panel)
         // Background/overlay hug the content; the cap only kicks in for very long
         // text. Centered (no leading alignment) so the pill sits horizontally
         // centered over the content pane.
-        .frame(maxWidth: uniformWidth ?? (expanded ? 420 : 380))
+        .frame(maxWidth: uniformWidth ?? Sizing.toastWidth)
         // Clear any stale confirm state each time the pill (re)enters the tree, so a dialog
         // left open when a prior operation ended can't auto-present on the next one.
         .onAppear { showingCancelConfirm = false }
@@ -324,18 +264,18 @@ public struct ToastNotification: View {
             if !toast.detailItems.isEmpty {
                 // The house thin scroll, hugging short content: a raw ScrollView
                 // showed the wide legacy scroller under "Show scroll bars: Always".
-                AutoHeightScroll(showFadeMask: true, maxHeight: 220) {
-                    VStack(alignment: .leading, spacing: Spacing.xs + 2) {
+                AutoHeightScroll(showFadeMask: true, maxHeight: ToastMetrics.detailItemsScrollHeight) {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
                         ForEach(toast.detailItems) { item in
                             detailItemRow(item)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxHeight: 220)
+                .frame(maxHeight: ToastMetrics.detailItemsScrollHeight)
             } else if let detail = toast.fullMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
                !detail.isEmpty {
-                AutoHeightScroll(showFadeMask: true, maxHeight: 170) {
+                AutoHeightScroll(showFadeMask: true, maxHeight: ToastMetrics.messageScrollHeight) {
                     Text(detail)
                         .font(Typography.codeSmall)
                         .foregroundStyle(.primary)
@@ -343,22 +283,12 @@ public struct ToastNotification: View {
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxHeight: 170)
+                .frame(maxHeight: ToastMetrics.messageScrollHeight)
             }
 
             if let progress = toast.style.progressValue {
                 HStack(spacing: Spacing.sm) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule()
-                                .fill(colorScheme == .dark ? Grey.grey700 : Grey.grey200)
-                            Capsule()
-                                .fill(toast.style.iconColor)
-                                .frame(width: max(4, geo.size.width * progress))
-                                .animation(Animations.toast, value: progress)
-                        }
-                    }
-                    .frame(height: 4)
+                    ProgressBar(value: progress, tint: toast.style.iconColor, thickness: .thin)
                     Text(progress, format: .percent.precision(.fractionLength(0)))
                         .font(Typography.labelSmall)
                         .foregroundStyle(.primary)
@@ -369,7 +299,7 @@ public struct ToastNotification: View {
 
             HStack(spacing: Spacing.sm) {
                 if let startedAt = toast.startedAt {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Spacing.xxs) {
                         Text("Elapsed", bundle: .module)
                         Text(timerInterval: startedAt...Date.distantFuture, countsDown: false, showsHours: false)
                             .monospacedDigit()
@@ -399,28 +329,27 @@ public struct ToastNotification: View {
     private func detailItemRow(_ item: ToastDetailItem) -> some View {
         switch item.state {
         case .pending:
-            HStack(spacing: Spacing.xs + 2) {
+            HStack(spacing: Spacing.sm) {
                 Circle()
-                    .fill(Grey.grey400.opacity(0.5))
-                    .frame(width: 5, height: 5)
+                    .fill(.tertiary)
+                    .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
                 Text(item.name)
                     .font(Typography.captionSmall)
                     .foregroundStyle(.secondary)
             }
         case .working:
-            HStack(spacing: Spacing.xs + 2) {
-                ThinkingSpinner(size: 10, lineWidth: 1.5, color: Color.accent)
+            HStack(spacing: Spacing.sm) {
+                ThinkingSpinner(size: ToastMetrics.rowSpinnerSize, lineWidth: ToastMetrics.rowSpinnerLineWidth, color: Color.accent)
                 ShimmerTextOverlay(
                     text: item.text.map { "\(item.name) — \($0)…" } ?? "\(item.name)…",
                     font: Typography.captionSmall,
                     baseColor: .secondary,
-                    shimmerColor: .primary,
-                    duration: 2.2
+                    shimmerColor: .primary
                 )
             }
         case .done:
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                HStack(spacing: Spacing.xs + 2) {
+                HStack(spacing: Spacing.sm) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(Typography.captionSmall)
                         .foregroundStyle(Success.success500)
@@ -438,12 +367,12 @@ public struct ToastNotification: View {
                         .padding(Spacing.sm)
                         .background {
                             RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
-                                .fill(Color.primary.opacity(colorScheme == .dark ? 0.07 : 0.05))
+                                .fill(Color.restingFill)
                         }
                 }
             }
         case .failed:
-            HStack(spacing: Spacing.xs + 2) {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: "xmark.circle.fill")
                     .font(Typography.captionSmall)
                     .foregroundStyle(Danger.danger500)
@@ -465,26 +394,12 @@ public struct ToastNotification: View {
         }
     }
 
-    /// Single-line success / info pill.
+    /// Single-line success / info pill (a two-line card when `layout` is stacked).
     private var standardPill: some View {
         HStack(spacing: Spacing.sm) {
             ToastStatusIcon(glyph: toast.customIcon ?? toast.style.glyph, color: toast.style.iconColor)
 
-            // Title · detail segments, on one line.
-            HStack(spacing: Spacing.xs) {
-                Text(toast.title)
-                    .font(Typography.labelMedium)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                ForEach(displaySegments) { segment in
-                    pillSeparator
-                    Text(segment.text)
-                        .font(Typography.labelMedium)
-                        .foregroundStyle(segment.isProminent ? Color.textPrimary : Color.textSecondary)
-                        .lineLimit(1)
-                }
-            }
+            titleAndSegments(showsSegments: true)
 
             if uniformWidth != nil { Spacer(minLength: Spacing.sm) }
 
@@ -499,20 +414,58 @@ public struct ToastNotification: View {
         .opacity(isTucked ? 0 : 1)
         .disabled(isTucked)   // hidden buttons stay out of the Tab loop
         .padding(.leading, Spacing.md)
-        .padding(.trailing, Spacing.sm + Spacing.hairline)
-        .padding(.vertical, Spacing.sm + 2)
+        .padding(.trailing, ToastMetrics.trailingPadding)
+        .padding(.vertical, ToastMetrics.verticalPadding)
         .cardWidth(uniformWidth)
         .background {
-            Capsule(style: .continuous)
-                .fill(backgroundColor)
-                .shadow(color: shadowColor, radius: shadowRadius, y: 4)
+            standardShape.fill(backgroundColor)
         }
         .overlay {
-            Capsule(style: .continuous)
-                .strokeBorder(pillBorderColor, lineWidth: 1)
+            standardShape.strokeBorder(pillBorderColor, lineWidth: 1)
         }
+        .elevation(.panel)
         // Background/overlay hug the content; the cap only kicks in for very long text.
-        .frame(maxWidth: uniformWidth ?? 520)
+        .frame(maxWidth: uniformWidth ?? Sizing.toastWidth)
+    }
+
+    /// A capsule for the one-line pill; a stacked card takes the card radius.
+    private var standardShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: toast.layout == .stacked ? Sizing.radiusLarge : Sizing.radiusFull, style: .continuous)
+    }
+
+    /// The title with its detail segments: on one line after a middot, or —
+    /// stacked — on a smaller second line like a `Banner`'s message.
+    @ViewBuilder
+    private func titleAndSegments(showsSegments: Bool) -> some View {
+        let title = Text(toast.title)
+            .font(Typography.bodySmallSemibold)
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+        switch toast.layout {
+        case .inline:
+            HStack(spacing: Spacing.xs) {
+                title
+                if showsSegments {
+                    ForEach(displaySegments) { segment in
+                        pillSeparator
+                        Text(segment.text)
+                            .font(Typography.labelMedium)
+                            .foregroundStyle(segment.isProminent ? Color.textPrimary : Color.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+        case .stacked:
+            VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
+                title
+                if showsSegments, !displaySegments.isEmpty {
+                    Text(displaySegments.map(\.text).joined(separator: " · "))
+                        .font(Typography.captionSmall)
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(2)
+                }
+            }
+        }
     }
 
     /// Error pill — click anywhere on it to expand the full error inline (selectable),
@@ -521,27 +474,14 @@ public struct ToastNotification: View {
         // Finite collapsed radius (≈ the pill's half-height, so it still reads as a
         // capsule) — `.infinity` can't be interpolated, so the corner radius would
         // jump instead of morph. Finite lets it animate cleanly into the card.
-        let cornerRadius: CGFloat = expanded ? Sizing.radiusLarge : 22
+        let collapsedRadius = toast.layout == .stacked ? Sizing.radiusLarge : ToastMetrics.collapsedCornerRadius
+        let cornerRadius: CGFloat = expanded ? Sizing.radiusLarge : collapsedRadius
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Spacing.sm) {
                 ToastStatusIcon(glyph: toast.customIcon ?? toast.style.glyph, color: toast.style.iconColor)
 
-                HStack(spacing: Spacing.xs) {
-                    Text(toast.title)
-                        .font(Typography.labelMedium)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    if !expanded {
-                        ForEach(displaySegments) { segment in
-                            pillSeparator
-                            Text(segment.text)
-                                .font(Typography.labelMedium)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
+                titleAndSegments(showsSegments: !expanded)
 
                 Spacer(minLength: Spacing.sm)
 
@@ -584,16 +524,14 @@ public struct ToastNotification: View {
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
-                        AutoHeightScroll(showFadeMask: true, maxHeight: 200) {
+                        AutoHeightScroll(showFadeMask: true, maxHeight: ToastMetrics.failuresScrollHeight) {
                             VStack(spacing: 0) {
                                 DividedForEach(toast.failures) { failure in
                                     ToastFailureRow(failure: failure)
-                                } separator: {
-                                    Divider().opacity(0.5)
                                 }
                             }
                         }
-                        .frame(maxHeight: 200)
+                        .frame(maxHeight: ToastMetrics.failuresScrollHeight)
                     }
 
                     HStack(spacing: Spacing.md) {
@@ -606,7 +544,7 @@ public struct ToastNotification: View {
                             }
                             .foregroundStyle(copied ? Success.success500 : Color.accent)
                         }
-                        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 3))
+                        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: Spacing.ringOutset))
 
                         if !toast.actions.isEmpty {
                             inlineActions
@@ -622,16 +560,17 @@ public struct ToastNotification: View {
         .opacity(isTucked ? 0 : 1)
         .disabled(isTucked)   // hidden buttons stay out of the Tab loop
         .padding(.leading, Spacing.md)
-        .padding(.trailing, Spacing.sm + Spacing.hairline)
-        .padding(.vertical, Spacing.sm + 2)
+        .padding(.trailing, ToastMetrics.trailingPadding)
+        .padding(.vertical, ToastMetrics.verticalPadding)
         .cardWidth(uniformWidth)
         .background {
-            shape.fill(backgroundColor).shadow(color: shadowColor, radius: shadowRadius, y: 4)
+            shape.fill(backgroundColor)
         }
         .overlay {
             shape.strokeBorder(pillBorderColor, lineWidth: 1)
         }
-        .frame(maxWidth: uniformWidth ?? (expanded ? 460 : 520))
+        .elevation(.panel)
+        .frame(maxWidth: uniformWidth ?? Sizing.toastWidth)
     }
 
     private var errorText: String {
@@ -655,7 +594,7 @@ public struct ToastNotification: View {
         NSPasteboard.general.setString(payload, forType: .string)
         copied = true
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: ToastMetrics.copiedResetDelay)
             copied = false
         }
     }
@@ -674,24 +613,41 @@ public struct ToastNotification: View {
     private var inlineActions: some View {
         HStack(spacing: Spacing.sm) {
             ForEach(toast.actions) { action in
-                Button {
-                    action.action()
-                    // Acting on a toast settles it — otherwise a Retry or an
-                    // Open in Finder would leave it sitting in the stack.
-                    onDismiss?()
-                } label: {
-                    HStack(spacing: Spacing.xxs) {
-                        if let icon = action.icon {
-                            Image(systemName: icon)
-                                .font(Typography.labelTiny)
-                        }
-                        Text(action.label)
-                            .font(Typography.labelMedium)
+                if action.isProminent {
+                    Button {
+                        run(action)
+                    } label: {
+                        actionLabel(action)
                     }
-                    .foregroundStyle(Color.accent)
+                    .buttonStyle(SecondaryButtonStyle(compact: true, accent: true))
+                } else {
+                    Button {
+                        run(action)
+                    } label: {
+                        actionLabel(action)
+                            .font(Typography.labelMedium)
+                            .foregroundStyle(Color.accent)
+                    }
+                    .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: Spacing.ringOutset))
                 }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 3))
             }
+        }
+    }
+
+    private func run(_ action: ToastAction) {
+        action.action()
+        // Acting on a toast settles it — otherwise a Retry or an
+        // Open in Finder would leave it sitting in the stack.
+        onDismiss?()
+    }
+
+    private func actionLabel(_ action: ToastAction) -> some View {
+        HStack(spacing: Spacing.xxs) {
+            if let icon = action.icon {
+                Image(systemName: icon)
+                    .font(Typography.labelTiny)
+            }
+            Text(action.label)
         }
     }
 
@@ -704,10 +660,10 @@ public struct ToastNotification: View {
             .foregroundStyle(.secondary)
     }
 
-    /// Subtle hairline around the toast: the theme's border, else a neutral one.
+    /// The hairline around the toast: neutral, or the status wash's border on
+    /// an error or warning that stays up.
     private var pillBorderColor: Color {
-        if ThemeColors.activePalette != nil { return Color.menuBorder }
-        return colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
+        toast.style.borderColor(for: colorScheme)
     }
 }
 
@@ -731,7 +687,7 @@ struct ToastFailureRow: View {
     let failure: ToastFailure
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Spacing.insetSpacing) {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: "doc")
                     .font(Typography.labelSmall)
@@ -884,7 +840,23 @@ struct ToastFailureRow: View {
             toast: .info(
                 title: "Update available",
                 message: "Version 2.4.0",
-                actions: [ToastAction(label: "Install") {}]
+                actions: [ToastAction(label: "Install", isProminent: true) {}]
+            ),
+            onDismiss: {}
+        )
+    }
+}
+
+#Preview("Toast - Stacked", traits: .fixedLayout(width: 460, height: 150)) {
+    ZStack {
+        Color.windowBackground.ignoresSafeArea()
+
+        ToastNotification(
+            toast: ToastData(
+                title: "Backup complete",
+                message: "Saved 1.2 GB to the external drive in 4 minutes.",
+                style: .success,
+                layout: .stacked
             ),
             onDismiss: {}
         )

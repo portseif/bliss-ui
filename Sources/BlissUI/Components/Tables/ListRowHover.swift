@@ -12,17 +12,27 @@ extension View {
     /// Self-contained variant: tracks its own hover state. Use it when the row
     /// doesn't already need `isHovering` for something else (a reveal-on-hover
     /// button), or when the row is built inline and can't hold `@State`.
-    /// `isEnabled: false` keeps the layout but never fills (a row that's only
-    /// tappable sometimes).
+    /// `isSelected` draws the stronger selected fill instead of waiting for
+    /// hover; `isEnabled: false` keeps the layout but never fills (a row that's
+    /// only tappable sometimes). A card with its own shape passes `cornerRadius`.
     public func rowHover(
         verticalPadding: CGFloat = Spacing.listRowPadding,
         horizontalBleed: CGFloat = Spacing.sm,
+        cornerRadius: CGFloat = Sizing.radiusMedium,
+        isSelected: Bool = false,
         isEnabled: Bool = true
     ) -> some View {
-        modifier(RowHoverModifier(verticalPadding: verticalPadding, horizontalBleed: horizontalBleed, isEnabled: isEnabled))
+        modifier(RowHoverModifier(
+            verticalPadding: verticalPadding,
+            horizontalBleed: horizontalBleed,
+            cornerRadius: cornerRadius,
+            isSelected: isSelected,
+            isEnabled: isEnabled
+        ))
     }
 
-    /// Fills a list row with the neutral `RowTint` hover wash.
+    /// Fills a list row with the neutral `RowTint` hover wash, or the selected
+    /// wash while `isSelected`.
     ///
     /// The fill bleeds `horizontalBleed` past the row's content on both sides and
     /// the matching negative padding pulls the layout back, so rows still line up
@@ -32,13 +42,29 @@ extension View {
         isHovering: Bool,
         scheme: ColorScheme,
         verticalPadding: CGFloat = Spacing.listRowPadding,
-        horizontalBleed: CGFloat = Spacing.sm
+        horizontalBleed: CGFloat = Spacing.sm,
+        cornerRadius: CGFloat = Sizing.radiusMedium,
+        isSelected: Bool = false
+    ) -> some View {
+        let fill: Color = isSelected ? RowTint.selected(scheme) : (isHovering ? RowTint.hover(scheme) : .clear)
+        return listRowFill(fill, verticalPadding: verticalPadding, horizontalBleed: horizontalBleed, cornerRadius: cornerRadius)
+    }
+
+    /// The row geometry every flat list shares — padding, the bleeding fill,
+    /// the negative padding that pulls the layout back — with any fill. The
+    /// public modifiers above pick the `RowTint`; a row with its own state
+    /// (a dragged row on the control surface) passes the color itself.
+    func listRowFill(
+        _ fill: Color,
+        verticalPadding: CGFloat = Spacing.listRowPadding,
+        horizontalBleed: CGFloat = Spacing.sm,
+        cornerRadius: CGFloat = Sizing.radiusMedium
     ) -> some View {
         padding(.vertical, verticalPadding)
             .padding(.horizontal, horizontalBleed)
             .background {
-                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                    .fill(isHovering ? RowTint.hover(scheme) : Color.clear)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(fill)
             }
             .padding(.horizontal, -horizontalBleed)
     }
@@ -47,6 +73,8 @@ extension View {
 private struct RowHoverModifier: ViewModifier {
     let verticalPadding: CGFloat
     let horizontalBleed: CGFloat
+    let cornerRadius: CGFloat
+    let isSelected: Bool
     var isEnabled = true
 
     @Environment(\.colorScheme) private var scheme
@@ -58,7 +86,9 @@ private struct RowHoverModifier: ViewModifier {
                 isHovering: isHovering && isEnabled,
                 scheme: scheme,
                 verticalPadding: verticalPadding,
-                horizontalBleed: horizontalBleed
+                horizontalBleed: horizontalBleed,
+                cornerRadius: cornerRadius,
+                isSelected: isSelected && isEnabled
             )
             .onHover { hovering in
                 withAnimation(Animations.hover) { isHovering = hovering }
@@ -145,11 +175,15 @@ private struct KeyboardTapFocusLayer: View {
     }
 }
 
-#Preview(traits: .fixedLayout(width: 360, height: 140)) {
+#Preview(traits: .fixedLayout(width: 360, height: 180)) {
     VStack(alignment: .leading, spacing: 0) {
         Text("Hovered row")
             .frame(maxWidth: .infinity, alignment: .leading)
             .listRowHover(isHovering: true, scheme: .dark)
+        Divider()
+        Text("Selected row")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .listRowHover(isHovering: false, scheme: .dark, isSelected: true)
         Divider()
         Text("Idle row")
             .frame(maxWidth: .infinity, alignment: .leading)

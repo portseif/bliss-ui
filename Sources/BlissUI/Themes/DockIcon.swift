@@ -71,6 +71,8 @@ struct DockIconPicker: View {
     }
 }
 
+/// One pickable tile on the Appearance page: the icon on a hover wash, with
+/// the accent ring the mode thumbnails and theme cards share when picked.
 private struct DockIconTile: View {
     let option: DockIconOption
     let isSelected: Bool
@@ -79,7 +81,7 @@ private struct DockIconTile: View {
     @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private static let size: CGFloat = 40
+    private static let size: CGFloat = Sizing.controlXLarge
     private static let cornerRadius: CGFloat = Sizing.radiusMedium
 
     var body: some View {
@@ -88,14 +90,14 @@ private struct DockIconTile: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: Self.size, height: Self.size)
-                .padding(4)
+                .padding(Spacing.xxs)
                 .background {
                     RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                         .fill(isHovering && !isSelected ? RowTint.hover(colorScheme) : Color.clear)
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-                        .strokeBorder(isSelected ? Color.accent : Color.clear, lineWidth: 2)
+                        .strokeBorder(isSelected ? Color.accent : Color.clear, lineWidth: AppearanceSettingsMetrics.selectionRingWidth)
                 }
                 .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
         }

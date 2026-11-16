@@ -290,6 +290,20 @@ public enum RowTint {
         // Twice the hover, as in light — the same 0.04 made a selected row look hovered.
         return Color.primary.opacity((scheme == .dark ? 0.08 : 0.10) * contrastFactor)
     }
+
+    /// A static band a step above the surface — a table's header, a console's
+    /// header strip. Hover's weight, but a surface: never animated, never a hover.
+    public static func band(_ scheme: ColorScheme) -> Color {
+        if prefersIncreasedContrast { return Color.primary.opacity(scheme == .dark ? 0.14 : 0.12) }
+        return scheme == .dark ? Color.black.opacity(0.22) : Color.primary.opacity(0.06 * contrastFactor)
+    }
+
+    /// The alternate rows of a striped table: half of hover, so hover still
+    /// reads above it.
+    public static func stripe(_ scheme: ColorScheme) -> Color {
+        if prefersIncreasedContrast { return Color.primary.opacity(0.06) }
+        return Color.primary.opacity((scheme == .dark ? 0.02 : 0.025) * contrastFactor)
+    }
 }
 
 /// System Settings → Accessibility → Display → Increase contrast. The faint
@@ -515,6 +529,12 @@ extension Color {
         let increased = prefersIncreasedContrast
         if let palette = ThemeColors.activePalette { return palette.border.color.opacity(increased ? 1 : min(0.5 * contrastFactor, 1)) }
         return Color.primary.opacity(increased ? 0.25 : 0.08 * contrastFactor)
+    }
+
+    /// The faint fill a box rests on — an input, a code block, an option card,
+    /// a kanban column — before focus or hover lifts it to `controlBackground`.
+    public static var restingFill: Color {
+        Color.primary.opacity((prefersIncreasedContrast ? 0.08 : 0.04) * contrastFactor)
     }
 
     /// Background for the main content pane on Tahoe+. The pane sits on the

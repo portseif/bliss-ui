@@ -1,12 +1,14 @@
 //
-//  TimeOfDayField.swift
+//  TimeField.swift
 //  BlissUI
 //
-//  The time half of a `DatePickerField`: hour, minute and — in 12-hour
-//  locales — AM/PM segments, in the locale's order and with its separators
-//  ("9:41 AM", "09:41", "9.41", "오전 9:41"). Each segment is a Tab stop that
-//  ↑ / ↓ step and digits type into, like the native date picker's text field.
-//  A list of times in a menu would open at midnight, 36 rows above 9 AM.
+//  A time of day as segments — hour, minute, optional seconds and, in 12-hour
+//  locales, AM/PM — in the locale's order and with its separators ("9:41 AM",
+//  "09:41", "9.41", "오전 9:41"). Each segment is a Tab stop that ↑ / ↓ step
+//  and digits type into, like the native date picker's text field. A list of
+//  times in a menu would open at midnight, 36 rows above 9 AM. It's the time
+//  half of a `DatePickerField(showsTime:)` and a field of its own ("Quiet
+//  hours", "Daily at").
 //
 
 import SwiftUI
@@ -14,11 +16,12 @@ import SwiftUI
 // MARK: - Layout
 
 /// The segments and separators of the locale's short time, parsed from its
-/// date-format pattern ("h:mm a", "HH:mm", "a h:mm").
+/// date-format pattern ("h:mm a", "HH:mm", "a h:mm", "HH:mm:ss").
 nonisolated struct TimeFieldLayout: Equatable {
     enum Part: Hashable {
         case hour
         case minute
+        case second
         case period
         case literal(String)
     }
@@ -40,8 +43,9 @@ nonisolated struct TimeFieldLayout: Equatable {
 
     /// The locale's own hour cycle and order: "j" is its preferred hour, which
     /// honors the 24-hour setting in System Settings.
-    init(locale: Locale) {
-        self.init(pattern: DateFormatter.dateFormat(fromTemplate: "jmm", options: 0, locale: locale) ?? "HH:mm")
+    init(locale: Locale, showsSeconds: Bool = false) {
+        let template = showsSeconds ? "jmmss" : "jmm"
+        self.init(pattern: DateFormatter.dateFormat(fromTemplate: template, options: 0, locale: locale) ?? (showsSeconds ? "HH:mm:ss" : "HH:mm"))
     }
 
     init(pattern: String) {
@@ -93,6 +97,9 @@ nonisolated struct TimeFieldLayout: Equatable {
             case "m":
                 flushLiteral()
                 parts.append(.minute)
+            case "s":
+                flushLiteral()
+                parts.append(.second)
             case "a", "b", "B":
                 flushLiteral()
                 parts.append(.period)
@@ -178,10 +185,22 @@ nonisolated enum TimeStepping {
 
 // MARK: - Field
 
-/// Edits the time of day of `date`, keeping its day. Disabled while `date` is nil.
-struct TimeOfDayField: View {
-    @Binding var date: Date?
-    let minuteInterval: Int
+/// A time of day, edited segment by segment.
+///
+/// ```swift
+/// TimeField("Quiet hours start", selection: $quietStart)
+/// TimeField("Daily at", selection: $runTime, minuteInterval: 15)
+/// ```
+///
+/// Disabled while `selection` is nil (a `DatePickerField` with no date yet);
+/// pass a date to edit its time, the day is kept. The segments follow the
+/// locale: the user's 12- or 24-hour setting, its separators, and AM/PM where
+/// it has one. `showsSeconds` adds a seconds segment.
+public struct TimeField: View {
+    private let title: LocalizedStringKey?
+    @Binding private var date: Date?
+    private let minuteInterval: Int
+    private let showsSeconds: Bool
 
     @Environment(\.calendar) private var calendar
     @Environment(\.locale) private var locale
@@ -190,17 +209,68 @@ struct TimeOfDayField: View {
     /// one key at a time).
     @State private var typedDigits = ""
 
-    private var layout: TimeFieldLayout { TimeFieldLayout(locale: locale) }
-
-    private var components: (hour: Int, minute: Int)? {
-        guard let date else { return nil }
-        let parts = calendar.dateComponents([.hour, .minute], from: date)
-        return (parts.hour ?? 0, parts.minute ?? 0)
+    /// - Parameters:
+    ///   - title: The field's VoiceOver label, looked up in your app's strings.
+    ///   - selection: The date whose time of day is edited; nil disables the field.
+    ///   - minuteInterval: How far ↑ / ↓ move the minutes.
+    ///   - showsSeconds: Adds a seconds segment after the minutes.
+    public init(
+        _ title: LocalizedStringKey,
+        selection: Binding<Date?>,
+        minuteInterval: Int = 5,
+        showsSeconds: Bool = false
+    ) {
+        self.title = title
+        self._date = selection
+        self.minuteInterval = minuteInterval
+        self.showsSeconds = showsSeconds
     }
 
-    var body: some View {
+    /// A field that always holds a time (the day of `selection` is kept).
+    public init(
+        _ title: LocalizedStringKey,
+        selection: Binding<Date>,
+        minuteInterval: Int = 5,
+        showsSeconds: Bool = false
+    ) {
+        self.init(
+            title,
+            selection: Binding<Date?>(
+                get: { selection.wrappedValue },
+                set: { newValue in if let newValue { selection.wrappedValue = newValue } }
+            ),
+            minuteInterval: minuteInterval,
+            showsSeconds: showsSeconds
+        )
+    }
+
+    /// The time half of a `DatePickerField`, labeled by its segments alone.
+    init(selection: Binding<Date?>, minuteInterval: Int) {
+        self.title = nil
+        self._date = selection
+        self.minuteInterval = minuteInterval
+        self.showsSeconds = false
+    }
+
+    private var layout: TimeFieldLayout { TimeFieldLayout(locale: locale, showsSeconds: showsSeconds) }
+
+    private var components: (hour: Int, minute: Int, second: Int)? {
+        guard let date else { return nil }
+        let parts = calendar.dateComponents([.hour, .minute, .second], from: date)
+        return (parts.hour ?? 0, parts.minute ?? 0, parts.second ?? 0)
+    }
+
+    public var body: some View {
+        if let title {
+            field.accessibilityLabel(Text(title))
+        } else {
+            field
+        }
+    }
+
+    private var field: some View {
         let layout = layout
-        HStack(spacing: 0) {
+        return HStack(spacing: 0) {
             ForEach(Array(layout.parts.enumerated()), id: \.offset) { _, part in
                 if case .literal(let text) = part {
                     Text(verbatim: text)
@@ -211,13 +281,13 @@ struct TimeOfDayField: View {
                 }
             }
         }
-        .font(Typography.bodySmall)
+        .font(Typography.labelMedium)
         .monospacedDigit()
-        .padding(.horizontal, Spacing.xs)
-        .frame(height: Sizing.controlDefault + Spacing.hairline)
-        .inputBox(isFocused: focusedSegment != nil, cornerRadius: Sizing.radiusMedium)
+        .padding(.horizontal, Spacing.fieldPaddingH)
+        .frame(minHeight: Sizing.controlDefault)
+        .inputBox(isFocused: focusedSegment != nil)
         .disabled(date == nil)
-        .opacity(date == nil ? 0.5 : 1)
+        .opacity(date == nil ? Animations.disabledOpacity : 1)
         .onChange(of: focusedSegment) { _, _ in typedDigits = "" }
         .accessibilityElement(children: .contain)
     }
@@ -228,6 +298,7 @@ struct TimeOfDayField: View {
         let isFocused = focusedSegment == part
         return Text(verbatim: text(for: part, layout: layout))
             .foregroundStyle(isFocused ? AnyShapeStyle(AccentHue.contrastForeground) : AnyShapeStyle(.primary))
+            // Half a hairline: the focused block hugs its digits.
             .padding(.horizontal, Spacing.hairline / 2)
             .background {
                 RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
@@ -265,6 +336,7 @@ struct TimeOfDayField: View {
         switch part {
         case .hour: return Text("Hour", bundle: .module)
         case .minute: return Text("Minute", bundle: .module)
+        case .second: return Text("Second", bundle: .module)
         default: return Text("AM/PM", bundle: .module)
         }
     }
@@ -279,6 +351,8 @@ struct TimeOfDayField: View {
             return hour.formatted(.number.locale(locale).grouping(.never).precision(.integerLength(layout.padsHour ? 2 : 1)))
         case .minute:
             return components.minute.formatted(.number.locale(locale).grouping(.never).precision(.integerLength(2)))
+        case .second:
+            return components.second.formatted(.number.locale(locale).grouping(.never).precision(.integerLength(2)))
         case .period:
             return components.hour >= 12 ? calendar.pmSymbol : calendar.amSymbol
         case .literal(let text):
@@ -288,9 +362,9 @@ struct TimeOfDayField: View {
 
     // MARK: Editing
 
-    private func setTime(hour: Int, minute: Int) {
+    private func setTime(hour: Int, minute: Int, second: Int) {
         guard let date else { return }
-        self.date = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date) ?? date
+        self.date = calendar.date(bySettingHour: hour, minute: minute, second: second, of: date) ?? date
     }
 
     private func step(_ part: TimeFieldLayout.Part, by direction: Int) {
@@ -298,11 +372,13 @@ struct TimeOfDayField: View {
         typedDigits = ""
         switch part {
         case .hour:
-            setTime(hour: TimeStepping.step(hour: components.hour, by: direction), minute: components.minute)
+            setTime(hour: TimeStepping.step(hour: components.hour, by: direction), minute: components.minute, second: components.second)
         case .minute:
-            setTime(hour: components.hour, minute: TimeStepping.step(minute: components.minute, by: direction, interval: minuteInterval))
+            setTime(hour: components.hour, minute: TimeStepping.step(minute: components.minute, by: direction, interval: minuteInterval), second: components.second)
+        case .second:
+            setTime(hour: components.hour, minute: components.minute, second: TimeStepping.step(minute: components.second, by: direction, interval: 1))
         case .period:
-            setTime(hour: (components.hour + 12) % 24, minute: components.minute)
+            setTime(hour: (components.hour + 12) % 24, minute: components.minute, second: components.second)
         case .literal:
             break
         }
@@ -316,18 +392,18 @@ struct TimeOfDayField: View {
         focusedSegment = segments[target]
     }
 
-    /// Digits set the hour or minute as they're typed and move on once the
-    /// segment is whole; the first letter of AM or PM picks the period.
+    /// Digits set the hour, minute or second as they're typed and move on once
+    /// the segment is whole; the first letter of AM or PM picks the period.
     private func type(_ characters: String, into part: TimeFieldLayout.Part, layout: TimeFieldLayout) -> Bool {
         guard let components, let character = characters.first else { return false }
         if part == .period {
             let typed = String(character).lowercased()
             if calendar.amSymbol.lowercased().hasPrefix(typed), components.hour >= 12 {
-                setTime(hour: components.hour - 12, minute: components.minute)
+                setTime(hour: components.hour - 12, minute: components.minute, second: components.second)
                 return true
             }
             if calendar.pmSymbol.lowercased().hasPrefix(typed), components.hour < 12 {
-                setTime(hour: components.hour + 12, minute: components.minute)
+                setTime(hour: components.hour + 12, minute: components.minute, second: components.second)
                 return true
             }
             return calendar.amSymbol.lowercased().hasPrefix(typed) || calendar.pmSymbol.lowercased().hasPrefix(typed)
@@ -347,9 +423,11 @@ struct TimeOfDayField: View {
                 typedDigits = digits
                 return true
             }
-            setTime(hour: hour, minute: components.minute)
+            setTime(hour: hour, minute: components.minute, second: components.second)
         case .minute:
-            setTime(hour: components.hour, minute: candidate)
+            setTime(hour: components.hour, minute: candidate, second: components.second)
+        case .second:
+            setTime(hour: components.hour, minute: components.minute, second: candidate)
         default:
             return false
         }
@@ -362,4 +440,16 @@ struct TimeOfDayField: View {
         }
         return true
     }
+}
+
+// MARK: - Previews
+
+#Preview("Time field", traits: .fixedLayout(width: 320, height: 120)) {
+    @Previewable @State var start: Date? = Date()
+    @Previewable @State var run = Date()
+    VStack(alignment: .leading, spacing: Spacing.md) {
+        TimeField("Quiet hours start", selection: $start)
+        TimeField("Daily at", selection: $run, minuteInterval: 15, showsSeconds: true)
+    }
+    .padding(Spacing.lg)
 }

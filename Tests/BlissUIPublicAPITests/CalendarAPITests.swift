@@ -58,7 +58,7 @@ import BlissUI
         _ = DateRangePickerField("Trip", selection: .constant(nil as ClosedRange<Date>?), placeholder: "Any dates", presets: [.today], minimumDate: Date())
 
         _ = DateRangeCalendar(selection: .constant(week))
-        _ = DateRangeCalendar(selection: .constant(week), presets: [.thisMonth, .lastMonth], minimumDate: nil, maximumDate: nil) {}
+        _ = DateRangeCalendar(selection: .constant(week), presets: [.thisMonth, .lastMonth], minimumDate: nil, maximumDate: nil, onCommit: {})
         _ = DateRangeCalendar(selection: .constant(nil as ClosedRange<Date>?), presets: DateRangePreset.standard, onCommit: {})
     }
 

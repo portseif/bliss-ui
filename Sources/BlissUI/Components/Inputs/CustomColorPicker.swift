@@ -16,6 +16,9 @@
 //  `isUsingDefault` to "accent option is System", and the default to
 //  `ColorPickerDefault.accent(of: BlissAppearance.theme)`.
 //
+//  The HSL rows are `BlissSlider`s over a gradient rail, so they're Tab stops
+//  with the shared ring and the arrow keys, like every slider.
+//
 
 import SwiftUI
 
@@ -55,28 +58,29 @@ public struct ColorPickerDefault {
 
     /// Dark glyph on a light swatch, white on anything else.
     var glyphColor: Color {
-        guard let srgb = color.usingColorSpace(.sRGB) else { return .white.opacity(0.9) }
+        guard let srgb = color.usingColorSpace(.sRGB) else { return .white.opacity(ColorPickerMetrics.glyphOpacity) }
         let luminance = 0.2126 * srgb.redComponent + 0.7152 * srgb.greenComponent + 0.0722 * srgb.blueComponent
-        return luminance > 0.6 ? .black.opacity(0.7) : .white.opacity(0.9)
+        return luminance > ColorPickerMetrics.lightSwatchLuminance ? .black.opacity(ColorPickerMetrics.darkGlyphOpacity) : .white.opacity(ColorPickerMetrics.glyphOpacity)
     }
 }
 
-/// The picker's swatch: a small tile with a hairline.
+/// The picker's swatch: a small tile with a hairline, the height of a field
+/// (or of a small control when compact).
 struct ColorPickerSwatch: View {
     let color: Color
+    var compact = false
 
     var body: some View {
         RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
             .fill(color)
-            .frame(width: 44, height: 24)
+            .frame(width: ColorPickerMetrics.swatchWidth, height: compact ? Sizing.controlSmall : Sizing.controlDefault)
             .overlay {
                 RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(Color.menuBorder, lineWidth: 1)
             }
     }
 }
 
-/// A color swatch button that opens a popover with HSL sliders and an Apply button.
 /// How a `ColorPickerButton` shows its color.
 public nonisolated enum ColorPickerButtonLabel: Sendable {
     /// A small swatch.
@@ -85,6 +89,8 @@ public nonisolated enum ColorPickerButtonLabel: Sendable {
     case hexChip
 }
 
+/// A color swatch button that opens a popover with HSL sliders and an Apply button.
+///
 /// Bind `red`/`green`/`blue` (0...1). Pass `isUsingDefault` only where a default
 /// applies (`defaultOption`: the system accent unless given another); omit it for
 /// a plain custom color.
@@ -97,6 +103,9 @@ public struct ColorPickerButton: View {
     var isUsingDefault: Binding<Bool>? = nil
     var defaultOption: ColorPickerDefault = .systemAccent
     var label: ColorPickerButtonLabel = .swatch
+    /// The dense `Sizing.controlSmall` height for a toolbar; the default is a
+    /// field's `Sizing.controlDefault`.
+    var compact = false
     var onColorApplied: () -> Void = {}
 
     @State private var showingPopover = false
@@ -108,6 +117,13 @@ public struct ColorPickerButton: View {
     /// color (a theme's accent differs per scheme; the system's can change).
     @State private var openedOnDefault: [Double]?
 
+    /// - Parameters:
+    ///   - red: The color's red component (0...1); likewise `green` and `blue`.
+    ///   - isUsingDefault: Whether the default is in use; nil for a plain color.
+    ///   - defaultOption: The default offered as the first preset.
+    ///   - label: A swatch, or a capsule with the hex value.
+    ///   - compact: The dense `Sizing.controlSmall` height for a toolbar.
+    ///   - onColorApplied: Called after Apply or the default swatch.
     public init(
         red: Binding<Double>,
         green: Binding<Double>,
@@ -115,6 +131,7 @@ public struct ColorPickerButton: View {
         isUsingDefault: Binding<Bool>? = nil,
         defaultOption: ColorPickerDefault = .systemAccent,
         label: ColorPickerButtonLabel = .swatch,
+        compact: Bool = false,
         onColorApplied: @escaping () -> Void = {}
     ) {
         self._red = red
@@ -123,6 +140,7 @@ public struct ColorPickerButton: View {
         self.isUsingDefault = isUsingDefault
         self.defaultOption = defaultOption
         self.label = label
+        self.compact = compact
         self.onColorApplied = onColorApplied
     }
 
@@ -170,12 +188,13 @@ public struct ColorPickerButton: View {
         } label: {
             switch label {
             case .swatch:
-                ColorPickerSwatch(color: displayColor)
+                ColorPickerSwatch(color: displayColor, compact: compact)
             case .hexChip:
-                ColorHexChip(color: displayColor, hex: displayHex)
+                ColorHexChip(color: displayColor, hex: displayHex, compact: compact)
             }
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: label == .hexChip ? Sizing.radiusFull : Sizing.radiusSmall))
+        // The hover wash and press every clickable card shares.
+        .buttonStyle(SelectableCardButtonStyle(cornerRadius: label == .hexChip ? Sizing.radiusFull : Sizing.radiusSmall))
         .accessibilityLabel(Text("Choose color", bundle: .module))
         .popover(isPresented: $showingPopover) {
             ColorPickerPopover(
@@ -212,21 +231,22 @@ public struct ColorPickerButton: View {
 private struct ColorHexChip: View {
     let color: Color
     let hex: String
+    var compact = false
 
     var body: some View {
         HStack(spacing: Spacing.xs) {
             Circle()
                 .fill(color)
-                .frame(width: 14, height: 14)
-                .overlay { Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1) }
+                .frame(width: Sizing.iconSmall, height: Sizing.iconSmall)
+                .overlay { Circle().strokeBorder(Color.menuBorder, lineWidth: 1) }
             Text(verbatim: hex)
-                .font(Typography.labelMedium.monospacedDigit())
+                .font((compact ? Typography.labelSmall : Typography.labelMedium).monospacedDigit())
                 .foregroundStyle(Color.textPrimary)
         }
         .padding(.leading, Spacing.sm)
         .padding(.trailing, Spacing.md)
-        .padding(.vertical, Spacing.xs)
-        .background(Capsule().fill(Color.primary.opacity(0.04)))
+        .frame(minHeight: compact ? Sizing.controlSmall : Sizing.controlDefault)
+        .background(Capsule().fill(Color.restingFill))
         .overlay(Capsule().strokeBorder(Color.menuBorder, lineWidth: 1))
         .contentShape(Capsule())
     }
@@ -243,6 +263,9 @@ public struct ColorPickerPopover: View {
     @Binding var blue: Double
     /// The "use the default" swatch leading the presets (accent pickers only).
     var defaultOption: ColorPickerDefault? = nil
+    /// The preset swatches (and the default) under the sliders; off for a
+    /// plain custom color picker.
+    var showsPresets = true
     var onApply: () -> Void
     var onUseDefault: () -> Void
     var onCancel: () -> Void
@@ -254,11 +277,19 @@ public struct ColorPickerPopover: View {
     @State private var saturation: Double = 0
     @State private var lightness: Double = 0
 
+    /// - Parameters:
+    ///   - red: The color's red component (0...1); likewise `green` and `blue`.
+    ///   - defaultOption: The "use the default" swatch leading the presets.
+    ///   - showsPresets: The preset swatches under the sliders.
+    ///   - onApply: Apply was pressed.
+    ///   - onUseDefault: The default swatch was picked.
+    ///   - onCancel: Cancel was pressed.
     public init(
         red: Binding<Double>,
         green: Binding<Double>,
         blue: Binding<Double>,
         defaultOption: ColorPickerDefault? = nil,
+        showsPresets: Bool = true,
         onApply: @escaping () -> Void,
         onUseDefault: @escaping () -> Void,
         onCancel: @escaping () -> Void
@@ -267,6 +298,7 @@ public struct ColorPickerPopover: View {
         self._green = green
         self._blue = blue
         self.defaultOption = defaultOption
+        self.showsPresets = showsPresets
         self.onApply = onApply
         self.onUseDefault = onUseDefault
         self.onCancel = onCancel
@@ -290,10 +322,10 @@ public struct ColorPickerPopover: View {
             VStack(spacing: Spacing.xs) {
                 RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
                     .fill(previewColor)
-                    .frame(height: 50)
+                    .frame(height: ColorPickerMetrics.previewHeight)
                     .overlay {
                         RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+                            .strokeBorder(Color.menuBorder, lineWidth: 1)
                     }
 
                 Text(hexValue)
@@ -301,65 +333,41 @@ public struct ColorPickerPopover: View {
                     .foregroundStyle(.tertiary)
             }
 
-            // HSL Sliders.
+            // HSL sliders: each slides over its own ramp, with the thumb in the
+            // color it points at.
             VStack(spacing: Spacing.sm) {
-                HueSliderRow(hue: $hue, onChanged: updateRGBFromHSL)
-                SaturationSliderRow(saturation: $saturation, hue: hue, onChanged: updateRGBFromHSL)
-                LightnessSliderRow(lightness: $lightness, hue: hue, saturation: saturation, onChanged: updateRGBFromHSL)
+                sliderRow(
+                    letter: "H",
+                    title: .verbatim(String(localized: "Hue", bundle: .module)),
+                    value: hueBinding,
+                    thumb: Color(hue: hue, saturation: 1, brightness: 1),
+                    gradient: hueGradient
+                ) { Text(verbatim: "\(Int($0 * 360))°") }
+                sliderRow(
+                    letter: "S",
+                    title: .verbatim(String(localized: "Saturation", bundle: .module)),
+                    value: saturationBinding,
+                    thumb: Color(hue: hue, saturation: saturation, brightness: 1),
+                    gradient: saturationGradient
+                ) { Text($0, format: .percent.precision(.fractionLength(0)).rounded(rule: .towardZero)) }
+                sliderRow(
+                    letter: "L",
+                    title: .verbatim(String(localized: "Lightness", bundle: .module)),
+                    value: lightnessBinding,
+                    thumb: Color(red: lightness, green: lightness, blue: lightness),
+                    gradient: lightnessGradient
+                ) { Text($0, format: .percent.precision(.fractionLength(0)).rounded(rule: .towardZero)) }
             }
 
-            // Preset colors, led by the default (system or theme accent) when there is one.
-            HStack(spacing: Spacing.xs) {
-                if let defaultOption {
-                    // Clicking the default applies it immediately.
-                    Button {
-                        onUseDefault()
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color(nsColor: defaultOption.color))
-                                .frame(width: 22, height: 22)
-
-                            Image(systemName: defaultOption.symbol)
-                                .font(Typography.labelXTinyBold)
-                                .foregroundStyle(defaultOption.glyphColor)
-                        }
-                        .overlay {
-                            Circle()
-                                .strokeBorder(Color.primary.opacity(0.2), lineWidth: 1)
-                        }
-                    }
-                    .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
-                    .tooltip(configuration: .iconHint, position: .above) {
-                        Text(defaultOption.label).font(Typography.labelSmall)
-                    }
-                    .accessibilityLabel(Text(defaultOption.label))
-                }
-
-                ForEach(presetColors, id: \.self) { preset in
-                    Button {
-                        red = preset.red
-                        green = preset.green
-                        blue = preset.blue
-                        updateHSLFromRGB()
-                    } label: {
-                        Circle()
-                            .fill(Color(red: preset.red, green: preset.green, blue: preset.blue))
-                            .frame(width: 22, height: 22)
-                            .overlay {
-                                Circle()
-                                    .strokeBorder(Color.primary.opacity(0.2), lineWidth: 1)
-                            }
-                    }
-                    .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
-                    .accessibilityLabel(Text(verbatim: preset.name))
-                }
+            if showsPresets {
+                presets
             }
 
             Divider()
 
-            // Action buttons.
+            // Cancel directly left of the action, as in every footer.
             HStack(spacing: Spacing.sm) {
+                Spacer(minLength: 0)
                 Button(String(localized: "Cancel", bundle: .module)) {
                     onCancel()
                 }
@@ -374,10 +382,129 @@ public struct ColorPickerPopover: View {
             }
         }
         .padding(Spacing.md)
-        .frame(width: 240)
+        .frame(width: ColorPickerMetrics.popoverWidth)
         .onAppear {
             updateHSLFromRGB()
         }
+    }
+
+    // MARK: - Pieces
+
+    /// A letter, the slider over its ramp, and the readout.
+    private func sliderRow(
+        letter: String,
+        title: LocalizedStringKey,
+        value: Binding<Double>,
+        thumb: Color,
+        gradient: LinearGradient,
+        readout: @escaping (Double) -> Text
+    ) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Text(verbatim: letter)
+                .font(Typography.labelSmall)
+                .foregroundStyle(.secondary)
+                .frame(width: Sizing.iconDefault)
+                .accessibilityHidden(true)
+
+            BlissSlider(title, value: value, color: thumb, trackGradient: gradient, valueLabel: readout)
+        }
+    }
+
+    /// Preset colors, led by the default (system or theme accent) when there is one.
+    private var presets: some View {
+        HStack(spacing: Spacing.xs) {
+            if let defaultOption {
+                // Clicking the default applies it immediately.
+                Button {
+                    onUseDefault()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(nsColor: defaultOption.color))
+                            .frame(width: ColorPickerMetrics.presetSize, height: ColorPickerMetrics.presetSize)
+
+                        Image(systemName: defaultOption.symbol)
+                            .font(Typography.labelXTinyBold)
+                            .foregroundStyle(defaultOption.glyphColor)
+                    }
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color.menuBorder, lineWidth: 1)
+                    }
+                }
+                .buttonStyle(SelectableCardButtonStyle(cornerRadius: Sizing.radiusFull))
+                .tooltip(configuration: .iconHint, position: .above) {
+                    Text(defaultOption.label).font(Typography.labelSmall)
+                }
+                .accessibilityLabel(Text(defaultOption.label))
+            }
+
+            ForEach(presetColors, id: \.self) { preset in
+                Button {
+                    red = preset.red
+                    green = preset.green
+                    blue = preset.blue
+                    updateHSLFromRGB()
+                } label: {
+                    Circle()
+                        .fill(Color(red: preset.red, green: preset.green, blue: preset.blue))
+                        .frame(width: ColorPickerMetrics.presetSize, height: ColorPickerMetrics.presetSize)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color.menuBorder, lineWidth: 1)
+                        }
+                }
+                .buttonStyle(SelectableCardButtonStyle(cornerRadius: Sizing.radiusFull))
+                .accessibilityLabel(Text(verbatim: preset.name))
+            }
+        }
+    }
+
+    // MARK: - Ramps
+
+    /// The sliders write the HSL component and push it into RGB at once, the
+    /// way a drag did; a preset writes RGB and pulls HSL back.
+    private var hueBinding: Binding<Double> {
+        Binding(get: { hue }, set: { hue = $0; updateRGBFromHSL() })
+    }
+
+    private var saturationBinding: Binding<Double> {
+        Binding(get: { saturation }, set: { saturation = $0; updateRGBFromHSL() })
+    }
+
+    private var lightnessBinding: Binding<Double> {
+        Binding(get: { lightness }, set: { lightness = $0; updateRGBFromHSL() })
+    }
+
+    /// The rainbow.
+    private var hueGradient: LinearGradient {
+        let colors = stride(from: 0.0, through: 1.0, by: 0.1).map { h in
+            Color(hue: h, saturation: 1, brightness: 1)
+        }
+        return LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
+    }
+
+    private var saturationGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(hue: hue, saturation: 0, brightness: ColorPickerMetrics.desaturatedBrightness),
+                Color(hue: hue, saturation: 1, brightness: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    private var lightnessGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.black,
+                Color(hue: hue, saturation: saturation, brightness: 1),
+                Color.white
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
     }
 
     // MARK: - Color Conversion
@@ -468,185 +595,23 @@ struct PresetColor: Hashable {
     let blue: Double
 }
 
-// MARK: - Hue Slider Row
+// MARK: - Metrics
 
-private struct HueSliderRow: View {
-    @Binding var hue: Double
-    var onChanged: () -> Void
-
-    // Rainbow gradient for hue.
-    private var hueGradient: LinearGradient {
-        let colors = stride(from: 0.0, through: 1.0, by: 0.1).map { h in
-            Color(hue: h, saturation: 1, brightness: 1)
-        }
-        return LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
-    }
-
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            Text("H")
-                .font(Typography.codeSmallMedium)
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(hueGradient)
-                        .frame(height: 6)
-
-                    Circle()
-                        .fill(Color(hue: hue, saturation: 1, brightness: 1))
-                        .frame(width: 14, height: 14)
-                        .overlay {
-                            Circle()
-                                .strokeBorder(.white, lineWidth: 2)
-                        }
-                        .shadow(color: .black.opacity(0.2), radius: 1, y: 1)
-                        .offset(x: hue * (geometry.size.width - 14))
-                }
-                .frame(height: 14)
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let newHue = min(max(value.location.x / geometry.size.width, 0), 1)
-                            hue = newHue
-                            onChanged()
-                        }
-                )
-            }
-            .frame(height: 14)
-
-            Text("\(Int(hue * 360))°")
-                .font(Typography.codeSmall)
-                .foregroundStyle(.secondary)
-                .frame(width: 32, alignment: .trailing)
-        }
-    }
-}
-
-// MARK: - Saturation Slider Row
-
-private struct SaturationSliderRow: View {
-    @Binding var saturation: Double
-    var hue: Double
-    var onChanged: () -> Void
-
-    private var saturationGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color(hue: hue, saturation: 0, brightness: 0.8),
-                Color(hue: hue, saturation: 1, brightness: 1)
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
-
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            Text("S")
-                .font(Typography.codeSmallMedium)
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(saturationGradient)
-                        .frame(height: 6)
-
-                    Circle()
-                        .fill(Color(hue: hue, saturation: saturation, brightness: 1))
-                        .frame(width: 14, height: 14)
-                        .overlay {
-                            Circle()
-                                .strokeBorder(.white, lineWidth: 2)
-                        }
-                        .shadow(color: .black.opacity(0.2), radius: 1, y: 1)
-                        .offset(x: saturation * (geometry.size.width - 14))
-                }
-                .frame(height: 14)
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let newSat = min(max(value.location.x / geometry.size.width, 0), 1)
-                            saturation = newSat
-                            onChanged()
-                        }
-                )
-            }
-            .frame(height: 14)
-
-            Text(saturation, format: .percent.precision(.fractionLength(0)).rounded(rule: .towardZero))
-                .font(Typography.codeSmall)
-                .foregroundStyle(.secondary)
-                .frame(width: 32, alignment: .trailing)
-        }
-    }
-}
-
-// MARK: - Lightness Slider Row
-
-private struct LightnessSliderRow: View {
-    @Binding var lightness: Double
-    var hue: Double
-    var saturation: Double
-    var onChanged: () -> Void
-
-    private var lightnessGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.black,
-                Color(hue: hue, saturation: saturation, brightness: 1),
-                Color.white
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
-
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            Text("L")
-                .font(Typography.codeSmallMedium)
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(lightnessGradient)
-                        .frame(height: 6)
-
-                    Circle()
-                        .fill(Color(red: lightness, green: lightness, blue: lightness))
-                        .frame(width: 14, height: 14)
-                        .overlay {
-                            Circle()
-                                .strokeBorder(lightness > 0.5 ? Color.black.opacity(0.3) : .white, lineWidth: 2)
-                        }
-                        .shadow(color: .black.opacity(0.2), radius: 1, y: 1)
-                        .offset(x: lightness * (geometry.size.width - 14))
-                }
-                .frame(height: 14)
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let newLight = min(max(value.location.x / geometry.size.width, 0), 1)
-                            lightness = newLight
-                            onChanged()
-                        }
-                )
-            }
-            .frame(height: 14)
-
-            Text(lightness, format: .percent.precision(.fractionLength(0)).rounded(rule: .towardZero))
-                .font(Typography.codeSmall)
-                .foregroundStyle(.secondary)
-                .frame(width: 32, alignment: .trailing)
-        }
-    }
+private enum ColorPickerMetrics {
+    /// The swatch tile's width; its height is the control's.
+    static let swatchWidth: CGFloat = 44
+    /// The popover's width: the sliders need room for a ramp and a readout.
+    static let popoverWidth: CGFloat = 240
+    /// The color preview block above the hex readout.
+    static let previewHeight: CGFloat = 50
+    /// A preset circle: the default plus seven presets fit the popover.
+    static let presetSize: CGFloat = Sizing.iconMedium
+    /// The saturation ramp's grey end: a touch under white so it reads as a ramp.
+    static let desaturatedBrightness: Double = 0.8
+    /// Above this luminance a default swatch gets the dark glyph.
+    static let lightSwatchLuminance: Double = 0.6
+    static let glyphOpacity: Double = 0.9
+    static let darkGlyphOpacity: Double = 0.7
 }
 
 // MARK: - Previews
@@ -659,14 +624,18 @@ private struct ColorPickerPreview: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: Spacing.xl) {
-            ColorPickerButton(red: $red, green: $green, blue: $blue, isUsingDefault: $usesDefault)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                ColorPickerButton(red: $red, green: $green, blue: $blue, isUsingDefault: $usesDefault)
+                ColorPickerButton(red: $red, green: $green, blue: $blue, label: .hexChip)
+                ColorPickerButton(red: $red, green: $green, blue: $blue, compact: true)
+            }
             ColorPickerPopover(red: $red, green: $green, blue: $blue, defaultOption: .systemAccent, onApply: {}, onUseDefault: {}, onCancel: {})
         }
         .padding(Spacing.lg)
     }
 }
 
-#Preview("Color picker", traits: .fixedLayout(width: 380, height: 360)) {
+#Preview("Color picker", traits: .fixedLayout(width: 420, height: 360)) {
     ColorPickerPreview()
 }
 

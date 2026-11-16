@@ -10,7 +10,7 @@ import BlissUI
         _ = ProgressBar(value: 0.4)
         _ = ProgressBar(value: 3, total: 8, label: "Uploading", showsPercentage: true)
         _ = ProgressBar(value: nil, label: "Preparing…")
-        _ = ProgressBar(value: 0.9, tint: Success.success500, height: 4)
+        _ = ProgressBar(value: 0.9, tint: Success.success500, thickness: .thin)
         let optionalProgress: Double? = nil
         _ = ProgressBar(value: optionalProgress)
     }
@@ -39,9 +39,9 @@ import BlissUI
         ]
         _ = UsageBar(segments)
         _ = UsageBar(segments, capacity: 256, title: "Storage", showsTotal: true, showsLegend: true) { "\($0.formatted()) GB" }
-        _ = UsageBar(segments, height: 8, spacing: 1)
+        _ = UsageBar(segments, thickness: .thick, spacing: 1)
         _ = UsageBar(value: 412, capacity: 500)
-        _ = UsageBar(value: 412, capacity: 500, title: "Entries", showsTotal: true, height: 4) { $0.formatted() }
+        _ = UsageBar(value: 412, capacity: 500, title: "Entries", showsTotal: true, thickness: .thin) { $0.formatted() }
         var segment = segments[0]
         segment.value = 50
         segment.color = Danger.danger500

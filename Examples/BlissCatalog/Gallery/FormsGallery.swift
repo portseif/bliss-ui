@@ -14,8 +14,8 @@ extension Gallery {
         // Settings
         GalleryEntry("settings-rows", height: 312) {
             RoundedSection("General", divided: true) {
-                SettingsToggleRow("Launch at login", detail: "Opens in the menu bar when you log in.", isOn: .constant(true))
-                SettingsToggleRow("Play sounds", isOn: .constant(false))
+                SettingsToggleRow("Launch at login", detail: "Opens in the menu bar when you log in.", systemImage: "power", isOn: .constant(true))
+                SettingsToggleRow("Play sounds", badge: Badge("New").badgeStyle(.info).badgeSize(.small), isOn: .constant(false))
                 SettingsRow("Language", detail: "Used for menus and messages.") {
                     FloatingMenuPicker("Language", selection: .constant("English"), options: ["English", "Deutsch"], optionTitle: { $0 }, showsTitle: false)
                 }
@@ -26,13 +26,16 @@ extension Gallery {
         GalleryEntry("settings-table-of-contents", width: 640, height: 300) {
             GallerySettingsScrollView()
         },
-        GalleryEntry("form-field", width: 420, height: 196) {
+        GalleryEntry("form-field", width: 420, height: 256) {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 FormField("Name", hint: "Shown on your receipts.", isRequired: true) {
                     TextField("Name", text: .constant("Ada Lovelace")).textFieldStyle(.largePadded)
                 }
                 FormField("Email", error: "Enter a full address, like ada@example.com", isRequired: true) {
                     TextField("Email", text: .constant("ada@example")).textFieldStyle(.largePadded)
+                }
+                FormField("Alias", showsOptionalMark: true, labelPlacement: .leading, characterCount: (current: 3, maximum: 24)) {
+                    TextField("Alias", text: .constant("ada")).textFieldStyle(.compact)
                 }
             }
         },
@@ -75,15 +78,15 @@ extension Gallery {
         // Wizard rows
         GalleryEntry("wizard-radio-rows", width: 440, height: 212) {
             VStack(spacing: Spacing.xxs) {
-                WizardRadioRow("From a template", subtitle: "Start from a ready-made layout", icon: "square.stack.3d.up", isSelected: true) {}
-                WizardRadioRow("Import a file", subtitle: "Bring in an existing document", icon: "arrow.down.doc", isSelected: false) {}
-                WizardRadioRow("Blank", subtitle: "An empty document", icon: "doc", isSelected: false) {}
+                WizardRadioRow("From a template", detail: "Start from a ready-made layout", icon: "square.stack.3d.up", badge: Badge("Recommended").badgeStyle(.success).badgeSize(.small), isSelected: true) {}
+                WizardRadioRow("Import a file", detail: "Bring in an existing document", icon: "arrow.down.doc", isSelected: false) {}
+                WizardRadioRow("Blank", detail: "An empty document", icon: "doc", isSelected: false) {}
             }
         },
         GalleryEntry("wizard-step-rows", width: 400, height: 226) {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 WizardStepRow("Download files", detail: "128 files · 4.2 MB", number: 1, state: .done)
-                WizardStepRow("Check signatures", number: 2, state: .running)
+                WizardStepRow("Check signatures", number: 2, state: .running, progress: 0.6)
                 WizardStepRow("Install", detail: "The disk is full.", number: 3, state: .failed)
                 WizardStepRow("Choose a location", number: 4, state: .current)
                 WizardStepRow("Finish", number: 5, state: .pending)

@@ -13,6 +13,40 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Which rows an `AppearanceSettings` page offers. Mode, theme and accent are
+/// always there; the rest are opt-outs for an app that doesn't want them.
+public struct AppearanceSettingsOptions: OptionSet, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+
+    /// Import, duplicate and delete beside the theme picker.
+    public static let themeFiles = AppearanceSettingsOptions(rawValue: 1 << 0)
+    /// The font rows: family and face, sizes, content and code fonts.
+    public static let fonts = AppearanceSettingsOptions(rawValue: 1 << 1)
+    /// The contrast slider.
+    public static let contrast = AppearanceSettingsOptions(rawValue: 1 << 2)
+    /// The pointer cursor toggle.
+    public static let pointerCursors = AppearanceSettingsOptions(rawValue: 1 << 3)
+    /// The translucent sidebar toggle.
+    public static let translucentSidebar = AppearanceSettingsOptions(rawValue: 1 << 4)
+    /// Separate light and dark modes, and the mode switch above the theme card.
+    public static let separateModes = AppearanceSettingsOptions(rawValue: 1 << 5)
+
+    public static let all: AppearanceSettingsOptions = [.themeFiles, .fonts, .contrast, .pointerCursors, .translucentSidebar, .separateModes]
+}
+
+/// The page's fixed widths and the selection ring its tiles share.
+enum AppearanceSettingsMetrics {
+    /// The contrast slider.
+    static let sliderWidth: CGFloat = 220
+    /// A font size field.
+    static let fontSizeFieldWidth: CGFloat = 120
+    /// The accent ring around a picked tile (theme card, mode preview, Dock icon).
+    static let selectionRingWidth: CGFloat = 2
+    /// A theme name that doesn't fit shrinks this far before it truncates.
+    static let nameMinimumScale: CGFloat = 0.8
+}
+
 /// The Appearance settings page. Drop it into a settings view, a Settings
 /// scene or a sheet.
 public struct AppearanceSettings: View {
@@ -43,13 +77,42 @@ public struct AppearanceSettings: View {
     @AppStorage("bliss.settings.editingScheme") private var editingSchemeName = ""
 
     private let dockIcons: [DockIconOption]
+    private let options: AppearanceSettingsOptions
+    private let themes: [BlissTheme]?
+    private let footer: AnyView?
     @AppStorage(BlissAppearance.Keys.dockIcon) private var dockIconID = ""
 
-    /// - Parameter dockIcons: Dock icons to offer (`DockIconOption.appIcon()`
-    ///   first); the row shows when there are two or more. Call
-    ///   `BlissAppearance.applyDockIcon(from:)` with the same list at launch.
-    public init(dockIcons: [DockIconOption] = []) {
+    /// - Parameters:
+    ///   - dockIcons: Dock icons to offer (`DockIconOption.appIcon()`
+    ///     first); the row shows when there are two or more. Call
+    ///     `BlissAppearance.applyDockIcon(from:)` with the same list at launch.
+    ///   - options: Which optional rows to show; most apps want mode, theme
+    ///     and accent and not the font or contrast rows.
+    ///   - themes: The themes the picker offers; nil offers every registered one.
+    public init(dockIcons: [DockIconOption] = [], options: AppearanceSettingsOptions = .all, themes: [BlissTheme]? = nil) {
         self.dockIcons = dockIcons
+        self.options = options
+        self.themes = themes
+        self.footer = nil
+    }
+
+    /// The same page with the app's own rows after the library's, in the
+    /// same form spacing (a `RoundedSection` of them, usually).
+    public init<Footer: View>(
+        dockIcons: [DockIconOption] = [],
+        options: AppearanceSettingsOptions = .all,
+        themes: [BlissTheme]? = nil,
+        @ViewBuilder footer: () -> Footer
+    ) {
+        self.dockIcons = dockIcons
+        self.options = options
+        self.themes = themes
+        self.footer = AnyView(footer())
+    }
+
+    /// The themes the picker shows.
+    private var availableThemes: [BlissTheme] {
+        themes ?? BlissTheme.all
     }
 
     /// The mode the theme card edits: the one picked while light and dark are
@@ -88,7 +151,7 @@ public struct AppearanceSettings: View {
             }
 
             RoundedSection(divided: true) {
-                if separateModes {
+                if separateModes && options.contains(.separateModes) {
                     SettingsRow(.verbatim(String(localized: "Colors for", bundle: .module))) {
                         SegmentedPills(
                             options: [ColorSchemeOption.light, .dark],
@@ -101,7 +164,9 @@ public struct AppearanceSettings: View {
                 }
                 SettingsRow(.verbatim(String(localized: "Theme", bundle: .module))) {
                     HStack(spacing: Spacing.xs) {
-                        themeFileButtons
+                        if options.contains(.themeFiles) {
+                            themeFileButtons
+                        }
                         themePicker
                     }
                 }
@@ -118,8 +183,10 @@ public struct AppearanceSettings: View {
                     surfacePicker(.foreground)
                 }
                 // One UI font for both modes unless they're separate.
-                SettingsRow(.verbatim(String(localized: "Font", bundle: .module)), detail: separateModes ? .verbatim(modeCaption) : nil) {
-                    fontFamilyPicker(.ui)
+                if options.contains(.fonts) {
+                    SettingsRow(.verbatim(String(localized: "Font", bundle: .module)), detail: separateModes ? .verbatim(modeCaption) : nil) {
+                        fontFamilyPicker(.ui)
+                    }
                 }
             }
 
@@ -136,7 +203,7 @@ public struct AppearanceSettings: View {
                     .foregroundStyle(Color.textSecondary)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 4))
+                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: Spacing.ringOutset))
                 .accessibilityValue(showsAdvanced ? Text("Expanded", bundle: .module) : Text("Collapsed", bundle: .module))
 
                 Spacer()
@@ -149,26 +216,28 @@ public struct AppearanceSettings: View {
                         .foregroundStyle(Color.textSecondary)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 4))
+                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: Spacing.ringOutset))
             }
             .font(Typography.bodySmall)
 
             if showsAdvanced {
-                RoundedSection(divided: true) {
-                    SettingsRow(
-                        .verbatim(String(localized: "UI font size", bundle: .module)),
-                        detail: .verbatim(String(localized: "Adjust the base size used across the app", bundle: .module))
-                    ) {
-                        fontSizeField(String(localized: "UI font size", bundle: .module), value: uiFontSize, in: BlissAppearance.uiFontSizeRange)
+                if options.contains(.fonts) {
+                    RoundedSection(divided: true) {
+                        SettingsRow(
+                            .verbatim(String(localized: "UI font size", bundle: .module)),
+                            detail: .verbatim(String(localized: "Adjust the base size used across the app", bundle: .module))
+                        ) {
+                            fontSizeField(String(localized: "UI font size", bundle: .module), value: uiFontSize, in: BlissAppearance.uiFontSizeRange)
+                        }
+                        SettingsRow(
+                            .verbatim(String(localized: "Code font size", bundle: .module)),
+                            detail: .verbatim(String(localized: "Adjust the base size used for code", bundle: .module))
+                        ) {
+                            fontSizeField(String(localized: "Code font size", bundle: .module), value: codeFontSize, in: BlissAppearance.codeFontSizeRange)
+                        }
                     }
-                    SettingsRow(
-                        .verbatim(String(localized: "Code font size", bundle: .module)),
-                        detail: .verbatim(String(localized: "Adjust the base size used for code", bundle: .module))
-                    ) {
-                        fontSizeField(String(localized: "Code font size", bundle: .module), value: codeFontSize, in: BlissAppearance.codeFontSizeRange)
-                    }
+                    .transition(.motion(.opacity.combined(with: .move(edge: .top))))
                 }
-                .transition(.motion(.opacity.combined(with: .move(edge: .top))))
 
                 RoundedSection(divided: true) {
                     SettingsRow(
@@ -182,66 +251,71 @@ public struct AppearanceSettings: View {
                         )
                         .fixedSize()
                     }
-                    SettingsRow(
-                        .verbatim(String(localized: "Separate light and dark modes", bundle: .module)),
-                        detail: .verbatim(String(localized: "Choose a theme, colors and font for each", bundle: .module))
-                    ) {
-                        Toggle(isOn: separateModesBinding) { EmptyView() }
-                            .toggleStyle(.flatSwitch)
-                            .controlSize(.small)
-                            .labelsHidden()
+                    if options.contains(.separateModes) {
+                        SettingsToggleRow(
+                            .verbatim(String(localized: "Separate light and dark modes", bundle: .module)),
+                            detail: .verbatim(String(localized: "Choose a theme, colors and font for each", bundle: .module)),
+                            isOn: separateModesBinding
+                        )
                     }
                 }
                 .transition(.motion(.opacity.combined(with: .move(edge: .top))))
 
-                RoundedSection(divided: true) {
-                    SettingsRow(.verbatim(String(localized: "UI font style", bundle: .module)), detail: separateModes ? .verbatim(modeCaption) : nil) {
-                        fontFacePicker(.ui)
-                    }
-                    SettingsRow(.verbatim(String(localized: "Content font", bundle: .module))) {
-                        HStack(spacing: Spacing.sm) {
-                            fontFamilyPicker(.content)
-                            fontFacePicker(.content)
+                if options.contains(.fonts) || options.contains(.translucentSidebar) || options.contains(.contrast) {
+                    RoundedSection(divided: true) {
+                        if options.contains(.fonts) {
+                            SettingsRow(.verbatim(String(localized: "UI font style", bundle: .module)), detail: separateModes ? .verbatim(modeCaption) : nil) {
+                                fontFacePicker(.ui)
+                            }
+                            SettingsRow(.verbatim(String(localized: "Content font", bundle: .module))) {
+                                HStack(spacing: Spacing.sm) {
+                                    fontFamilyPicker(.content)
+                                    fontFacePicker(.content)
+                                }
+                            }
+                            SettingsRow(.verbatim(String(localized: "Code font", bundle: .module))) {
+                                HStack(spacing: Spacing.sm) {
+                                    fontFamilyPicker(.code)
+                                    fontFacePicker(.code)
+                                }
+                            }
+                        }
+                        if options.contains(.translucentSidebar) {
+                            SettingsToggleRow(.verbatim(String(localized: "Translucent sidebar", bundle: .module)), isOn: $translucentSidebar)
+                        }
+                        if options.contains(.contrast) {
+                            SettingsRow(.verbatim(String(localized: "Contrast", bundle: .module))) {
+                                contrastSlider
+                            }
                         }
                     }
-                    SettingsRow(.verbatim(String(localized: "Code font", bundle: .module))) {
-                        HStack(spacing: Spacing.sm) {
-                            fontFamilyPicker(.code)
-                            fontFacePicker(.code)
-                        }
-                    }
-                    SettingsRow(.verbatim(String(localized: "Translucent sidebar", bundle: .module))) {
-                        Toggle(isOn: $translucentSidebar) { EmptyView() }
-                            .toggleStyle(.flatSwitch)
-                            .controlSize(.small)
-                            .labelsHidden()
-                    }
-                    SettingsRow(.verbatim(String(localized: "Contrast", bundle: .module))) {
-                        contrastSlider
-                    }
+                    .transition(.motion(.opacity.combined(with: .move(edge: .top))))
                 }
-                .transition(.motion(.opacity.combined(with: .move(edge: .top))))
 
-                RoundedSection(divided: true) {
-                    SettingsRow(
-                        .verbatim(String(localized: "Use pointer cursors", bundle: .module)),
-                        detail: .verbatim(String(localized: "Change the cursor to a pointer when hovering over interactive elements", bundle: .module))
-                    ) {
-                        Toggle(isOn: $usesPointerCursors) { EmptyView() }
-                            .toggleStyle(.flatSwitch)
-                            .controlSize(.small)
-                            .labelsHidden()
-                    }
-                    if dockIcons.count > 1 {
-                        SettingsRow(
-                            .verbatim(String(localized: "Dock icon", bundle: .module)),
-                            detail: .verbatim(String(localized: "Choose the icon the app uses in the Dock", bundle: .module))
-                        ) {
-                            DockIconPicker(options: dockIcons, selection: dockIconSelection)
+                if options.contains(.pointerCursors) || dockIcons.count > 1 {
+                    RoundedSection(divided: true) {
+                        if options.contains(.pointerCursors) {
+                            SettingsToggleRow(
+                                .verbatim(String(localized: "Use pointer cursors", bundle: .module)),
+                                detail: .verbatim(String(localized: "Change the cursor to a pointer when hovering over interactive elements", bundle: .module)),
+                                isOn: $usesPointerCursors
+                            )
+                        }
+                        if dockIcons.count > 1 {
+                            SettingsRow(
+                                .verbatim(String(localized: "Dock icon", bundle: .module)),
+                                detail: .verbatim(String(localized: "Choose the icon the app uses in the Dock", bundle: .module))
+                            ) {
+                                DockIconPicker(options: dockIcons, selection: dockIconSelection)
+                            }
                         }
                     }
+                    .transition(.motion(.opacity.combined(with: .move(edge: .top))))
                 }
-                .transition(.motion(.opacity.combined(with: .move(edge: .top))))
+            }
+
+            if let footer {
+                footer
             }
         }
     }
@@ -269,12 +343,12 @@ public struct AppearanceSettings: View {
             selection: Binding(
                 get: { activeTheme.name },
                 set: { name in
-                    if let theme = BlissTheme.all.first(where: { $0.name == name }) {
+                    if let theme = availableThemes.first(where: { $0.name == name }) {
                         BlissAppearance.setTheme(theme, for: editingScheme)
                     }
                 }
             ),
-            options: BlissTheme.all,
+            options: availableThemes,
             optionTitle: { $0.name },
             optionIconView: { theme, size in ThemeSwatchIcon(theme: theme, size: size) },
             showsTitle: false
@@ -369,7 +443,7 @@ public struct AppearanceSettings: View {
                 }
             }
         )
-        .frame(width: 220)
+        .frame(width: AppearanceSettingsMetrics.sliderWidth)
     }
 
     // MARK: - Fonts
@@ -390,7 +464,7 @@ public struct AppearanceSettings: View {
 
     private func fontSizeField(_ title: String, value: Binding<Int>, in range: ClosedRange<Int>) -> some View {
         NumberField(.verbatim(title), value: value, in: range, unit: .verbatim("px"))
-            .frame(width: 120)
+            .frame(width: AppearanceSettingsMetrics.fontSizeFieldWidth)
     }
 
     /// System or an installed family (a monospaced one, for code). A new
@@ -655,7 +729,7 @@ private struct ThemeSwatchIcon: View {
         .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
     }
 }
@@ -663,44 +737,54 @@ private struct ThemeSwatchIcon: View {
 // MARK: - Theme Card
 
 /// A selectable theme swatch: a four-band color preview with the theme's name
-/// below, a ring when selected, and a subtle hover fill.
+/// below, the accent ring the page's other tiles show when selected, and the
+/// row hover wash.
 public struct ThemeCard: View {
     private let theme: BlissTheme
     private let isSelected: Bool
+    private let showsName: Bool
     private let onSelect: () -> Void
 
     @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(theme: BlissTheme, isSelected: Bool, onSelect: @escaping () -> Void) {
+    /// - Parameter showsName: The theme's name under the swatch; off for a
+    ///   compact grid of swatches with tooltips of their own.
+    public init(theme: BlissTheme, isSelected: Bool, showsName: Bool = true, onSelect: @escaping () -> Void) {
         self.theme = theme
         self.isSelected = isSelected
+        self.showsName = showsName
         self.onSelect = onSelect
     }
 
     private var cornerRadius: CGFloat { Sizing.radiusMedium }
+    /// The ring sits a gap outside the tile, like the mode previews'.
+    private var ringRadius: CGFloat { cornerRadius + Spacing.insetSpacing }
 
     public var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: Spacing.xs) {
             swatch
-            Text(LocalizedStringKey(theme.name))
-                .font(Typography.labelSmall)
-                .foregroundStyle(isSelected ? Color.textPrimary : Color.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            if showsName {
+                Text(LocalizedStringKey(theme.name))
+                    .font(Typography.labelMedium)
+                    .foregroundStyle(isSelected ? Color.textPrimary : Color.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(AppearanceSettingsMetrics.nameMinimumScale)
+            }
         }
-        .padding(6)
+        .padding(Spacing.xs)
         .frame(maxWidth: .infinity)
         .background {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(backgroundFill)
         }
+        .padding(Spacing.insetSpacing)
         .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(isSelected ? Color.primary.opacity(0.3) : Color.clear, lineWidth: 2)
+            RoundedRectangle(cornerRadius: ringRadius, style: .continuous)
+                .strokeBorder(isSelected ? Color.accent : Color.clear, lineWidth: AppearanceSettingsMetrics.selectionRingWidth)
         }
-        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .rowTapAction(isSelected: isSelected, focusCornerRadius: cornerRadius, focusBleed: 0, perform: onSelect)
+        .contentShape(RoundedRectangle(cornerRadius: ringRadius, style: .continuous))
+        .rowTapAction(isSelected: isSelected, focusCornerRadius: ringRadius, focusBleed: 0, perform: onSelect)
         .onHover { isHovering = $0 }
         .animation(Animations.hover, value: isHovering)
         .animation(Animations.selection, value: isSelected)
@@ -717,11 +801,11 @@ public struct ThemeCard: View {
                 Rectangle().fill(color)
             }
         }
-        .frame(height: 38)
+        .frame(height: Sizing.controlLarge)
         .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+                .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
     }
 }
@@ -733,10 +817,17 @@ public struct ThemeCard: View {
         .padding()
 }
 
-#Preview("Theme Cards", traits: .fixedLayout(width: 440, height: 120)) {
-    HStack(spacing: Spacing.sm) {
-        ForEach(BlissTheme.builtIn) { theme in
-            ThemeCard(theme: theme, isSelected: theme == .system, onSelect: {})
+#Preview("Theme Cards", traits: .fixedLayout(width: 440, height: 200)) {
+    VStack(spacing: Spacing.lg) {
+        HStack(spacing: Spacing.sm) {
+            ForEach(BlissTheme.builtIn) { theme in
+                ThemeCard(theme: theme, isSelected: theme == .system, onSelect: {})
+            }
+        }
+        HStack(spacing: Spacing.sm) {
+            ForEach(BlissTheme.builtIn) { theme in
+                ThemeCard(theme: theme, isSelected: theme == .lowGlare, showsName: false, onSelect: {})
+            }
         }
     }
     .padding()

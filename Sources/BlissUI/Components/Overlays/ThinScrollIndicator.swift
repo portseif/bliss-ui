@@ -101,6 +101,45 @@ struct NativeScrollerSuppressor: NSViewRepresentable {
     }
 }
 
+// MARK: - Metrics
+
+/// The thin thumb's geometry, shared by `ScrollViewWithThinIndicator` and a
+/// scrolling menu's thumb (`FloatingMenu`), so the two draw alike.
+enum ThinIndicatorMetrics {
+    /// The thumb's width.
+    static var thumbWidth: CGFloat { Spacing.xs }
+    /// The thumb never shrinks below this, however long the content.
+    static let minimumThumbHeight: CGFloat = 30
+    /// Trailing inset — snug to the scroll view's edge.
+    static var trailingInset: CGFloat { Spacing.hairline }
+    /// How far the thumb stops short of the viewport's ends by default (clears
+    /// rounded window corners).
+    static var endInset: CGFloat { Spacing.sm }
+    /// The edge fades' height.
+    static var fadeHeight: CGFloat { Spacing.xl }
+    /// How far a scroll runs before an edge fade is fully in.
+    static var fadeDistance: CGFloat { Spacing.xl - Spacing.xxs }
+    /// The thumb's tone over the content.
+    static let thumbOpacity: Double = 0.35
+    /// The thumb hides this long after scrolling stops.
+    static let hideDelay: Duration = .milliseconds(800)
+    /// A scroll smaller than this is sub-pixel noise.
+    static let scrollTolerance: CGFloat = 0.5
+
+    /// A menu's thumb sits in the menu's `Spacing.menuPadding`, so it's a step
+    /// thinner and tighter than the page's.
+    static var menuThumbWidth: CGFloat { Spacing.xxs }
+    static var menuMinimumThumbHeight: CGFloat { Sizing.controlSmall }
+    static let menuTrailingInset: CGFloat = 1
+
+    // The same geometry under the names a hosted text view's thumb (`TextArea`)
+    // reads, with its own tighter end inset.
+    static var width: CGFloat { thumbWidth }
+    static var minimumHeight: CGFloat { minimumThumbHeight }
+    static var trailingPadding: CGFloat { trailingInset }
+    static var verticalPadding: CGFloat { Spacing.xxs }
+}
+
 // MARK: - Scroll View with Thin Indicator
 
 /// A `ScrollView` that hides the native scroller (even under "Show scroll bars:
@@ -121,6 +160,9 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
     /// when the scroll fills a flush region (e.g. an app-sheet content area).
     let indicatorTopPadding: CGFloat
     let indicatorBottomPadding: CGFloat
+    /// The thumb stays up whenever there's overflow (a menu's policy) instead
+    /// of only while hovering or scrolling.
+    let showsIndicatorAlways: Bool
     @ViewBuilder let content: () -> Content
 
     /// The scroll position and sizes. Only the pieces that draw from them (the
@@ -129,19 +171,22 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
     /// every row of a long table on each frame of a sidebar collapse.
     @State private var metrics = ThinScrollMetrics()
 
-    private let indicatorWidth: CGFloat = 6
-    private let indicatorMinHeight: CGFloat = 30
-    /// Trailing inset — snug to the scroll view's edge.
-    private let indicatorPadding: CGFloat = 2
     private let scrollCoordinateSpace = "thinScrollIndicator"
-    private let fadeMaskHeight: CGFloat = 24
 
+    /// - Parameters:
+    ///   - showFadeMask: Edge fades that dissolve rows into the surface behind.
+    ///   - fillsViewport: A short content view fills the visible area.
+    ///   - indicatorTopPadding: How far the thumb stops short of the top.
+    ///   - indicatorBottomPadding: How far the thumb stops short of the bottom.
+    ///   - showsIndicatorAlways: The thumb stays up whenever the content
+    ///     overflows, not only under the pointer or while scrolling.
     public init(
         _ axes: Axis.Set = .vertical,
         showFadeMask: Bool = false,
         fillsViewport: Bool = false,
-        indicatorTopPadding: CGFloat = 10,
-        indicatorBottomPadding: CGFloat = 10,
+        indicatorTopPadding: CGFloat = Spacing.sm,
+        indicatorBottomPadding: CGFloat = Spacing.sm,
+        showsIndicatorAlways: Bool = false,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.axes = axes
@@ -149,6 +194,7 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
         self.fillsViewport = fillsViewport
         self.indicatorTopPadding = indicatorTopPadding
         self.indicatorBottomPadding = indicatorBottomPadding
+        self.showsIndicatorAlways = showsIndicatorAlways
         self.content = content
     }
 
@@ -174,15 +220,16 @@ public struct ScrollViewWithThinIndicator<Content: View>: View {
         // overlay needs an opaque color matching that surface, and none exists
         // for the macOS 26 dark content pane (a 25% black wash) or a themed one.
         // The thumb overlay below sits outside the mask, so it never fades.
-        .modifier(ScrollEdgeFade(isEnabled: showFadeMask, metrics: metrics, height: fadeMaskHeight))
+        .modifier(ScrollEdgeFade(isEnabled: showFadeMask, metrics: metrics, height: ThinIndicatorMetrics.fadeHeight))
         .overlay(alignment: .trailing) {
             ThinScrollThumb(
                 metrics: metrics,
-                width: indicatorWidth,
-                minimumHeight: indicatorMinHeight,
-                trailingPadding: indicatorPadding,
+                width: ThinIndicatorMetrics.thumbWidth,
+                minimumHeight: ThinIndicatorMetrics.minimumThumbHeight,
+                trailingPadding: ThinIndicatorMetrics.trailingInset,
                 topPadding: indicatorTopPadding,
-                bottomPadding: indicatorBottomPadding
+                bottomPadding: indicatorBottomPadding,
+                alwaysVisible: showsIndicatorAlways
             )
         }
         // Fills the space offered, content at the top leading corner, as the
@@ -211,31 +258,29 @@ private final class ThinScrollMetrics {
         contentHeight > viewportHeight + 1
     }
 
-    /// Top fade strength: grows over the first 20pt scrolled.
+    /// Top fade strength: grows over the first `fadeDistance` scrolled.
     var topFadeOpacity: Double {
         guard needsIndicator else { return 0 }
-        let fadeDistance: CGFloat = 20
-        return min(max(scrollOffset / fadeDistance, 0), 1)
+        return min(max(scrollOffset / ThinIndicatorMetrics.fadeDistance, 0), 1)
     }
 
-    /// Bottom fade strength: shrinks over the last 20pt before the end.
+    /// Bottom fade strength: shrinks over the last `fadeDistance` before the end.
     var bottomFadeOpacity: Double {
         guard needsIndicator else { return 0 }
         let maxScroll = contentHeight - viewportHeight
         guard maxScroll > 0 else { return 0 }
-        let fadeDistance: CGFloat = 20
         let distanceFromBottom = maxScroll - scrollOffset
-        return min(max(distanceFromBottom / fadeDistance, 0), 1)
+        return min(max(distanceFromBottom / ThinIndicatorMetrics.fadeDistance, 0), 1)
     }
 
-    /// Records a new offset, shows the thumb, and hides it 0.8s after scrolling stops.
+    /// Records a new offset, shows the thumb, and hides it `hideDelay` after scrolling stops.
     func scrolled(to newOffset: CGFloat) {
-        guard abs(newOffset - scrollOffset) > 0.5 else { return }
+        guard abs(newOffset - scrollOffset) > ThinIndicatorMetrics.scrollTolerance else { return }
         scrollOffset = newOffset
         isScrolling = true
         scrollEndTask?.cancel()
         scrollEndTask = Task {
-            try? await Task.sleep(for: .milliseconds(800))
+            try? await Task.sleep(for: ThinIndicatorMetrics.hideDelay)
             guard !Task.isCancelled else { return }
             withAnimation(Animations.scrollIndicator) {
                 self.isScrolling = false
@@ -283,9 +328,10 @@ private struct ThinScrollThumb: View {
     let trailingPadding: CGFloat
     let topPadding: CGFloat
     let bottomPadding: CGFloat
+    let alwaysVisible: Bool
 
     private var isVisible: Bool {
-        metrics.needsIndicator && (metrics.isHovering || metrics.isScrolling)
+        metrics.needsIndicator && (alwaysVisible || metrics.isHovering || metrics.isScrolling)
     }
 
     private var height: CGFloat {
@@ -310,7 +356,7 @@ private struct ThinScrollThumb: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: width / 2)
-            .fill(Color.primary.opacity(0.35))
+            .fill(Color.primary.opacity(ThinIndicatorMetrics.thumbOpacity))
             .frame(width: width, height: height)
             .padding(.top, offset)
             .padding(.trailing, trailingPadding)
@@ -380,8 +426,8 @@ public struct AutoHeightScroll<Content: View>: View {
     /// Hard ceiling on the scroll's height (e.g. the app-sheet window cap). When
     /// content exceeds it the scroll engages; otherwise the scroll hugs content.
     var maxHeight: CGFloat? = nil
-    var indicatorTopPadding: CGFloat = 10
-    var indicatorBottomPadding: CGFloat = 10
+    var indicatorTopPadding: CGFloat = ThinIndicatorMetrics.endInset
+    var indicatorBottomPadding: CGFloat = ThinIndicatorMetrics.endInset
     /// When true, the scroll hugs its content's WIDTH too (the content sets its own
     /// fixed width). A scroll view is otherwise horizontally greedy and would fill
     /// the available width. Off for content that fills a width envelope (the caller
@@ -400,8 +446,8 @@ public struct AutoHeightScroll<Content: View>: View {
     public init(
         showFadeMask: Bool = false,
         maxHeight: CGFloat? = nil,
-        indicatorTopPadding: CGFloat = 10,
-        indicatorBottomPadding: CGFloat = 10,
+        indicatorTopPadding: CGFloat = Spacing.sm,
+        indicatorBottomPadding: CGFloat = Spacing.sm,
         hugsWidth: Bool = false,
         resizeAnimation: Animation? = nil,
         @ViewBuilder content: @escaping () -> Content
@@ -459,50 +505,39 @@ public struct AutoHeightScroll<Content: View>: View {
 
 // MARK: - Previews
 
-#Preview("Thin Scroll Indicator") {
-    ScrollViewWithThinIndicator {
-        VStack(spacing: 8) {
-            ForEach(0..<50) { index in
-                Text("Item \(index)")
+/// Sample rows for the previews.
+private struct ThinScrollPreviewRows: View {
+    let count: Int
+
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            ForEach(0..<count, id: \.self) { index in
+                Text(verbatim: "Item \(index)")
+                    .font(Typography.bodySmall)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.secondary.opacity(0.1))
-                    .clipShape(.rect(cornerRadius: 8))
+                    .padding(Spacing.md)
+                    .background(Color.restingFill)
+                    .clipShape(.rect(cornerRadius: Sizing.radiusMedium))
             }
         }
-        .padding()
+        .padding(Spacing.md)
     }
-    .frame(width: 300, height: 400)
 }
 
-#Preview("Short Content - No Indicator") {
+#Preview("Thin Scroll Indicator", traits: .fixedLayout(width: 300, height: 400)) {
     ScrollViewWithThinIndicator {
-        VStack(spacing: 8) {
-            ForEach(0..<3) { index in
-                Text("Item \(index)")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.secondary.opacity(0.1))
-                    .clipShape(.rect(cornerRadius: 8))
-            }
-        }
-        .padding()
+        ThinScrollPreviewRows(count: 50)
     }
-    .frame(width: 300, height: 400)
 }
 
-#Preview("With Fade Mask") {
-    ScrollViewWithThinIndicator(showFadeMask: true) {
-        VStack(spacing: 8) {
-            ForEach(0..<50) { index in
-                Text("Item \(index)")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.secondary.opacity(0.1))
-                    .clipShape(.rect(cornerRadius: 8))
-            }
-        }
-        .padding()
+#Preview("Short Content - No Indicator", traits: .fixedLayout(width: 300, height: 400)) {
+    ScrollViewWithThinIndicator {
+        ThinScrollPreviewRows(count: 3)
     }
-    .frame(width: 300, height: 400)
+}
+
+#Preview("With Fade Mask", traits: .fixedLayout(width: 300, height: 400)) {
+    ScrollViewWithThinIndicator(showFadeMask: true, showsIndicatorAlways: true) {
+        ThinScrollPreviewRows(count: 50)
+    }
 }

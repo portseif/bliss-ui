@@ -39,6 +39,9 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
     @Binding private var items: [Item]
     private let gripPlacement: ReorderGripPlacement
     private let divided: Bool
+    private let compact: Bool
+    private let canMove: ((Item) -> Bool)?
+    private let onMove: ((IndexSet, Int) -> Void)?
     private let row: (Item) -> Row
 
     /// Each row's frame in the list, measured while nothing is dragged.
@@ -55,16 +58,27 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
     ///   - items: The rows, in order; a drag or a keyboard move reorders it.
     ///   - gripPlacement: Which side the grip handle sits on.
     ///   - divided: A hairline between rows, spanning the row content.
+    ///   - compact: Tighter rows (`Spacing.xs` instead of the list row padding).
+    ///   - canMove: Rows it returns false for keep their place: their grip is
+    ///     hidden and disabled (a pinned default row).
+    ///   - onMove: Runs after each reorder with the offsets `move(fromOffsets:toOffset:)`
+    ///     was given, for a host that persists the order.
     ///   - row: The content of one row (without the grip).
     public init(
         _ items: Binding<[Item]>,
         gripPlacement: ReorderGripPlacement = .leading,
         divided: Bool = false,
+        compact: Bool = false,
+        canMove: ((Item) -> Bool)? = nil,
+        onMove: ((IndexSet, Int) -> Void)? = nil,
         @ViewBuilder row: @escaping (Item) -> Row
     ) {
         self._items = items
         self.gripPlacement = gripPlacement
         self.divided = divided
+        self.compact = compact
+        self.canMove = canMove
+        self.onMove = onMove
         self.row = row
     }
 
@@ -82,6 +96,7 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
                     offset: offset(forRowAt: index, id: item.id),
                     showsDivider: divided && index < items.count - 1,
                     gripPlacement: gripPlacement,
+                    verticalPadding: compact ? Spacing.xs : Spacing.listRowPadding,
                     grip: { grip(for: item, at: index) },
                     content: { row(item) }
                 )
@@ -98,8 +113,13 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
 
     // MARK: - Grip
 
+    private func isMovable(_ item: Item) -> Bool {
+        canMove?(item) ?? true
+    }
+
     private func grip(for item: Item, at index: Int) -> some View {
         let isDragging = draggingID == item.id
+        let isMovable = isMovable(item)
         return Image(systemName: "line.3.horizontal")
             .font(Typography.caption)
             .foregroundStyle(.secondary)
@@ -107,7 +127,7 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
             .contentShape(Rectangle())
             .pointerStyle(isDragging ? .grabActive : .grabIdle)
             .gesture(dragGesture(for: item, at: index))
-            .focusable()
+            .focusable(isMovable)
             .focused($focusedGrip, equals: item.id)
             .focusEffectDisabled()
             .focusRing(isFocused: focusedGrip == item.id, cornerRadius: Sizing.radiusSmall)
@@ -121,11 +141,17 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
             .accessibilityValue(Text("\(index + 1) of \(items.count)", bundle: .module))
             .accessibilityAction(named: Text("Move up", bundle: .module)) { move(item.id, by: -1) }
             .accessibilityAction(named: Text("Move down", bundle: .module)) { move(item.id, by: 1) }
+            // A pinned row keeps its layout but offers no handle: hidden, and
+            // disabled so Tab never lands on it unseen.
+            .opacity(isMovable ? 1 : 0)
+            .disabled(!isMovable)
+            .accessibilityHidden(!isMovable)
     }
 
     private func dragGesture(for item: Item, at index: Int) -> some Gesture {
-        DragGesture(minimumDistance: 2, coordinateSpace: .named(coordinateSpaceID))
+        DragGesture(minimumDistance: Spacing.hairline, coordinateSpace: .named(coordinateSpaceID))
             .onChanged { value in
+                guard isMovable(item) else { return }
                 if draggingID == nil { beginDrag(of: item.id, at: index) }
                 guard draggingID == item.id else { return }
                 updateDrag(translation: value.translation.height)
@@ -161,13 +187,18 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
         guard let source = dragSourceIndex, let target = dragTargetIndex else { return }
         withAnimation(motion) {
             if target != source {
-                items.move(fromOffsets: IndexSet(integer: source), toOffset: target > source ? target + 1 : target)
+                reorder(from: IndexSet(integer: source), to: target > source ? target + 1 : target)
             }
             draggingID = nil
             dragSourceIndex = nil
             dragTargetIndex = nil
             dragTranslation = 0
         }
+    }
+
+    private func reorder(from offsets: IndexSet, to destination: Int) {
+        items.move(fromOffsets: offsets, toOffset: destination)
+        onMove?(offsets, destination)
     }
 
     /// The dragged row follows the pointer; rows between its old and new slot
@@ -184,15 +215,20 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
     // MARK: - Keyboard move
 
     private func move(_ id: Item.ID, by delta: Int) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = items.firstIndex(where: { $0.id == id }), isMovable(items[index]) else { return }
         let destination = index + delta
         guard items.indices.contains(destination) else { return }
         withAnimation(motion) {
-            items.move(fromOffsets: IndexSet(integer: index), toOffset: delta > 0 ? destination + 1 : destination)
+            reorder(from: IndexSet(integer: index), to: delta > 0 ? destination + 1 : destination)
         }
         // The row keeps its identity, so focus stays on its grip.
         focusedGrip = id
     }
+}
+
+/// The lift a dragged row takes: a hair larger, on the lift shadow.
+enum ReorderableListMetrics {
+    static let liftScale: CGFloat = 1.01
 }
 
 // MARK: - Row cell
@@ -206,6 +242,7 @@ private struct ReorderableRowCell<Grip: View, Content: View>: View {
     let offset: CGFloat
     let showsDivider: Bool
     let gripPlacement: ReorderGripPlacement
+    let verticalPadding: CGFloat
     @ViewBuilder let grip: () -> Grip
     @ViewBuilder let content: () -> Content
 
@@ -226,17 +263,11 @@ private struct ReorderableRowCell<Grip: View, Content: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if gripPlacement == .trailing { grip() }
             }
-            // The fill bleeds past the content like `listRowHover`, so the
+            // The list-row geometry: the fill bleeds past the content, so the
             // divider below spans the content, not the fill.
-            .padding(.vertical, Spacing.listRowPadding)
-            .padding(.horizontal, Spacing.sm)
-            .background {
-                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                    .fill(fill)
-                    .shadow(color: .black.opacity(isDragging ? 0.12 : 0), radius: 8, y: 2)
-            }
-            .padding(.horizontal, -Spacing.sm)
-            .scaleEffect(isDragging ? 1.01 : 1)
+            .listRowFill(fill, verticalPadding: verticalPadding)
+            .lifted(isDragging)
+            .scaleEffect(isDragging ? ReorderableListMetrics.liftScale : 1)
             .onHover { isHovering = $0 }
             .animation(Animations.hover, value: isHovering)
             .animation(Animations.hover, value: isDragging)
@@ -248,6 +279,19 @@ private struct ReorderableRowCell<Grip: View, Content: View>: View {
         }
         .offset(y: offset)
         .zIndex(isDragging ? 1 : 0)
+    }
+}
+
+private extension View {
+    /// The lift shadow only while dragged: a shadow under a clear or washed
+    /// resting row would show faintly through the wash.
+    @ViewBuilder
+    func lifted(_ isLifted: Bool) -> some View {
+        if isLifted {
+            elevation(.lift)
+        } else {
+            self
+        }
     }
 }
 
@@ -267,7 +311,7 @@ private struct ReorderPreviewStep: Identifiable {
         ReorderPreviewStep(id: 4, title: "Run tests", icon: "checkmark.seal"),
         ReorderPreviewStep(id: 5, title: "Deploy", icon: "paperplane"),
     ]
-    ReorderableList($steps, divided: true) { step in
+    ReorderableList($steps, divided: true, canMove: { $0.id != 1 }) { step in
         Label {
             Text(verbatim: step.title).font(Typography.bodySmall)
         } icon: {

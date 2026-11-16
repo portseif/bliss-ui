@@ -45,11 +45,16 @@ public struct TickStrip: View {
     private let spacing: CGFloat
     private let height: CGFloat
     private let isRefreshing: Bool
+    private let highlightedIndex: Int?
+    private let fillsWidth: Bool
+    private let onSelect: ((Int) -> Void)?
     private let accessibilityLabel: LocalizedStringKey?
 
     /// Ripple toggle: flipped off without animation, back on with it, so the
     /// ticks sweep in whenever a refresh releases or a reading changes.
     @State private var revealed = true
+    @State private var availableWidth: CGFloat = 0
+    @Environment(\.colorScheme) private var colorScheme
 
     /// - Parameters:
     ///   - ticks: One per period, oldest first.
@@ -58,14 +63,21 @@ public struct TickStrip: View {
     ///   - height: The ticks' height.
     ///   - isRefreshing: Dims and desaturates the strip while a new reading is
     ///     on its way.
+    ///   - highlightedIndex: The tick drawn a step taller (today, the current run).
+    ///   - fillsWidth: Widens the ticks to split the container's whole points
+    ///     between them, for a table column; the gaps stay as given.
+    ///   - onSelect: A click on a tick, with its index; nil leaves them inert.
     ///   - accessibilityLabel: What VoiceOver calls the strip; each tick reads
     ///     its own label inside it.
     public init(
         _ ticks: [Tick],
-        tickWidth: CGFloat = 2,
-        spacing: CGFloat = 2,
-        height: CGFloat = 12,
+        tickWidth: CGFloat = TickStripMetrics.tickWidth,
+        spacing: CGFloat = TickStripMetrics.spacing,
+        height: CGFloat = TickStripMetrics.height,
         isRefreshing: Bool = false,
+        highlightedIndex: Int? = nil,
+        fillsWidth: Bool = false,
+        onSelect: ((Int) -> Void)? = nil,
         accessibilityLabel: LocalizedStringKey? = nil
     ) {
         self.ticks = ticks
@@ -73,21 +85,27 @@ public struct TickStrip: View {
         self.spacing = spacing
         self.height = height
         self.isRefreshing = isRefreshing
+        self.highlightedIndex = highlightedIndex
+        self.fillsWidth = fillsWidth
+        self.onSelect = onSelect
         self.accessibilityLabel = accessibilityLabel
     }
 
     public var body: some View {
-        HStack(spacing: 0) {
+        let widths = tickWidths
+        HStack(alignment: .bottom, spacing: 0) {
             ForEach(Array(ticks.enumerated()), id: \.offset) { index, tick in
-                tickView(tick, at: index)
+                tickView(tick, at: index, width: widths[index])
             }
         }
         // Each tick's hover slot spans half a gap either side (see `tickView`);
         // pulling the row in by that half-gap keeps the strip's own width at
         // exactly ticks + gaps, its first tick flush with the leading edge.
         .padding(.horizontal, -spacing / 2)
-        .grayscale(isRefreshing ? 0.85 : 0)
-        .opacity(isRefreshing ? 0.6 : 1)
+        .frame(maxWidth: fillsWidth ? .infinity : nil, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+        .grayscale(isRefreshing ? TickStripMetrics.refreshingGrayscale : 0)
+        .opacity(isRefreshing ? TickStripMetrics.refreshingOpacity : 1)
         .animation(Animations.pane, value: isRefreshing)
         // Value-based (not count-based): a same-period refresh REPLACES the
         // newest tick, so the count is unchanged but the tick moved — still
@@ -98,31 +116,52 @@ public struct TickStrip: View {
         .accessibilityLabel(accessibilityLabel.map { Text($0) } ?? Text(verbatim: ""), isEnabled: accessibilityLabel != nil)
     }
 
-    private func tickView(_ tick: Tick, at index: Int) -> some View {
-        Capsule(style: .continuous)
-            .fill(tick.color ?? Self.emptyTickColor)
-            .frame(width: tickWidth, height: height)
-            .opacity(revealed ? 1 : 0)
-            // Leading-to-trailing ripple on reveal; all at once under Reduce
-            // Motion (a plain fade).
-            .animation(
-                Animations.pane.delay(prefersReducedMotion ? 0 : Double(index) * 0.02),
-                value: revealed
-            )
-            // A 2pt tick is too thin to hover: the slot takes half a gap from
-            // each side, so the whole strip hovers tick by tick.
-            .frame(width: tickWidth + spacing, height: height)
-            .contentShape(Rectangle())
-            .tooltip(configuration: .iconHint, position: .above) {
-                Text(verbatim: tick.label).font(Typography.labelSmall)
-            }
-            .accessibilityElement()
-            .accessibilityLabel(Text(verbatim: tick.label))
+    /// Each tick's width: as given, or the container's whole points split
+    /// between the ticks with the gaps kept.
+    private var tickWidths: [CGFloat] {
+        guard fillsWidth, availableWidth > 0, !ticks.isEmpty else {
+            return Array(repeating: tickWidth, count: ticks.count)
+        }
+        let room = Int(availableWidth.rounded(.down)) - Int(spacing) * (ticks.count - 1)
+        let shares = DataMetrics.wholeShares(of: max(room, ticks.count), weights: Array(repeating: 1, count: ticks.count))
+        return shares.map { CGFloat(max($0, 1)) }
     }
 
-    /// A period with no reading: a dim track tick.
-    private static var emptyTickColor: Color {
-        Color.primary.opacity(prefersIncreasedContrast ? 0.25 : 0.12)
+    private func tickView(_ tick: Tick, at index: Int, width: CGFloat) -> some View {
+        let tickHeight = index == highlightedIndex ? height + TickStripMetrics.highlightRise : height
+        return Group {
+            if let onSelect {
+                Button { onSelect(index) } label: {
+                    tickShape(tick, width: width, height: tickHeight)
+                }
+                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: Spacing.hairline))
+            } else {
+                tickShape(tick, width: width, height: tickHeight)
+            }
+        }
+        .opacity(revealed ? 1 : 0)
+        // Leading-to-trailing ripple on reveal; all at once under Reduce
+        // Motion (a plain fade).
+        .animation(
+            Animations.pane.delay(prefersReducedMotion ? 0 : Double(index) * TickStripMetrics.rippleStagger),
+            value: revealed
+        )
+        // A 2pt tick is too thin to hover: the slot takes half a gap from
+        // each side, so the whole strip hovers tick by tick.
+        .frame(width: width + spacing, height: height + TickStripMetrics.highlightRise, alignment: .bottom)
+        .contentShape(Rectangle())
+        .tooltip(configuration: .iconHint, position: .above) {
+            Text(verbatim: tick.label).font(Typography.labelSmall)
+        }
+        .accessibilityElement()
+        .accessibilityLabel(Text(verbatim: tick.label))
+        .accessibilityAddTraits(index == highlightedIndex ? [.isSelected] : [])
+    }
+
+    private func tickShape(_ tick: Tick, width: CGFloat, height: CGFloat) -> some View {
+        Capsule(style: .continuous)
+            .fill(tick.color ?? DataTrack.color(colorScheme))
+            .frame(width: width, height: height)
     }
 
     /// Hide instantly (no animation), then reveal on the next runloop so the
@@ -141,9 +180,26 @@ public struct TickStrip: View {
     }
 }
 
+/// The strip's defaults: whole points, so a 20-tick strip is exactly 78pt.
+public enum TickStripMetrics {
+    /// 2pt — a tick.
+    public static let tickWidth: CGFloat = Spacing.hairline
+    /// 2pt — the gap between ticks.
+    public static let spacing: CGFloat = Spacing.hairline
+    /// 12pt — a tick's height.
+    public static let height: CGFloat = Sizing.iconTiny
+    /// How much taller the highlighted tick stands.
+    static let highlightRise: CGFloat = Spacing.xxs
+    /// The refreshing look: desaturated and dimmed.
+    static let refreshingGrayscale: Double = 0.85
+    static let refreshingOpacity: Double = 0.6
+    /// The delay between neighbouring ticks' reveal.
+    static let rippleStagger: TimeInterval = 0.02
+}
+
 // MARK: - Preview
 
-#Preview(traits: .fixedLayout(width: 240, height: 100)) {
+#Preview(traits: .fixedLayout(width: 240, height: 120)) {
     let pattern: [Color?] = [
         Success.success500, Success.success500, nil, Success.success500, Warning.warning500,
         Warning.warning500, Success.success500, Success.success500, Success.success500, nil,
@@ -153,8 +209,9 @@ public struct TickStrip: View {
     VStack(alignment: .leading, spacing: Spacing.md) {
         TickStrip(pattern.enumerated().map { day, color in
             TickStrip.Tick(color: color, label: color == nil ? "Day \(day + 1) · No reading" : "Day \(day + 1)")
-        })
+        }, highlightedIndex: 19)
         TickStrip(pattern.map { TickStrip.Tick(color: $0, label: "") }, tickWidth: 3, spacing: 2, height: 16, isRefreshing: true)
+        TickStrip(pattern.map { TickStrip.Tick(color: $0, label: "") }, fillsWidth: true)
     }
     .padding(Spacing.xl)
 }

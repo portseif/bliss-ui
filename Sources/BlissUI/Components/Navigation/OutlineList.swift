@@ -33,6 +33,9 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
     @Binding private var selection: Item.ID?
     @Binding private var expanded: Set<Item.ID>
     private let indent: CGFloat
+    private let compact: Bool
+    private let onOpen: ((Item) -> Void)?
+    private let accessory: ((Item) -> AnyView)?
     private let row: (Item) -> Row
 
     @FocusState private var isFocused: Bool
@@ -46,6 +49,9 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
     ///   - selection: The selected row's id.
     ///   - expanded: The ids of the open parents.
     ///   - indent: How far each level steps in.
+    ///   - compact: Denser rows (a navigator's), with a smaller chevron box.
+    ///   - onOpen: A double-click or Return opens the row (a file); a click
+    ///     only selects. nil makes Return select.
     ///   - row: The row's content for an item.
     public init(
         _ items: [Item],
@@ -53,6 +59,8 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
         selection: Binding<Item.ID?>,
         expanded: Binding<Set<Item.ID>>,
         indent: CGFloat = Spacing.lg,
+        compact: Bool = false,
+        onOpen: ((Item) -> Void)? = nil,
         @ViewBuilder row: @escaping (Item) -> Row
     ) {
         self.items = items
@@ -60,6 +68,44 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
         self._selection = selection
         self._expanded = expanded
         self.indent = indent
+        self.compact = compact
+        self.onOpen = onOpen
+        self.accessory = nil
+        self.row = row
+    }
+
+    /// A tree whose rows carry a trailing accessory — a count, a status dot —
+    /// aligned on the right, outside the row's content.
+    ///
+    /// - Parameters:
+    ///   - items: The top-level rows.
+    ///   - children: An item's children; nil marks a leaf.
+    ///   - selection: The selected row's id.
+    ///   - expanded: The ids of the open parents.
+    ///   - indent: How far each level steps in.
+    ///   - compact: Denser rows.
+    ///   - onOpen: A double-click or Return opens the row.
+    ///   - row: The row's content for an item.
+    ///   - accessory: The row's trailing view for an item.
+    public init<Accessory: View>(
+        _ items: [Item],
+        children: KeyPath<Item, [Item]?>,
+        selection: Binding<Item.ID?>,
+        expanded: Binding<Set<Item.ID>>,
+        indent: CGFloat = Spacing.lg,
+        compact: Bool = false,
+        onOpen: ((Item) -> Void)? = nil,
+        @ViewBuilder row: @escaping (Item) -> Row,
+        @ViewBuilder accessory: @escaping (Item) -> Accessory
+    ) {
+        self.items = items
+        self.children = children
+        self._selection = selection
+        self._expanded = expanded
+        self.indent = indent
+        self.compact = compact
+        self.onOpen = onOpen
+        self.accessory = { AnyView(accessory($0)) }
         self.row = row
     }
 
@@ -93,11 +139,12 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
 
     public var body: some View {
         let rows = visibleRows
-        VStack(spacing: 0) {
+        VStack(spacing: Spacing.hairline) {
             ForEach(rows, id: \.item.id) { visible in
                 OutlineRowView(
                     depth: visible.depth,
                     indent: indent,
+                    compact: compact,
                     hasChildren: visible.hasChildren,
                     isExpanded: visible.isExpanded,
                     isSelected: selection == visible.item.id,
@@ -106,7 +153,9 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
                     onSelect: {
                         focusedID = visible.item.id
                         selection = visible.item.id
-                    }
+                    },
+                    onOpen: onOpen.map { open in { open(visible.item) } },
+                    accessory: accessory?(visible.item)
                 ) {
                     row(visible.item)
                 }
@@ -124,10 +173,14 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
             step(press.key, in: rows)
             return .handled
         }
-        // Key-down only: a held key would select again and again.
-        .onKeyPress(keys: [.space, .return], phases: .down) { _ in
+        // Key-down only: a held key would select again and again. Return
+        // opens the row when the list has an opener; Space only selects.
+        .onKeyPress(keys: [.space, .return], phases: .down) { press in
             guard let focusedID else { return .ignored }
             selection = focusedID
+            if press.key == .return, let onOpen, let item = rows.first(where: { $0.item.id == focusedID })?.item {
+                onOpen(item)
+            }
             return .handled
         }
         .onChange(of: isFocused) { _, focused in
@@ -191,12 +244,15 @@ public struct OutlineList<Item: Identifiable, Row: View>: View {
 private struct OutlineRowView<Content: View>: View {
     let depth: Int
     let indent: CGFloat
+    let compact: Bool
     let hasChildren: Bool
     let isExpanded: Bool
     let isSelected: Bool
     let hasKeyboardFocus: Bool
     let onToggle: () -> Void
     let onSelect: () -> Void
+    let onOpen: (() -> Void)?
+    let accessory: AnyView?
     @ViewBuilder let content: () -> Content
 
     @Environment(\.colorScheme) private var colorScheme
@@ -207,23 +263,34 @@ private struct OutlineRowView<Content: View>: View {
         return isHovering ? RowTint.hover(colorScheme) : Color.clear
     }
 
+    /// The chevron's box; a leaf keeps the same space.
+    private var chevronBox: CGFloat { compact ? Sizing.iconSmall : Sizing.iconDefault }
+
     var body: some View {
-        HStack(spacing: Spacing.xs) {
+        HStack(spacing: Spacing.sm) {
             Color.clear
                 .frame(width: CGFloat(depth) * indent, height: 1)
                 .accessibilityHidden(true)
             chevron
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
+            if let accessory {
+                accessory
+            }
         }
         .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.xs + 1)
+        .padding(.vertical, compact ? Spacing.xxs : Spacing.navRowPaddingV)
         .background {
             RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
                 .fill(fill)
         }
         .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
         .focusRing(isFocused: hasKeyboardFocus, cornerRadius: Sizing.radiusDefault)
+        // The double-click goes first, or the single one would eat it.
+        .onTapGesture(count: 2) {
+            onSelect()
+            onOpen?()
+        }
         .onTapGesture(perform: onSelect)
         .onHover { isHovering = $0 }
         .animation(Animations.hover, value: isHovering)
@@ -241,18 +308,18 @@ private struct OutlineRowView<Content: View>: View {
         if hasChildren {
             Button(action: onToggle) {
                 Image(systemName: "chevron.right")
-                    .font(Typography.captionSmallSemibold)
+                    .font(compact ? Typography.labelTinySemibold : Typography.captionSmallSemibold)
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(Animations.disclosure, value: isExpanded)
-                    .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
+                    .frame(width: chevronBox, height: chevronBox)
             }
             .buttonStyle(.plain)
             .interactiveCursor()
             .accessibilityHidden(true)
         } else {
             Color.clear
-                .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
+                .frame(width: chevronBox, height: chevronBox)
                 .accessibilityHidden(true)
         }
     }

@@ -30,17 +30,38 @@ public struct PathHoverChip: View {
     var isCode: Bool = false
     /// The code variant's Run button; nil hides it.
     var onRun: (() -> Void)? = nil
+    /// A 12pt label, so the chip sits in a `DetailRow` or a table cell at the
+    /// surrounding size.
+    var compact: Bool = false
+    /// Whether Copy is offered.
+    var showsCopy: Bool = true
+    /// "Open" with the default app, beside Copy and Reveal.
+    var onOpen: (() -> Void)? = nil
 
+    /// - Parameters:
+    ///   - path: The file path; empty shows `placeholder`.
+    ///   - placeholder: What an empty path shows.
+    ///   - monospaced: The path in the code font.
+    ///   - canReveal: Offers "Open in Finder"; off for a path that doesn't exist yet.
+    ///   - compact: A 12pt label, for a detail row or a table cell.
+    ///   - showsCopy: Offers Copy.
+    ///   - onOpen: Offers "Open", the third verb beside Copy and Reveal.
     public init(
         path: String,
         placeholder: String = String(localized: "No path", bundle: .blissUI),
         monospaced: Bool = false,
-        canReveal: Bool = true
+        canReveal: Bool = true,
+        compact: Bool = false,
+        showsCopy: Bool = true,
+        onOpen: (() -> Void)? = nil
     ) {
         self.path = path
         self.placeholder = placeholder
         self.monospaced = monospaced
         self.canReveal = canReveal
+        self.compact = compact
+        self.showsCopy = showsCopy
+        self.onOpen = onOpen
     }
 
     /// A command in the code font, with Copy and (when `onRun` is set) Run.
@@ -51,11 +72,13 @@ public struct PathHoverChip: View {
         return chip
     }
 
-    /// The hover buttons' glyph size; with `HoverIconButton`'s padding, the
-    /// height the chip keeps at rest so they don't grow it (and shift the rows
-    /// around it) when they appear.
-    private static let actionGlyphSize: CGFloat = 11
-    private static let actionHeight: CGFloat = actionGlyphSize + 6
+    /// The height the chip keeps at rest — the hover buttons' chip — so they
+    /// don't grow it (and shift the rows around it) when they appear.
+    private static let actionHeight: CGFloat = Sizing.inlineIconButton
+    /// How far the halo shrinks while hidden.
+    private static let hiddenScale: CGFloat = 0.92
+    /// The stagger between the buttons blooming in.
+    private static let bloomStagger: Double = 0.04
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovering = false
@@ -68,8 +91,9 @@ public struct PathHoverChip: View {
     private var isActive: Bool { isHovering && hasPath }
 
     private var pathFont: Font {
-        if isCode { return Typography.codeSmall }
-        return monospaced ? Typography.code : Typography.labelMedium
+        if isCode || (monospaced && compact) { return Typography.codeSmall }
+        if monospaced { return Typography.code }
+        return compact ? Typography.labelSmall : Typography.labelMedium
     }
 
     private var copyHelp: String {
@@ -77,16 +101,11 @@ public struct PathHoverChip: View {
     }
 
     private var textColor: Color {
-        guard hasPath else { return Grey.grey500 }
-        return colorScheme == .dark ? .white : Grey.grey900
-    }
-
-    private var borderColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.08)
+        hasPath ? Color.primary : Color.textTertiary
     }
 
     public var body: some View {
-        HStack(spacing: Spacing.xxs - 1) {
+        HStack(spacing: Spacing.hairline) {
             Text(hasPath ? path : placeholder)
                 .font(pathFont)
                 .foregroundStyle(textColor)
@@ -94,57 +113,66 @@ public struct PathHoverChip: View {
                 .truncationMode(.middle)
 
             if isActive {
-                HoverIconButton(
-                    systemImage: justCopied ? "checkmark" : "doc.on.doc",
-                    size: Self.actionGlyphSize,
-                    tint: justCopied ? Success.success500 : nil,
-                    help: justCopied ? String(localized: "Copied", bundle: .module) : copyHelp,
-                    action: copyPath
-                )
-                .transition(dropletInsertion(delay: 0))
+                if showsCopy {
+                    HoverIconButton(
+                        systemImage: justCopied ? "checkmark" : "doc.on.doc",
+                        tint: justCopied ? Success.success500 : nil,
+                        help: justCopied ? String(localized: "Copied", bundle: .module) : copyHelp,
+                        action: copyPath
+                    )
+                    .transition(dropletInsertion(delay: 0))
+                }
 
                 if let onRun {
                     HoverIconButton(
                         systemImage: "play.fill",
-                        size: Self.actionGlyphSize,
                         help: String(localized: "Run in terminal", bundle: .module),
                         action: onRun
                     )
-                    .transition(dropletInsertion(delay: 0.04))
+                    .transition(dropletInsertion(delay: Self.bloomStagger))
+                }
+
+                if let onOpen {
+                    HoverIconButton(
+                        systemImage: "arrow.up.right.square",
+                        help: String(localized: "Open", bundle: .module),
+                        action: onOpen
+                    )
+                    .transition(dropletInsertion(delay: Self.bloomStagger))
                 }
 
                 if canReveal {
                     HoverIconButton(
                         systemImage: "arrow.up.forward.app",
-                        size: Self.actionGlyphSize,
                         help: String(localized: "Open in Finder", bundle: .module),
                         action: reveal
                     )
-                    .transition(dropletInsertion(delay: 0.04))
+                    .transition(dropletInsertion(delay: Self.bloomStagger))
                 }
             }
         }
         .frame(minHeight: Self.actionHeight)
-        // Inner padding gives the glass a comfortable inset...
+        // Inner padding gives the chip a comfortable inset...
         .padding(.horizontal, Spacing.xs)
         .padding(.vertical, Spacing.xxs)
         .background {
-            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                .fill(.thinMaterial)
+            RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
+                .fill(Color.controlBackground)
                 .overlay {
-                    RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                        .strokeBorder(borderColor, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
+                        .strokeBorder(Color.menuBorder, lineWidth: 1)
                 }
                 .opacity(isActive ? 1 : 0)
-                .scaleEffect(isActive ? 1 : 0.92)
+                .scaleEffect(isActive ? 1 : Self.hiddenScale)
         }
         .contentShape(Rectangle())
         // The buttons only appear under the pointer; VoiceOver reaches them here.
         .accessibilityElement(children: .combine)
         .accessibilityActions {
             if hasPath {
-                Button(copyHelp) { copyPath() }
+                if showsCopy { Button(copyHelp) { copyPath() } }
                 if let onRun { Button(String(localized: "Run in terminal", bundle: .module), action: onRun) }
+                if let onOpen { Button(String(localized: "Open", bundle: .module), action: onOpen) }
                 if canReveal { Button(String(localized: "Open in Finder", bundle: .module)) { reveal() } }
             }
         }
@@ -171,7 +199,8 @@ public struct PathHoverChip: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(path, forType: .string)
         withAnimation(Animations.hover) { justCopied = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        Task {
+            try? await Task.sleep(for: .seconds(CopyButton.confirmationDuration))
             withAnimation(Animations.hover) { justCopied = false }
         }
     }
@@ -182,7 +211,7 @@ public struct PathHoverChip: View {
     }
 }
 
-#Preview {
+#Preview(traits: .fixedLayout(width: 440, height: 420)) {
     SettingsForm {
         RoundedSection("With Path") {
             HStack {

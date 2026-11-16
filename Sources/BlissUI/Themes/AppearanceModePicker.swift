@@ -24,16 +24,28 @@ import SwiftUI
 /// ```
 public struct AppearanceModePicker: View {
     @Binding private var selection: ColorSchemeOption
+    private let options: [ColorSchemeOption]
+    private let showsLabels: Bool
 
-    /// - Parameter selection: The chosen scheme.
-    public init(selection: Binding<ColorSchemeOption>) {
+    /// - Parameters:
+    ///   - selection: The chosen scheme.
+    ///   - options: The modes offered; an app that forces a scheme drops `.system`.
+    ///   - showsLabels: Names under the previews, like System Settings; off,
+    ///     the name shows in a pill while the preview is hovered.
+    public init(
+        selection: Binding<ColorSchemeOption>,
+        options: [ColorSchemeOption] = ColorSchemeOption.allCases,
+        showsLabels: Bool = false
+    ) {
         self._selection = selection
+        self.options = options
+        self.showsLabels = showsLabels
     }
 
     public var body: some View {
-        HStack(spacing: Spacing.md) {
-            ForEach(ColorSchemeOption.allCases) { option in
-                AppearanceModeThumbnail(option: option, isSelected: selection == option) {
+        HStack(alignment: .top, spacing: Spacing.md) {
+            ForEach(options) { option in
+                AppearanceModeThumbnail(option: option, isSelected: selection == option, showsLabel: showsLabels) {
                     withAnimation(Animations.selection) { selection = option }
                 }
             }
@@ -41,75 +53,92 @@ public struct AppearanceModePicker: View {
     }
 }
 
+/// The mode previews' geometry.
+enum AppearanceModeMetrics {
+    /// A miniature window's size — artwork, not a control.
+    static let thumbnailSize = CGSize(width: 84, height: 56)
+    /// The gap between a tile and its selection ring.
+    static let ringGap: CGFloat = Spacing.insetSpacing
+}
+
 /// One mode's preview: a ring in the accent when it's the one in use.
 private struct AppearanceModeThumbnail: View {
     let option: ColorSchemeOption
     let isSelected: Bool
+    let showsLabel: Bool
     let onSelect: () -> Void
 
     @State private var isHovering = false
+    @Environment(\.colorScheme) private var colorScheme
 
-    static let size = CGSize(width: 84, height: 56)
     private static let cornerRadius: CGFloat = Sizing.radiusMedium
+    private static var ringRadius: CGFloat { cornerRadius + AppearanceModeMetrics.ringGap }
 
     var body: some View {
-        Button(action: onSelect) {
-            preview
-                .frame(width: Self.size.width, height: Self.size.height)
-                // Hovered, the preview blurs behind its name.
-                .blur(radius: isHovering ? 2.5 : 0)
-                .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
-                .overlay {
-                    if isHovering { nameLabel }
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-                        .strokeBorder(Color.menuBorder, lineWidth: 1)
-                }
-                // The selection ring sits just outside the preview, with a gap.
-                .padding(3)
-                .overlay {
-                    RoundedRectangle(cornerRadius: Self.cornerRadius + 3, style: .continuous)
-                        .strokeBorder(ringColor, lineWidth: 2)
-                }
-                .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius + 3, style: .continuous))
+        VStack(spacing: Spacing.xs) {
+            Button(action: onSelect) {
+                preview
+                    .frame(width: AppearanceModeMetrics.thumbnailSize.width, height: AppearanceModeMetrics.thumbnailSize.height)
+                    .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+                    // Hovered, the preview takes the row hover wash like every other tile.
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                            .fill(isHovering && !isSelected ? RowTint.hover(colorScheme) : Color.clear)
+                    }
+                    .overlay {
+                        if isHovering && !showsLabel { nameLabel }
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                            .strokeBorder(Color.menuBorder, lineWidth: 1)
+                    }
+                    // The selection ring sits just outside the preview, with a gap.
+                    .padding(AppearanceModeMetrics.ringGap)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Self.ringRadius, style: .continuous)
+                            .strokeBorder(isSelected ? Color.accent : Color.clear, lineWidth: AppearanceSettingsMetrics.selectionRingWidth)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: Self.ringRadius, style: .continuous))
+            }
+            .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Self.ringRadius))
+            .onHover { isHovering = $0 }
+            .animation(Animations.hover, value: isHovering)
+            .accessibilityLabel(Text(verbatim: option.title))
+            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+
+            if showsLabel {
+                Text(verbatim: option.title)
+                    .font(Typography.captionSmall)
+                    .foregroundStyle(isSelected ? Color.textPrimary : Color.textSecondary)
+                    .accessibilityHidden(true)
+            }
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Self.cornerRadius + 3))
-        .onHover { isHovering = $0 }
-        .animation(Animations.hover, value: isHovering)
-        .accessibilityLabel(Text(verbatim: option.title))
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
-    /// The mode's name in a tooltip-style pill, centered on the preview.
+    /// The mode's name in a tooltip's chrome, centered on the preview.
     private var nameLabel: some View {
         Text(verbatim: option.title)
             .font(Typography.captionSmall)
             .foregroundStyle(Color.textPrimary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, Spacing.menuRowPaddingH)
+            .padding(.vertical, Spacing.menuRowPaddingV)
             .background {
-                RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
                     .fill(labelSurface)
-                    .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                    .strokeBorder(Color.menuBorder, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                    .strokeBorder(Color.menuBorder, lineWidth: 1)
             }
+            .elevation(.panel)
             .transition(.opacity)
             .accessibilityHidden(true)
     }
 
-    /// A tooltip's surface: the theme's raised one, else the vibrant material.
+    /// A transient panel's surface: the theme's control surface, else the material.
     private var labelSurface: AnyShapeStyle {
-        if let palette = ThemeColors.activePalette { return AnyShapeStyle(palette.elevatedBackground.color) }
-        return AnyShapeStyle(.thinMaterial)
-    }
-
-    private var ringColor: Color {
-        if isSelected { return Color.accent }
-        return isHovering ? Color.menuBorder : Color.clear
+        if ThemeColors.activePalette != nil { return AnyShapeStyle(Color.controlBackground) }
+        return AnyShapeStyle(.ultraThinMaterial)
     }
 
     @ViewBuilder
@@ -160,7 +189,8 @@ private struct MiniatureColors {
 }
 
 /// A tiny window: a sidebar strip, a content pane with a few lines of text
-/// (one in the accent), and a composer bar with an accent dot.
+/// (one in the accent), and a composer bar with an accent dot. Its numbers
+/// are the drawing — proportions of an 84 × 56 picture, not layout tokens.
 private struct WindowMiniature: View {
     let colors: MiniatureColors
 
@@ -201,8 +231,11 @@ private struct WindowMiniature: View {
     }
 }
 
-#Preview(traits: .fixedLayout(width: 380, height: 120)) {
+#Preview(traits: .fixedLayout(width: 380, height: 200)) {
     @Previewable @State var scheme = ColorSchemeOption.system
-    AppearanceModePicker(selection: $scheme)
-        .padding()
+    VStack(spacing: Spacing.lg) {
+        AppearanceModePicker(selection: $scheme)
+        AppearanceModePicker(selection: $scheme, options: [.light, .dark], showsLabels: true)
+    }
+    .padding()
 }

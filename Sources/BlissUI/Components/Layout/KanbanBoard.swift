@@ -26,17 +26,28 @@ public nonisolated struct KanbanColumn<Card: Identifiable>: Identifiable {
     public var cards: [Card]
     /// A dot before the title; nil for none.
     public var color: Color?
+    /// A work-in-progress limit: the count turns amber once the column holds
+    /// this many cards. nil for none.
+    public var limit: Int?
 
     /// - Parameters:
     ///   - id: Identifies the column in `onMove`.
     ///   - title: The header, shown as-is.
     ///   - cards: The cards, top to bottom.
     ///   - color: A dot before the title (a status mark); nil for none.
-    public init(id: String, title: String, cards: [Card], color: Color? = nil) {
+    ///   - limit: A work-in-progress limit the count warns at; nil for none.
+    public init(id: String, title: String, cards: [Card], color: Color? = nil, limit: Int? = nil) {
         self.id = id
         self.title = title
         self.cards = cards
         self.color = color
+        self.limit = limit
+    }
+
+    /// Whether the column is at or past its limit.
+    public var isAtLimit: Bool {
+        guard let limit else { return false }
+        return cards.count >= limit
     }
 }
 
@@ -54,12 +65,15 @@ public nonisolated struct KanbanColumn<Card: Identifiable>: Identifiable {
 ///
 /// The board scrolls horizontally when its columns don't fit. Under Reduce
 /// Motion cards jump into place instead of sliding.
-public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: View>: View {
+public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: View, ColumnAccessory: View>: View {
     @Binding private var columns: [KanbanColumn<Card>]
     private let columnWidth: CGFloat
     private let onMove: ((Card, String, String) -> Void)?
+    private let onOpen: ((Card) -> Void)?
+    private let canMove: ((Card, String, String) -> Bool)?
     private let card: (Card) -> CardContent
     private let columnFooter: (KanbanColumn<Card>) -> ColumnFooter
+    private let columnAccessory: (KanbanColumn<Card>) -> ColumnAccessory
 
     /// Column and card frames in the board's space, measured while nothing is dragged.
     @State private var columnFrames: [String: CGRect] = [:]
@@ -73,20 +87,35 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
     ///   - columnWidth: Every column's width.
     ///   - onMove: Called after a card lands in another column, with the
     ///     card and the two column ids.
+    ///   - onOpen: A click on a card (open its detail); nil leaves cards drag-only.
+    ///   - canMove: Whether a card may move from one column to another; a
+    ///     refused move stays put (Done never goes back to To do).
     ///   - card: The content of one card (the board draws the card around it).
     ///   - columnFooter: Content under a column's cards (an "Add card" row).
+    ///   - columnAccessory: Content beside a column's count (a menu button).
     public init(
         columns: Binding<[KanbanColumn<Card>]>,
-        columnWidth: CGFloat = 260,
+        columnWidth: CGFloat = KanbanMetrics.columnWidth,
         onMove: ((_ card: Card, _ from: String, _ to: String) -> Void)? = nil,
+        onOpen: ((Card) -> Void)? = nil,
+        canMove: ((_ card: Card, _ from: String, _ to: String) -> Bool)? = nil,
         @ViewBuilder card: @escaping (Card) -> CardContent,
-        @ViewBuilder columnFooter: @escaping (KanbanColumn<Card>) -> ColumnFooter
+        @ViewBuilder columnFooter: @escaping (KanbanColumn<Card>) -> ColumnFooter,
+        @ViewBuilder columnAccessory: @escaping (KanbanColumn<Card>) -> ColumnAccessory
     ) {
         self._columns = columns
         self.columnWidth = columnWidth
         self.onMove = onMove
+        self.onOpen = onOpen
+        self.canMove = canMove
         self.card = card
         self.columnFooter = columnFooter
+        self.columnAccessory = columnAccessory
+    }
+
+    /// Whether `card` may go from `source` to `target`.
+    private func allows(_ card: Card, from source: String, to target: String) -> Bool {
+        source == target || canMove?(card, source, target) ?? true
     }
 
     /// The slide and settle; none under Reduce Motion.
@@ -137,7 +166,7 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
         .frame(width: columnWidth)
         .background {
             RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
-                .fill(Color.primary.opacity(0.03))
+                .fill(Color.restingFill)
         }
         .overlay {
             RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
@@ -157,14 +186,27 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
                 .font(Typography.bodySmallSemibold)
                 .lineLimit(1)
             Spacer(minLength: Spacing.sm)
-            Badge(count: column.cards.count)
-                .badgeStyle(.secondary)
-                .badgeSize(.small)
+            columnCount(column)
+            columnAccessory(column)
         }
         .padding(.horizontal, Spacing.xs)
         .padding(.top, Spacing.xxs)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+
+    /// The count, or "n/limit" in amber once the column is at its limit.
+    @ViewBuilder
+    private func columnCount(_ column: KanbanColumn<Card>) -> some View {
+        if let limit = column.limit {
+            Badge(.verbatim("\(column.cards.count)/\(limit)"))
+                .badgeStyle(column.isAtLimit ? .warning : .secondary)
+                .badgeSize(.small)
+        } else {
+            Badge(count: column.cards.count)
+                .badgeStyle(.secondary)
+                .badgeSize(.small)
+        }
     }
 
     // MARK: - Card
@@ -179,6 +221,7 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
         )
         .pointerStyle(isDragging ? .grabActive : .grabIdle)
         .gesture(dragGesture(for: item.id, in: column.id, at: index))
+        .onTapGesture { onOpen?(item) }
         .focusable()
         .focused($focusedCard, equals: item.id)
         .focusEffectDisabled()
@@ -201,6 +244,8 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
             if drag == nil { cardFrames[item.id] = frame }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(onOpen == nil ? [] : [.isButton])
+        .accessibilityAction(.default) { onOpen?(item) }
         .accessibilityAction(named: Text("Move up", bundle: .module)) { move(item.id, rows: -1) }
         .accessibilityAction(named: Text("Move down", bundle: .module)) { move(item.id, rows: 1) }
         .accessibilityAction(named: Text("Move left", bundle: .module)) { move(item.id, columns: -1) }
@@ -208,7 +253,7 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
     }
 
     private func dragGesture(for cardID: Card.ID, in columnID: String, at index: Int) -> some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .named(coordinateSpaceID))
+        DragGesture(minimumDistance: KanbanMetrics.dragThreshold, coordinateSpace: .named(coordinateSpaceID))
             .onChanged { value in
                 if drag == nil {
                     drag = KanbanDrag(cardID: cardID, sourceColumn: columnID, sourceIndex: index)
@@ -228,7 +273,12 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
         // The card follows the pointer at once; the targets below may animate.
         drag?.translation = translation
 
-        let targetColumn = columnID(atX: location.x) ?? current.targetColumn
+        var targetColumn = columnID(atX: location.x) ?? current.targetColumn
+        // A column the card may not enter is skipped: it stays where it is.
+        if let dragged = columns.first(where: { $0.id == current.sourceColumn })?.cards.first(where: { $0.id == current.cardID }),
+           !allows(dragged, from: current.sourceColumn, to: targetColumn) {
+            targetColumn = current.targetColumn
+        }
         let draggedCenterY = frame.midY + translation.height
         let targetIndex = insertionIndex(in: targetColumn, forCenterY: draggedCenterY, excluding: current.cardID)
         guard targetColumn != current.targetColumn || targetIndex != current.targetIndex else { return }
@@ -338,6 +388,7 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
         let destinationColumn = place.column + delta
         guard columns.indices.contains(destinationColumn) else { return }
         let moved = columns[place.column].cards[place.index]
+        guard allows(moved, from: columns[place.column].id, to: columns[destinationColumn].id) else { return }
         withAnimation(motion) {
             columns[place.column].cards.remove(at: place.index)
             let insertAt = min(place.index, columns[destinationColumn].cards.count)
@@ -348,16 +399,45 @@ public struct KanbanBoard<Card: Identifiable, CardContent: View, ColumnFooter: V
     }
 }
 
-extension KanbanBoard where ColumnFooter == EmptyView {
+extension KanbanBoard where ColumnAccessory == EmptyView {
+    /// A board with nothing beside a column's count.
+    public init(
+        columns: Binding<[KanbanColumn<Card>]>,
+        columnWidth: CGFloat = KanbanMetrics.columnWidth,
+        onMove: ((_ card: Card, _ from: String, _ to: String) -> Void)? = nil,
+        onOpen: ((Card) -> Void)? = nil,
+        canMove: ((_ card: Card, _ from: String, _ to: String) -> Bool)? = nil,
+        @ViewBuilder card: @escaping (Card) -> CardContent,
+        @ViewBuilder columnFooter: @escaping (KanbanColumn<Card>) -> ColumnFooter
+    ) {
+        self.init(columns: columns, columnWidth: columnWidth, onMove: onMove, onOpen: onOpen, canMove: canMove, card: card, columnFooter: columnFooter, columnAccessory: { _ in EmptyView() })
+    }
+}
+
+extension KanbanBoard where ColumnFooter == EmptyView, ColumnAccessory == EmptyView {
     /// A board with nothing under a column's cards.
     public init(
         columns: Binding<[KanbanColumn<Card>]>,
-        columnWidth: CGFloat = 260,
+        columnWidth: CGFloat = KanbanMetrics.columnWidth,
         onMove: ((_ card: Card, _ from: String, _ to: String) -> Void)? = nil,
+        onOpen: ((Card) -> Void)? = nil,
+        canMove: ((_ card: Card, _ from: String, _ to: String) -> Bool)? = nil,
         @ViewBuilder card: @escaping (Card) -> CardContent
     ) {
-        self.init(columns: columns, columnWidth: columnWidth, onMove: onMove, card: card, columnFooter: { _ in EmptyView() })
+        self.init(columns: columns, columnWidth: columnWidth, onMove: onMove, onOpen: onOpen, canMove: canMove, card: card, columnFooter: { _ in EmptyView() }, columnAccessory: { _ in EmptyView() })
     }
+}
+
+/// The board's drawing constants.
+public enum KanbanMetrics {
+    /// 260pt — a column: room for a title and an avatar row.
+    public static let columnWidth: CGFloat = 260
+    /// How far a press moves before it's a drag, not a click.
+    static let dragThreshold: CGFloat = Spacing.xxs
+    /// A dragged card grows a hair, so it reads as lifted.
+    static let liftScale: CGFloat = 1.01
+    /// An empty column's drop slot: a card's height, roughly.
+    static let emptySlotHeight: CGFloat = Sizing.controlLarge + Sizing.iconMedium
 }
 
 // MARK: - Drag state
@@ -406,14 +486,18 @@ private struct KanbanCardCell<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
             .background {
+                // The lift's shadow on its own layer, faded in: a shadow on the
+                // card itself would retime with every hover.
+                shape.fill(Color.controlBackground)
+                    .elevation(.lift)
+                    .opacity(isDragging ? 1 : 0)
                 shape.fill(Color.controlBackground)
                 shape.fill(RowTint.hover(scheme)).opacity(showsHover ? 1 : 0)
             }
             .overlay {
                 shape.strokeBorder(Color.menuBorder, lineWidth: 1)
             }
-            .shadow(color: .black.opacity(isDragging ? 0.14 : 0), radius: 10, y: 3)
-            .scaleEffect(isDragging ? 1.01 : 1)
+            .scaleEffect(isDragging ? KanbanMetrics.liftScale : 1)
             .contentShape(shape)
             .onHover { isHovering = $0 }
             .animation(Animations.hover, value: showsHover)
@@ -431,8 +515,8 @@ private struct KanbanEmptySlot: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-            .strokeBorder(isTargeted ? Color.accent : Color.menuBorder, style: StrokeStyle(lineWidth: 1, dash: [4]))
-            .frame(maxWidth: .infinity, minHeight: 56)
+            .strokeBorder(isTargeted ? Color.accent : Color.menuBorder, style: StrokeStyle(lineWidth: 1, dash: [Spacing.xxs]))
+            .frame(maxWidth: .infinity, minHeight: KanbanMetrics.emptySlotHeight)
             .animation(Animations.hover, value: isTargeted)
             .accessibilityHidden(true)
     }
@@ -456,13 +540,13 @@ private struct KanbanPreviewTask: Identifiable {
         ], color: Grey.grey500),
         KanbanColumn(id: "doing", title: "In progress", cards: [
             KanbanPreviewTask(id: 4, title: "Ship the Low Glare theme", tag: "Themes", assignee: "Katherine Johnson"),
-        ], color: Warning.warning500),
+        ], color: Warning.warning500, limit: 2),
         KanbanColumn(id: "done", title: "Done", cards: [
             KanbanPreviewTask(id: 5, title: "Polish the onboarding card", tag: "Design", assignee: "Ada Lovelace"),
             KanbanPreviewTask(id: 6, title: "Fix the table shimmer", tag: "Bug", assignee: "Grace Hopper"),
         ], color: Success.success500),
     ]
-    KanbanBoard(columns: $columns) { task in
+    KanbanBoard(columns: $columns, onOpen: { _ in }, canMove: { _, from, _ in from != "done" }) { task in
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Text(verbatim: task.title)
                 .font(Typography.bodySmall)

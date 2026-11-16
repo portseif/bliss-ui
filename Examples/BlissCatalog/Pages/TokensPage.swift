@@ -89,10 +89,13 @@ private struct TokenFieldDemo: View {
                 "Assign teammates",
                 tokens: $assignees,
                 suggestions: TokensDemoPerson.team,
+                maximumTokens: 3,
+                allowsCustomTokens: false,
                 title: \.name,
+                tokenIcon: { _ in "person" },
                 makeToken: TokensDemoPerson.named
             )
-            DemoCaption(text: "Over a model type: only teammates are taken. Assigned: \(assignees.map(\.name).joined(separator: ", "))")
+            DemoCaption(text: "Over a model type with an icon per chip: only teammates are taken, three at most. Assigned: \(assignees.map(\.name).joined(separator: ", "))")
         }
         .frame(maxWidth: 480, alignment: .leading)
     }
@@ -103,6 +106,7 @@ private struct TokenFieldDemo: View {
 private struct MultiSelectDemo: View {
     @State private var teams: Set<String> = ["Design", "Engineering"]
     @State private var assignees: Set<TokensDemoPerson> = []
+    @State private var labels: Set<String> = ["Bug", "Docs", "Feature"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -111,6 +115,9 @@ private struct MultiSelectDemo: View {
 
             MultiSelectPicker("Assignees", selection: $assignees, options: TokensDemoPerson.team, optionTitle: \.name, placeholder: "Anyone")
             DemoCaption(text: "Over a model type. Picked: \(assignees.map(\.name).sorted().joined(separator: ", "))")
+
+            MultiSelectPicker("Labels", selection: $labels, options: labelSuggestions, optionTitle: { $0 }, summary: .count, showsSelectAll: true)
+            DemoCaption(text: "A count instead of chips, and a Select all row.")
         }
         .frame(maxWidth: 480, alignment: .leading)
     }
@@ -130,10 +137,10 @@ private struct ComboBoxDemo: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            ComboBox("City", text: $city, suggestions: cities)
+            ComboBox("City", text: $city, suggestions: cities, systemImage: "magnifyingglass", isClearable: true)
             DemoCaption(text: "Free text: suggestions rank as you type (\"sa\" puts San Francisco and São Paulo first). ↑ ↓ or Tab move, Return picks, Esc closes the list and then clears. City: \(city.isEmpty ? "none" : city)")
 
-            ComboBox("Assignee", selection: $assignee, options: TokensDemoPerson.team, title: \.name)
+            ComboBox("Assignee", selection: $assignee, options: TokensDemoPerson.team, title: \.name, optionIcon: { _ in "person" })
             DemoCaption(text: "Restricted to the team: Return takes the top match, and text that matches no one goes back on leaving. Assignee: \(assignee?.name ?? "none")")
 
             ComboBox("Time zone", selection: $timeZone, options: TimeZone.knownTimeZoneIdentifiers)
@@ -157,6 +164,12 @@ private struct ShortcutRecorderDemo: View {
                 recorderRow("Quick search", shortcut: $quickSearch)
                 recorderRow("Toggle sidebar", shortcut: $toggleSidebar)
                 recorderRow("New note", shortcut: $newNote)
+                HStack {
+                    Text("Quit (required)")
+                        .font(Typography.bodySmall)
+                    Spacer()
+                    ShortcutRecorder(shortcut: .constant(KeyboardShortcutValue(.character("q"), modifiers: [.command])), placeholder: "Not set", isClearable: false)
+                }
             }
 
             HStack(spacing: Spacing.sm) {

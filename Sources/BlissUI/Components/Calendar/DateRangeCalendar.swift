@@ -88,6 +88,16 @@ public struct DateRangePreset: Identifiable {
     }
 }
 
+// MARK: - Preset placement
+
+/// Where a `DateRangeCalendar` lists its presets.
+public enum DateRangePresetPlacement: Sendable {
+    /// A column on the leading edge of the month.
+    case beside
+    /// Rows above the month, for a narrow sheet.
+    case above
+}
+
 // MARK: - Date Range Calendar
 
 /// A month calendar that picks a range of days, with optional presets.
@@ -105,6 +115,10 @@ public struct DateRangeCalendar: View {
     private let presets: [DateRangePreset]
     private let minimumDate: Date?
     private let maximumDate: Date?
+    private let isDateEnabled: ((Date) -> Bool)?
+    private let maximumLength: Int?
+    private let presetPlacement: DateRangePresetPlacement
+    private let showsFooter: Bool
     private let allowsClear: Bool
     private let onCommit: () -> Void
     /// In the field's popover: Return picks, and focus starts in the grid.
@@ -121,12 +135,22 @@ public struct DateRangeCalendar: View {
     ///   - presets: Named ranges listed beside the calendar.
     ///   - minimumDate: The first day that can be picked (any time on it).
     ///   - maximumDate: The last day that can be picked.
+    ///   - isDateEnabled: Turns single days inside the bounds down; asked with the start of the day.
+    ///   - maximumLength: The most days a range may span; a longer pick is cut
+    ///     at it and a longer preset is offered dimmed.
+    ///   - presetPlacement: The presets beside the month, or above it.
+    ///   - showsFooter: The line under the month that reads the range so far
+    ///     (and Clear, for an optional range).
     ///   - onCommit: Called when a range is completed or a preset picked.
     public init(
         selection: Binding<ClosedRange<Date>>,
         presets: [DateRangePreset] = [],
         minimumDate: Date? = nil,
         maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
+        maximumLength: Int? = nil,
+        presetPlacement: DateRangePresetPlacement = .beside,
+        showsFooter: Bool = true,
         onCommit: @escaping () -> Void = {}
     ) {
         self.init(
@@ -138,6 +162,10 @@ public struct DateRangeCalendar: View {
             presets: presets,
             minimumDate: minimumDate,
             maximumDate: maximumDate,
+            isDateEnabled: isDateEnabled,
+            maximumLength: maximumLength,
+            presetPlacement: presetPlacement,
+            showsFooter: showsFooter,
             isInPopover: false,
             onCommit: onCommit
         )
@@ -149,12 +177,20 @@ public struct DateRangeCalendar: View {
     ///   - presets: Named ranges listed beside the calendar.
     ///   - minimumDate: The first day that can be picked (any time on it).
     ///   - maximumDate: The last day that can be picked.
+    ///   - isDateEnabled: Turns single days inside the bounds down; asked with the start of the day.
+    ///   - maximumLength: The most days a range may span.
+    ///   - presetPlacement: The presets beside the month, or above it.
+    ///   - showsFooter: The line under the month that reads the range so far, and Clear.
     ///   - onCommit: Called when a range is completed, a preset picked or the range cleared.
     public init(
         selection: Binding<ClosedRange<Date>?>,
         presets: [DateRangePreset] = [],
         minimumDate: Date? = nil,
         maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
+        maximumLength: Int? = nil,
+        presetPlacement: DateRangePresetPlacement = .beside,
+        showsFooter: Bool = true,
         onCommit: @escaping () -> Void = {}
     ) {
         self.init(
@@ -163,6 +199,10 @@ public struct DateRangeCalendar: View {
             presets: presets,
             minimumDate: minimumDate,
             maximumDate: maximumDate,
+            isDateEnabled: isDateEnabled,
+            maximumLength: maximumLength,
+            presetPlacement: presetPlacement,
+            showsFooter: showsFooter,
             isInPopover: false,
             onCommit: onCommit
         )
@@ -174,6 +214,10 @@ public struct DateRangeCalendar: View {
         presets: [DateRangePreset],
         minimumDate: Date?,
         maximumDate: Date?,
+        isDateEnabled: ((Date) -> Bool)?,
+        maximumLength: Int?,
+        presetPlacement: DateRangePresetPlacement,
+        showsFooter: Bool,
         isInPopover: Bool,
         onCommit: @escaping () -> Void
     ) {
@@ -182,38 +226,43 @@ public struct DateRangeCalendar: View {
         self.presets = presets
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
+        self.maximumLength = maximumLength.map { max(1, $0) }
+        self.presetPlacement = presetPlacement
+        self.showsFooter = showsFooter
         self.isInPopover = isInPopover
         self.onCommit = onCommit
     }
 
     private var bounds: CalendarBounds {
-        CalendarBounds(minimum: minimumDate, maximum: maximumDate, calendar: calendar)
+        CalendarBounds(minimum: minimumDate, maximum: maximumDate, isDateEnabled: isDateEnabled, calendar: calendar)
     }
 
     public var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            if !presets.isEmpty {
-                presetColumn
-                    .padding(Spacing.sm)
-                    .fixedSize(horizontal: true, vertical: false)
-                Divider()
+        Group {
+            switch presetPlacement {
+            case .beside:
+                HStack(alignment: .top, spacing: 0) {
+                    if !presets.isEmpty {
+                        presetColumn
+                            .padding(Spacing.md)
+                            .fixedSize(horizontal: true, vertical: false)
+                        Divider()
+                    }
+                    monthColumn
+                        .padding(Spacing.md)
+                }
+            case .above:
+                VStack(alignment: .leading, spacing: 0) {
+                    if !presets.isEmpty {
+                        presetColumn
+                            .padding(Spacing.md)
+                        Divider()
+                    }
+                    monthColumn
+                        .padding(Spacing.md)
+                }
             }
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                CalendarMonthPanel(
-                    selection: .range(selection.wrappedValue.map { CalendarGridMath.normalized($0, calendar: calendar) }, pendingStart: pendingStart),
-                    tint: .accent,
-                    isCompact: true,
-                    bounds: bounds,
-                    handlesReturn: isInPopover,
-                    focusesOnAppear: isInPopover,
-                    todayPicks: false,
-                    onPick: pick
-                )
-                .frame(width: DatePickerMetrics.calendarWidth)
-                Divider()
-                footer
-            }
-            .padding(Spacing.md)
         }
         .fixedSize()
         // Esc drops a start still waiting for its end; with none, it passes on
@@ -222,6 +271,26 @@ public struct DateRangeCalendar: View {
             guard pendingStart != nil else { return .ignored }
             withAnimation(Animations.selection) { pendingStart = nil }
             return .handled
+        }
+    }
+
+    private var monthColumn: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            CalendarMonthPanel(
+                selection: .range(selection.wrappedValue.map { CalendarGridMath.normalized($0, calendar: calendar) }, pendingStart: pendingStart),
+                tint: .accent,
+                isCompact: true,
+                bounds: bounds,
+                handlesReturn: isInPopover,
+                focusesOnAppear: isInPopover,
+                todayPicks: false,
+                onPick: pick
+            )
+            .frame(width: DatePickerMetrics.calendarWidth)
+            if showsFooter {
+                Divider()
+                footer
+            }
         }
     }
 
@@ -234,13 +303,38 @@ public struct DateRangeCalendar: View {
         }
         withAnimation(Animations.selection) {
             pendingStart = nil
-            selection.wrappedValue = CalendarGridMath.orderedRange(start, day, calendar: calendar)
+            selection.wrappedValue = limited(CalendarGridMath.orderedRange(start, day, calendar: calendar), anchoredAt: start)
         }
         onCommit()
     }
 
+    /// `range` cut to `maximumLength` days, keeping the end that was picked
+    /// first.
+    private func limited(_ range: ClosedRange<Date>, anchoredAt start: Date) -> ClosedRange<Date> {
+        guard let maximumLength, Self.dayCount(of: range, calendar: calendar) > maximumLength else { return range }
+        if start == range.lowerBound {
+            let end = calendar.date(byAdding: .day, value: maximumLength - 1, to: range.lowerBound) ?? range.upperBound
+            return range.lowerBound...calendar.startOfDay(for: end)
+        }
+        let begin = calendar.date(byAdding: .day, value: -(maximumLength - 1), to: range.upperBound) ?? range.lowerBound
+        return calendar.startOfDay(for: begin)...range.upperBound
+    }
+
+    /// Whole days in `range`, both ends included.
+    private static func dayCount(of range: ClosedRange<Date>, calendar: Calendar) -> Int {
+        (calendar.dateComponents([.day], from: range.lowerBound, to: range.upperBound).day ?? 0) + 1
+    }
+
+    /// A preset's range inside the bounds and under the length cap, or nil
+    /// when it can't be offered.
+    private func availableRange(of preset: DateRangePreset) -> ClosedRange<Date>? {
+        guard let range = bounds.clamp(preset.range(calendar: calendar)) else { return nil }
+        if let maximumLength, Self.dayCount(of: range, calendar: calendar) > maximumLength { return nil }
+        return range
+    }
+
     private func apply(_ preset: DateRangePreset) {
-        guard let range = bounds.clamp(preset.range(calendar: calendar)) else { return }
+        guard let range = availableRange(of: preset) else { return }
         withAnimation(Animations.selection) {
             pendingStart = nil
             selection.wrappedValue = range
@@ -253,7 +347,7 @@ public struct DateRangeCalendar: View {
     private var presetColumn: some View {
         VStack(alignment: .leading, spacing: Spacing.hairline) {
             ForEach(presets) { preset in
-                let range = bounds.clamp(preset.range(calendar: calendar))
+                let range = availableRange(of: preset)
                 DateRangePresetRow(
                     title: preset.title,
                     isSelected: pendingStart == nil && range != nil && range == selection.wrappedValue.map { CalendarGridMath.normalized($0, calendar: calendar) },
@@ -282,7 +376,7 @@ public struct DateRangeCalendar: View {
                     }
                     onCommit()
                 } label: {
-                    Text("Clear", bundle: .module).font(Typography.labelSmall)
+                    Text("Clear", bundle: .module)
                 }
                 .buttonStyle(GhostButtonStyle(compact: true))
                 .disabled(selection.wrappedValue == nil && pendingStart == nil)
@@ -305,8 +399,9 @@ public struct DateRangeCalendar: View {
 
 // MARK: - Preset Row
 
-/// One preset: a Tab stop with the shared ring and hover wash, the selected
-/// one on the row's selected fill with a checkmark.
+/// One preset, in the menu rows' chrome: a Tab stop with the shared ring and
+/// hover wash (the popover is a key window, so the rows can take focus), the
+/// selected one on the row's selected fill with a trailing checkmark.
 private struct DateRangePresetRow: View {
     let title: LocalizedStringKey
     let isSelected: Bool
@@ -314,6 +409,12 @@ private struct DateRangePresetRow: View {
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
+
+    private var fill: Color {
+        if isSelected { return RowTint.selected(scheme) }
+        return isHovering && isEnabled ? RowTint.hover(scheme) : .clear
+    }
 
     var body: some View {
         Button(action: action) {
@@ -329,17 +430,19 @@ private struct DateRangePresetRow: View {
                     .opacity(isSelected ? 1 : 0)
                     .accessibilityHidden(true)
             }
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
+            .padding(.horizontal, Spacing.menuRowPaddingH)
+            .padding(.vertical, Spacing.menuRowPaddingV)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
-                    .fill(isSelected ? RowTint.selected(scheme) : .clear)
+                    .fill(fill)
             }
-            .contentShape(Rectangle())
+            .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
         }
-        .buttonStyle(SelectableCardButtonStyle(cornerRadius: Sizing.radiusDefault))
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault))
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .onHover { isHovering = $0 }
+        .animation(Animations.hover, value: isHovering)
     }
 }
 
@@ -347,9 +450,14 @@ private struct DateRangePresetRow: View {
 
 /// A day range as the locale writes one: "Mar 3 – 9, 2026", "3.–9. März 2026".
 nonisolated enum DateRangeFormatting {
-    static func string(for range: ClosedRange<Date>, calendar: Calendar, locale: Locale) -> String {
+    static func string(
+        for range: ClosedRange<Date>,
+        calendar: Calendar,
+        locale: Locale,
+        dateStyle: Date.FormatStyle.DateStyle = .abbreviated
+    ) -> String {
         let days = CalendarGridMath.normalized(range, calendar: calendar)
-        let style = Date.IntervalFormatStyle(date: .abbreviated, time: .omitted, locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+        let style = Date.IntervalFormatStyle(date: dateStyle, time: .omitted, locale: locale, calendar: calendar, timeZone: calendar.timeZone)
         return (days.lowerBound..<max(days.upperBound, days.lowerBound)).formatted(style)
     }
 }

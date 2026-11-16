@@ -39,11 +39,15 @@ public struct ComboBox<Option: Hashable>: View {
     private let mode: Mode
     private let options: [Option]
     private let maxSuggestions: Int
+    private let systemImage: String?
+    private let isClearable: Bool
     private let title: (Option) -> String
+    private let optionIcon: ((Option) -> String)?
 
     /// What's in the field: the bound text (free) or the search (restricted).
     @State private var draft = ""
     @FocusState private var isFieldFocused: Bool
+    @State private var isHovering = false
     @State private var list = SuggestionListModel<Option>()
     @State private var boxWidth: CGFloat = 0
     /// Text this view wrote into the field itself (a pick, a clear, a revert):
@@ -58,21 +62,32 @@ public struct ComboBox<Option: Hashable>: View {
     ///   - text: The field's text.
     ///   - options: The suggestions, ranked against what's typed.
     ///   - maxSuggestions: The most rows the list shows; the rest are counted.
+    ///   - systemImage: A leading SF Symbol (a magnifier, a person); accent
+    ///     while focused.
+    ///   - isClearable: A clear button while there's text and the pointer or
+    ///     focus is on the field.
     ///   - title: How an option reads (and the text a pick writes).
+    ///   - optionIcon: An SF Symbol before each row's title.
     ///   - onPick: Called when a suggestion is picked, after `text` is set.
     public init(
         _ placeholder: LocalizedStringKey,
         text: Binding<String>,
         options: [Option],
         maxSuggestions: Int = 8,
+        systemImage: String? = nil,
+        isClearable: Bool = false,
         title: @escaping (Option) -> String,
+        optionIcon: ((Option) -> String)? = nil,
         onPick: ((Option) -> Void)? = nil
     ) {
         self.placeholder = placeholder
         self.mode = .freeText(text, onPick: onPick)
         self.options = options
         self.maxSuggestions = maxSuggestions
+        self.systemImage = systemImage
+        self.isClearable = isClearable
         self.title = title
+        self.optionIcon = optionIcon
     }
 
     /// Restricted: the value is one of the options, and typing searches them.
@@ -83,19 +98,29 @@ public struct ComboBox<Option: Hashable>: View {
     ///   - selection: The chosen option; nil for none (Esc twice clears it).
     ///   - options: The options, ranked against what's typed.
     ///   - maxSuggestions: The most rows the list shows; the rest are counted.
+    ///   - systemImage: A leading SF Symbol; accent while focused.
+    ///   - isClearable: A clear button while there's a value and the pointer
+    ///     or focus is on the field; it clears the choice.
     ///   - title: How an option reads.
+    ///   - optionIcon: An SF Symbol before each row's title.
     public init(
         _ placeholder: LocalizedStringKey,
         selection: Binding<Option?>,
         options: [Option],
         maxSuggestions: Int = 8,
-        title: @escaping (Option) -> String
+        systemImage: String? = nil,
+        isClearable: Bool = false,
+        title: @escaping (Option) -> String,
+        optionIcon: ((Option) -> String)? = nil
     ) {
         self.placeholder = placeholder
         self.mode = .restricted(selection)
         self.options = options
         self.maxSuggestions = maxSuggestions
+        self.systemImage = systemImage
+        self.isClearable = isClearable
         self.title = title
+        self.optionIcon = optionIcon
     }
 
     private var isRestricted: Bool {
@@ -111,30 +136,54 @@ public struct ComboBox<Option: Hashable>: View {
         }
     }
 
-    private var cornerRadius: CGFloat {
-        isTahoeOrLater ? Sizing.radiusFull : Sizing.radiusDefault
+    private var showsClear: Bool {
+        isClearable && !draft.isEmpty && (isHovering || isFieldFocused)
     }
 
     public var body: some View {
-        HStack(spacing: Spacing.xs) {
+        HStack(spacing: Spacing.sm) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(Typography.labelMedium)
+                    .foregroundStyle(isFieldFocused ? Color.accent : Color.textTertiary)
+                    .accessibilityHidden(true)
+            }
+
             TextField(text: $draft, prompt: Text(placeholder)) {
                 Text(placeholder)
             }
             .textFieldStyle(.plain)
-            .font(Typography.bodySmall)
+            .font(Typography.labelMedium)
             .focused($isFieldFocused)
             .onKeyPress { press in handleKey(press) }
             .accessibilityAction(named: Text("Show Suggestions", bundle: .module)) { openList() }
 
+            if isClearable {
+                // Mounted even while hidden, so the layout never jumps; disabled
+                // while hidden, or Tab would land on it unseen.
+                Button(action: clear) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(Typography.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)
+                }
+                .buttonStyle(InlineIconButtonStyle(chipRadius: Sizing.radiusSmall))
+                .opacity(showsClear ? 1 : 0)
+                .disabled(!showsClear)
+                .allowsHitTesting(showsClear)
+                .accessibilityLabel(Text("Clear", bundle: .module))
+            }
+
             disclosureButton
         }
-        .padding(.leading, Spacing.sm)
-        .padding(.trailing, Spacing.xs)
-        .padding(.vertical, Spacing.xs)
+        .padding(.horizontal, Spacing.fieldPaddingH)
+        .padding(.vertical, Spacing.fieldPaddingV)
         .frame(maxWidth: .infinity, minHeight: Sizing.controlDefault, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture { isFieldFocused = true }
-        .inputBox(isFocused: isFieldFocused, cornerRadius: cornerRadius)
+        .inputBox(isFocused: isFieldFocused)
+        .onHover { isHovering = $0 }
+        .animation(Animations.hover, value: showsClear)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { boxWidth = $0 }
         .background(alignment: .bottom) { suggestionAnchor }
         .onAppear { setDraft(valueText) }
@@ -185,9 +234,10 @@ public struct ComboBox<Option: Hashable>: View {
             .floatingMenu(isPresented: $list.isPresented, xPosition: .leading, yPosition: .below, menuGap: Spacing.xxs) {
                 SuggestionListContent(
                     model: list,
-                    width: max(boxWidth, 160),
+                    width: max(boxWidth, Sizing.menuMinWidth),
                     showsNoMatches: isRestricted,
                     currentTitle: isRestricted ? valueText : nil,
+                    icon: optionIcon,
                     title: title
                 ) { option in
                     pick(option)
@@ -279,6 +329,7 @@ public struct ComboBox<Option: Hashable>: View {
         setDraft("")
         if case .freeText(let text, _) = mode { text.wrappedValue = "" }
         if case .restricted(let selection) = mode { selection.wrappedValue = nil }
+        isFieldFocused = true
     }
 
     // MARK: Keys
@@ -353,13 +404,18 @@ extension ComboBox where Option == String {
     ///   - text: The field's text.
     ///   - suggestions: Ranked against what's typed.
     ///   - maxSuggestions: The most rows the list shows; the rest are counted.
+    ///   - systemImage: A leading SF Symbol; accent while focused.
+    ///   - isClearable: A clear button while there's text and the pointer or
+    ///     focus is on the field.
     public init(
         _ placeholder: LocalizedStringKey,
         text: Binding<String>,
         suggestions: [String],
-        maxSuggestions: Int = 8
+        maxSuggestions: Int = 8,
+        systemImage: String? = nil,
+        isClearable: Bool = false
     ) {
-        self.init(placeholder, text: text, options: suggestions, maxSuggestions: maxSuggestions, title: { $0 })
+        self.init(placeholder, text: text, options: suggestions, maxSuggestions: maxSuggestions, systemImage: systemImage, isClearable: isClearable, title: { $0 })
     }
 
     /// Restricted to string options.
@@ -370,13 +426,18 @@ extension ComboBox where Option == String {
     ///   - selection: The chosen option; nil for none.
     ///   - options: Ranked against what's typed.
     ///   - maxSuggestions: The most rows the list shows; the rest are counted.
+    ///   - systemImage: A leading SF Symbol; accent while focused.
+    ///   - isClearable: A clear button while there's a value and the pointer
+    ///     or focus is on the field.
     public init(
         _ placeholder: LocalizedStringKey,
         selection: Binding<String?>,
         options: [String],
-        maxSuggestions: Int = 8
+        maxSuggestions: Int = 8,
+        systemImage: String? = nil,
+        isClearable: Bool = false
     ) {
-        self.init(placeholder, selection: selection, options: options, maxSuggestions: maxSuggestions, title: { $0 })
+        self.init(placeholder, selection: selection, options: options, maxSuggestions: maxSuggestions, systemImage: systemImage, isClearable: isClearable, title: { $0 })
     }
 }
 
@@ -390,7 +451,7 @@ private struct ComboBoxPreviewHost: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            ComboBox("City", text: $city, suggestions: cities)
+            ComboBox("City", text: $city, suggestions: cities, systemImage: "mappin", isClearable: true)
             ComboBox("Language", selection: $language, options: languages)
         }
         .padding(Spacing.xl)

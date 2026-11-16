@@ -44,6 +44,12 @@ struct ThemesPage: View {
                 .foregroundStyle(.secondary)
             AppearanceSettings()
                 .environment(\.settingsFormPlain, true)
+            DemoBlock(title: "Mode picker with labels") {
+                AppearanceModePicker(
+                    selection: Binding(get: { BlissAppearance.colorScheme }, set: { BlissAppearance.colorScheme = $0 }),
+                    showsLabels: true
+                )
+            }
             DemoBlock(title: "Status colors") {
                 HStack(spacing: Spacing.sm) {
                     Badge("Success", icon: "checkmark").badgeStyle(.success)
@@ -79,6 +85,33 @@ struct ButtonsPage: View {
                     Button("Save") {}.buttonStyle(PrimaryButtonStyle(compact: true))
                     Button("Remove") {}.buttonStyle(DestructiveButtonStyle(compact: true))
                 }
+            }
+            DemoBlock(title: "Icon-only and full-width") {
+                HStack(spacing: Spacing.sm) {
+                    Button {} label: { Image(systemName: "plus") }
+                        .buttonStyle(PrimaryButtonStyle(iconOnly: true))
+                        .accessibilityLabel(Text("Add"))
+                    Button {} label: { Image(systemName: "square.and.arrow.up") }
+                        .buttonStyle(SecondaryButtonStyle(iconOnly: true))
+                        .accessibilityLabel(Text("Share"))
+                    Button {} label: { Image(systemName: "pencil") }
+                        .buttonStyle(OutlineButtonStyle(compact: true, iconOnly: true))
+                        .accessibilityLabel(Text("Edit"))
+                    Button {} label: { Image(systemName: "ellipsis") }
+                        .buttonStyle(GhostButtonStyle(compact: true, iconOnly: true))
+                        .accessibilityLabel(Text("More"))
+                    Button {} label: { Image(systemName: "trash") }
+                        .buttonStyle(DestructiveButtonStyle(compact: true, iconOnly: true))
+                        .accessibilityLabel(Text("Delete"))
+                    Button {} label: { Image(systemName: "stop.fill") }
+                        .buttonStyle(ToolbarIconButtonStyle(tint: Danger.danger500))
+                        .accessibilityLabel(Text("Stop"))
+                    Button("Bugs") {}.buttonStyle(SmallPillButtonStyle(color: Danger.danger500, isSelected: true))
+                    Button("Docs") {}.buttonStyle(SmallPillButtonStyle(color: Info.info500, compact: true))
+                }
+                Button("Continue") {}
+                    .buttonStyle(PrimaryButtonStyle(fullWidth: true))
+                    .frame(width: 240)
             }
             DemoBlock(title: "Loading") {
                 HStack(spacing: Spacing.sm) {
@@ -130,6 +163,13 @@ private enum CatalogPeriod: String, CaseIterable, Hashable {
     case day = "Day", week = "Week", month = "Month"
 }
 
+private enum CatalogLayout: CaseIterable, Hashable {
+    case list, grid
+
+    var title: String { self == .list ? "List" : "Grid" }
+    var icon: String { self == .list ? "list.bullet" : "square.grid.2x2" }
+}
+
 struct InputsPage: View {
     @State private var name = ""
     @State private var search = ""
@@ -146,19 +186,33 @@ struct InputsPage: View {
     @State private var droppedFiles: [String] = []
     @State private var stars = 3
     @State private var priority = 2
+    @State private var compactName = ""
+    @State private var passphrase = "correct horse battery staple"
+    @State private var wifiOn = true
+    @State private var layout = CatalogLayout.list
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             DemoBlock(title: "Text fields") {
                 TextField("Name", text: $name).textFieldStyle(.largePadded)
                 TextField("Search", text: $search).textFieldStyle(.search)
+                TextField("Compact", text: $compactName, prompt: Text("Compact, for a toolbar or a dense form"))
+                    .textFieldStyle(.compact)
+                    .frame(maxWidth: 320)
             }
             DemoBlock(title: "Secret field") {
-                SecretField("API key", text: $apiKey, prompt: Text("sk-…"))
-                    .frame(maxWidth: 420)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    SecretField("API key", text: $apiKey, prompt: Text("sk-…"))
+                    SecretField("Passphrase", text: $passphrase, isRevealable: false, monospaced: false)
+                }
+                .frame(maxWidth: 420)
             }
             DemoBlock(title: "Drop zone") {
                 DropZone("Drop images here", hint: "PNG or JPEG, up to 10 MB", systemImage: "photo.on.rectangle", allowedContentTypes: [.png, .jpeg]) { urls in
+                    droppedFiles = urls.map(\.lastPathComponent)
+                }
+                .frame(maxWidth: 480)
+                DropZone("Attach a file", hint: "Any type", systemImage: "paperclip", compact: true) { urls in
                     droppedFiles = urls.map(\.lastPathComponent)
                 }
                 .frame(maxWidth: 480)
@@ -170,13 +224,20 @@ struct InputsPage: View {
             }
             DemoBlock(title: "Switch and checkbox") {
                 Toggle("Notifications", isOn: $notificationsOn).toggleStyle(.flatSwitch(showsLabel: true))
+                Toggle("Wi-Fi", isOn: $wifiOn).toggleStyle(.flatSwitch(showsLabel: true, tint: Success.success500, labelPlacement: .trailing))
                 Button { agreed.toggle() } label: {
                     HStack(spacing: Spacing.sm) {
                         CheckboxGlyph(isOn: agreed)
                         Text("I agree")
                     }
                 }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 3))
+                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: Spacing.ringOutset))
+                HStack(spacing: Spacing.sm) {
+                    CheckboxGlyph(isOn: true, isMixed: true)
+                    Text("Some selected")
+                    CheckboxGlyph(isOn: true, color: Success.success500)
+                    Text("Tinted")
+                }
             }
             DemoBlock(title: "Rating") {
                 Text("Hover to preview, click to set, click the same star to clear. Tab to it and use ← / →, Home / End, or ↓ to clear.")
@@ -185,13 +246,17 @@ struct InputsPage: View {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     Rating("Quality", value: $stars)
                     Rating("Priority", value: $priority, maximum: 3, systemImage: "flame", color: Danger.danger500, allowsClear: false)
-                    Rating("Average", value: .constant(4))
-                        .disabled(true)
+                    Rating("Average", value: .constant(4), size: .small, isReadOnly: true, valueLabel: Text(verbatim: "4.0"))
+                    Rating("Review", value: $stars, size: .large)
                 }
             }
             DemoBlock(title: "Segmented pills") {
                 SegmentedPills(options: CatalogPeriod.allCases, selection: $period, title: { $0.rawValue })
-                SegmentedPills(options: CatalogPeriod.allCases, selection: $period, style: .compact, title: { $0.rawValue })
+                HStack(spacing: Spacing.md) {
+                    SegmentedPills(options: CatalogPeriod.allCases, selection: $period, style: .compact, title: { $0.rawValue })
+                    SegmentedPills(options: CatalogLayout.allCases, selection: $layout, style: .compact, labelStyle: .iconOnly, title: { $0.title }, icon: { $0.icon })
+                    SegmentedPills(options: CatalogPeriod.allCases, selection: $period, fillsWidth: false, title: { $0.rawValue })
+                }
             }
             DemoBlock(title: "Dropdown") {
                 FloatingMenuPicker(
@@ -202,13 +267,20 @@ struct InputsPage: View {
                     optionIcon: { _ in "textformat.size" }
                 )
                 .frame(maxWidth: 320)
+                HStack(spacing: Spacing.md) {
+                    FloatingMenuPicker("Size", selection: $size, options: ["Small", "Medium", "Large"], optionTitle: { $0 }, showsTitle: false, compact: true)
+                    FloatingMenuPicker("Size", selection: $size, options: ["Small", "Medium", "Large"], optionTitle: { $0 }, showsTitle: false, showsBorder: false)
+                    FloatingMenuPicker("Size", selection: $size, options: ["Small", "Medium", "Large"], optionTitle: { $0 }, optionIcon: { _ in "textformat.size" }, showsTitle: false, iconOnly: true)
+                }
             }
             DemoBlock(title: "Pickers") {
                 HStack(spacing: Spacing.md) {
                     ColorPickerButton(red: $red, green: $green, blue: $blue)
                     IconPickerButton(selectedIcon: $icon)
+                    ColorPickerButton(red: $red, green: $green, blue: $blue, label: .hexChip, compact: true)
+                    IconPickerButton(selectedIcon: $icon, compact: true)
                 }
-                BrowseInput(path: $folder, placeholder: "Choose a folder")
+                BrowseInput(path: $folder, placeholder: "Choose a folder", isClearable: true)
                     .frame(maxWidth: 420)
             }
         }
@@ -269,6 +341,13 @@ private struct CatalogEvent: Identifiable {
         CatalogEvent(id: 3, title: "Build started", detail: "Triggered by a push to main.", mark: .dot(.secondary), date: .now.addingTimeInterval(-720)),
         CatalogEvent(id: 4, title: "Migration warning", detail: "Two columns were dropped without a backup.", mark: .icon("exclamationmark.triangle", Warning.warning500), date: .now.addingTimeInterval(-1_800)),
     ]
+
+    /// Who did what: avatar marks for a comment feed.
+    static let activity = [
+        CatalogEvent(id: 1, title: "Ada approved the release", detail: nil, mark: .avatar(name: "Ada Lovelace"), date: .now.addingTimeInterval(-300)),
+        CatalogEvent(id: 2, title: "Grace requested changes", detail: nil, mark: .avatar(name: "Grace Hopper"), date: .now.addingTimeInterval(-2_400)),
+        CatalogEvent(id: 3, title: "Alan opened the pull request", detail: nil, mark: .avatar(name: "Alan Turing"), date: .now.addingTimeInterval(-7_200)),
+    ]
 }
 
 struct DisplayPage: View {
@@ -276,6 +355,8 @@ struct DisplayPage: View {
     @State private var isRevealed = false
     @State private var tourPage = 1
     @State private var tourAutoplays = false
+    @State private var terminalExpanded = true
+    @State private var markdownSize: MarkdownSize = .small
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -289,6 +370,13 @@ struct DisplayPage: View {
                     Badge.pro()
                     Badge("Live").badgeStyle(.success).dot(Success.success500)
                 }
+                FlowLayout(spacing: Spacing.sm, alignment: .center) {
+                    Badge("v6.2").badgeStyle(.outline)
+                    Badge(count: 1_200, maximum: 999)
+                    Badge.status("Paused", color: Warning.warning500, size: .small)
+                    Badge("Large", icon: "star").badgeStyle(.primary).badgeSize(.large)
+                }
+                .frame(maxWidth: 320)
             }
             DemoBlock(title: "Status and progress") {
                 HStack(spacing: Spacing.lg) {
@@ -296,6 +384,13 @@ struct DisplayPage: View {
                     StatusDotPill(label: "Degraded", color: Warning.warning500, bordered: true)
                     ThinkingSpinner()
                     ShimmerTextOverlay(text: "Thinking…")
+                }
+                HStack(spacing: Spacing.lg) {
+                    StatusDotPill(label: "Synced", color: Info.info500, size: .regular, icon: "arrow.triangle.2.circlepath")
+                    StatusDotPill(label: "Offline", color: Grey.grey500, isActive: false)
+                    StatusPill("Connected", isActive: true, color: Info.info500, size: .regular, icon: "bolt.fill")
+                    ThinkingSpinner(size: .small)
+                    ThinkingSpinner(size: .large, color: Color.accent)
                 }
             }
             DemoBlock(title: "Numbers, keys and time") {
@@ -310,10 +405,20 @@ struct DisplayPage: View {
                     .buttonStyle(InlineIconButtonStyle())
                     .accessibilityLabel(Text(isRevealed ? "Hide" : "Reveal"))
                 }
+                HStack(spacing: Spacing.lg) {
+                    SlidingNumber(value: count * 12, size: .small, prefix: "$")
+                    SlidingNumber(value: min(count * 7, 100), size: .regular, suffix: "%")
+                    ShortcutKey("esc", outlined: true)
+                    ShortcutKey("⌘S", tint: Color.accent)
+                    TimeAgoLabel(date: Date().addingTimeInterval(-3_600), style: .full)
+                    TimeAgoLabel(date: Date().addingTimeInterval(-90), showsIcon: false)
+                        .foregroundStyle(.secondary)
+                }
             }
             DemoBlock(title: "Paths") {
                 PathHoverChip(path: "/Users/me/Developer/BlissUI/Sources")
                 PathHoverChip.code("swift run BlissCatalog")
+                PathHoverChip(path: "~/Library/Application Support/Bliss", compact: true, showsCopy: false)
             }
             DemoBlock(title: "Terminal output") {
                 TerminalOutputView(lines: [
@@ -322,13 +427,25 @@ struct DisplayPage: View {
                     TerminalOutputLine("warning: unused variable 'count'", type: .stderr),
                     TerminalOutputLine("Build complete!"),
                 ], title: "Build", maxHeight: 140)
+                Text("Caller-owned collapse, no wrapping (scroll sideways) and a header accessory.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+                TerminalOutputView(lines: [
+                    TerminalOutputLine("$ swift run BlissCatalog -gallery /tmp/shots -bliss.colorScheme Dark -bliss.theme system -galleryArea core", type: .system),
+                    TerminalOutputLine("Captured 48 components in 34 s"),
+                ], title: "Deploy", maxHeight: 120, isExpanded: $terminalExpanded, wrapsLines: false) {
+                    HoverIconButton(systemImage: "trash", help: "Clear") {}
+                }
+                Button(terminalExpanded ? "Collapse" : "Expand") { terminalExpanded.toggle() }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
             }
             DemoBlock(title: "Markdown view") {
                 Text("A whole document: headings, lists, quotes, links and fenced code. Text alone renders inline markdown only.")
                     .font(Typography.bodySmall)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                MarkdownView(CatalogMarkdown.releaseNotes)
+                SegmentedPills(options: [MarkdownSize.small, .regular], selection: $markdownSize, style: .compact, title: { $0 == .small ? "Small" : "Regular" })
+                MarkdownView(CatalogMarkdown.releaseNotes, size: markdownSize)
                     .frame(maxWidth: 560)
             }
             DemoBlock(title: "Carousel") {
@@ -338,7 +455,7 @@ struct DisplayPage: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Toggle("Autoplay every 4 seconds", isOn: $tourAutoplays)
                     .toggleStyle(.flatSwitch(showsLabel: true))
-                Carousel(CatalogTourPage.pages, selection: $tourPage, autoplayInterval: tourAutoplays ? 4 : nil) { page in
+                Carousel(CatalogTourPage.pages, selection: $tourPage, autoplayInterval: tourAutoplays ? 4 : nil, loops: true, pageSpacing: Spacing.sm) { page in
                     CatalogTourPageView(page: page)
                 }
                 .frame(maxWidth: 560)
@@ -358,12 +475,28 @@ struct DisplayPage: View {
                     }
                 }
                 .frame(maxWidth: 480)
+                Text("Compact, time leading, avatar marks.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+                Timeline(CatalogEvent.activity, compact: true, timePlacement: .leading) { event in
+                    TimelineItem(mark: event.mark, time: Text(event.date, style: .relative)) {
+                        Text(verbatim: event.title)
+                    }
+                }
+                .frame(maxWidth: 480)
             }
             DemoBlock(title: "Empty state") {
-                EmptyState(icon: "tray", title: "Nothing here yet", subtitle: "Items you add show up here.") {
-                    Button("Add Item") {}.buttonStyle(PrimaryButtonStyle(compact: true))
+                HStack(alignment: .top, spacing: Spacing.lg) {
+                    EmptyState(icon: "tray", title: "Nothing here yet", subtitle: "Items you add show up here.") {
+                        Button("Add Item") {}.buttonStyle(PrimaryButtonStyle(compact: true))
+                    }
+                    .contained()
+                    EmptyState(icon: "exclamationmark.triangle", title: "Couldn't load", subtitle: "The server didn't answer.", compact: true, iconColor: Danger.danger500) {
+                        Button("Retry") {}.buttonStyle(SecondaryButtonStyle(compact: true))
+                    }
+                    .contained()
+                    .frame(maxWidth: 280)
                 }
-                .contained()
             }
         }
     }
@@ -373,7 +506,9 @@ struct DisplayPage: View {
 
 struct SectionsPage: View {
     @State private var tab = 0
+    @State private var iconTab = 0
     @State private var autoSave = true
+    @State private var step = 1
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -384,22 +519,47 @@ struct SectionsPage: View {
                     LabeledDivider(alignment: .trailing) {
                         Text("3 more").font(Typography.captionSmallSemibold)
                     }
+                    LabeledDivider("Details", alignment: .leading, prominent: true, verticalPadding: Spacing.xs)
                 }
                 .frame(maxWidth: 420)
             }
-            UnderlineTabBar(
-                items: [
-                    UnderlineTabItem(value: 0, title: "Overview"),
-                    UnderlineTabItem(value: 1, title: "Activity", count: 3),
-                    UnderlineTabItem(value: 2, title: "Settings"),
-                ],
-                selection: $tab
-            )
+            DemoBlock(title: "Underline tabs") {
+                UnderlineTabBar(
+                    items: [
+                        UnderlineTabItem(value: 0, title: "Overview"),
+                        UnderlineTabItem(value: 1, title: "Activity", count: 3, isCountProminent: true),
+                        UnderlineTabItem(value: 2, title: "Settings"),
+                        UnderlineTabItem(value: 3, title: "Logs", isEnabled: false),
+                    ],
+                    selection: $tab
+                )
+                Text("Compact, icons only (the title is the tooltip), a disabled tab.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+                UnderlineTabBar(
+                    items: [
+                        UnderlineTabItem(value: 0, title: "Overview", icon: "square.grid.2x2"),
+                        UnderlineTabItem(value: 1, title: "Activity", icon: "clock", count: 3),
+                        UnderlineTabItem(value: 2, title: "Settings", icon: "gearshape"),
+                        UnderlineTabItem(value: 3, title: "Logs", icon: "doc.text", isEnabled: false),
+                    ],
+                    selection: $iconTab,
+                    compact: true,
+                    showsTitles: false
+                )
+            }
             SettingsForm {
                 RoundedSection("General", divided: true) {
                     Toggle("Save automatically", isOn: $autoSave).toggleStyle(.flatSwitch(showsLabel: true))
                     DetailRow(label: "Version", value: "1.0.0", copyable: true)
                     DetailRow(label: "Location", value: "/Users/me/Library/Application Support/Bliss", isPath: true)
+                    DetailRow(label: "API key", value: "sk-live-4f8a2c9e1b7d6a3f", monospace: true, copyable: true, isSecret: true)
+                    DetailRow(label: "Last modified", value: "Today at 9:41", labelWidth: 120)
+                } footer: {
+                    Text("Changes apply on relaunch.")
+                }
+                .headerTrailing {
+                    Button("Edit") {}.buttonStyle(GhostButtonStyle(compact: true, hugsLabel: true))
                 }
                 RoundedSection("Connection", borderTint: Success.tint.opacity(0.3)) {
                     ForEach(rows) { row in row }
@@ -407,14 +567,26 @@ struct SectionsPage: View {
             }
             .environment(\.settingsFormPlain, true)
             SectionHeader("Members", count: 4, caption: "Updated just now")
-            StepIndicator(stepCount: 5, currentIndex: 2)
+            SectionHeader("Pinned", count: 2, size: .small, hugsContent: true, topPadding: 0)
+            DemoBlock(title: "Step indicator") {
+                StepIndicator(stepCount: 5, currentIndex: 2)
+                Text("Segments, labels with clickable completed steps, and a vertical rail.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+                StepIndicator(stepCount: 4, currentIndex: step, style: .segments, onSelect: { step = $0 })
+                    .frame(maxWidth: 240)
+                StepIndicator(stepCount: 3, currentIndex: min(step, 2), labels: ["Account", "Plan", "Done"], onSelect: { step = $0 })
+                StepIndicator(stepCount: 3, currentIndex: min(step, 2), axis: .vertical)
+                Button("Next step") { step = (step + 1) % 4 }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+            }
         }
     }
 
     private var rows: [InfoRow] {
         [
             InfoRow.labeled("Host", value: "api.example.com"),
-            InfoRow.status("Connected", icon: "checkmark.circle.fill", style: .success),
+            InfoRow.status("Connected", icon: "checkmark.circle.fill", style: .success, detail: "Last checked 2 minutes ago"),
             InfoRow.branch("main"),
         ]
     }
@@ -440,6 +612,11 @@ private struct CatalogStep: Identifiable {
 struct TablePage: View {
     @State private var selection: Set<UUID> = []
     @State private var page = 6
+    @State private var pageSize = 25
+    @State private var isCompact = false
+    @State private var isStriped = false
+    @State private var showsRows = true
+    @State private var barIsAttached = false
     @State private var steps = [
         CatalogStep(id: 1, title: "Install dependencies", icon: "shippingbox"),
         CatalogStep(id: 2, title: "Run migrations", icon: "cylinder.split.1x2"),
@@ -460,12 +637,18 @@ struct TablePage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
+            HStack(spacing: Spacing.md) {
+                Toggle("Compact", isOn: $isCompact).toggleStyle(.flatSwitch(showsLabel: true))
+                Toggle("Striped", isOn: $isStriped).toggleStyle(.flatSwitch(showsLabel: true))
+                Toggle("Rows", isOn: $showsRows).toggleStyle(.flatSwitch(showsLabel: true))
+                Toggle("Attached selection bar", isOn: $barIsAttached).toggleStyle(.flatSwitch(showsLabel: true))
+            }
             table
             DemoBlock(title: "Reorderable list") {
-                Text("Drag a row by its grip, or Tab to the grip and press ⌥↑ / ⌥↓.")
+                Text("Drag a row by its grip, or Tab to the grip and press ⌥↑ / ⌥↓. Deploy stays last: `canMove` pins it.")
                     .font(Typography.bodySmall)
                     .foregroundStyle(.secondary)
-                ReorderableList($steps, divided: true) { step in
+                ReorderableList($steps, divided: true, canMove: { $0.id != 5 }) { step in
                     Label {
                         Text(verbatim: step.title).font(Typography.bodySmall)
                     } icon: {
@@ -475,6 +658,13 @@ struct TablePage: View {
                     }
                 }
                 .frame(maxWidth: 420)
+                Text("Compact rows.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+                ReorderableList($steps, compact: true) { step in
+                    Text(verbatim: step.title).font(Typography.bodySmall)
+                }
+                .frame(maxWidth: 420)
             }
             DemoBlock(title: "Pagination") {
                 Text("The first and last page always show; skipped runs fold into an ellipsis. Previous and next disable at the ends.")
@@ -482,13 +672,17 @@ struct TablePage: View {
                     .foregroundStyle(.secondary)
                 Pagination(page: $page, pageCount: 24)
                 Pagination(page: $page, pageCount: 24, siblingCount: 2)
+                Text("A total, a page-size picker and first / last buttons.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+                Pagination(page: $page, pageCount: 24, totalItems: 583, pageSize: $pageSize, showsFirstLast: true)
             }
         }
     }
 
     private var table: some View {
         BlissTable(
-            tasks,
+            showsRows ? tasks : [],
             columns: [
                 BlissTableColumn("Task", sortedBy: \CatalogTask.title),
                 BlissTableColumn("Owner", width: .fixed(110), sortedBy: \CatalogTask.owner),
@@ -498,8 +692,13 @@ struct TablePage: View {
             selection: $selection,
             initialSort: BlissTableSort(columnID: "Priority"),
             contentInset: 0,
+            compact: isCompact,
+            striped: isStriped,
             onOpen: { task in
                 ToastService.shared.showInfo(title: "Opened", message: task.title)
+            },
+            emptyState: {
+                EmptyState(icon: "tray", title: "No tasks", subtitle: "Turn the rows back on.", compact: true)
             }
         ) { task in
             Text(verbatim: task.title)
@@ -514,7 +713,13 @@ struct TablePage: View {
         }
         // Tall enough that the selection bar floats below the rows.
         .frame(minHeight: 540, alignment: .top)
-        .selectionBar(count: selection.count, onClear: { selection.removeAll() }) {
+        .selectionBar(
+            count: selection.count,
+            total: tasks.count,
+            placement: barIsAttached ? .attached : .floating,
+            onClear: { selection.removeAll() },
+            onSelectAll: { selection = Set(tasks.map(\.id)) }
+        ) {
             SelectionBarButton("Archive", systemImage: "archivebox") { selection.removeAll() }
             SelectionBarButton("Assign", systemImage: "person.crop.circle") {}
         }
@@ -540,6 +745,11 @@ struct OverlaysPage: View {
                     Button("Trailing") {}.buttonStyle(SecondaryButtonStyle()).tooltip("Shows trailing", position: .trailing)
                     InfoButton(text: "Click for a hint that stays open to be read.")
                 }
+                HStack(spacing: Spacing.md) {
+                    Button("Save") {}.buttonStyle(SecondaryButtonStyle()).tooltip("Save", shortcut: "⌘S", position: .below)
+                    Button("Build 412") {}.buttonStyle(SecondaryButtonStyle()).tooltip("Build 412", detail: "Finished 4 minutes ago on main", position: .below)
+                    InfoButton(text: "Projects sync whenever this Mac is online.", title: "Sync", size: .regular, systemImage: "questionmark.circle")
+                }
             }
             DemoBlock(title: "Floating menu") {
                 Button {
@@ -561,8 +771,12 @@ struct OverlaysPage: View {
                             .strokeBorder(Color.menuBorder, style: StrokeStyle(lineWidth: 1, dash: [4]))
                     }
                     .blissContextMenu {
+                        MenuSectionHeader("Card")
+                        QuickActionMenuItem(title: "Open", icon: "arrow.up.forward.app", shortcut: "⌘O") {}
                         QuickActionMenuItem(title: "Rename", icon: "pencil") {}
                         QuickActionMenuItem(title: "Duplicate", icon: "plus.square.on.square") {}
+                        QuickActionMenuItem(title: "Pinned", icon: "pin", isChecked: true) {}
+                        QuickActionMenuItem(title: "Export", icon: "square.and.arrow.up", isEnabled: false, detail: "Needs a selection") {}
                         MenuDivider()
                         QuickActionMenuItem(title: "Delete", icon: "trash", isDestructive: true) {}
                     }
@@ -591,12 +805,20 @@ private struct CatalogMenu: View {
 
 struct SheetsPage: View {
     @State private var showingSheet = false
+    @State private var showingLargeSheet = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             DemoBlock(title: "App sheet") {
-                Button("Open Sheet") { showingSheet = true }
-                    .buttonStyle(PrimaryButtonStyle())
+                HStack(spacing: Spacing.sm) {
+                    Button("Open Sheet") { showingSheet = true }
+                        .buttonStyle(PrimaryButtonStyle())
+                    Button("Large Sheet") { showingLargeSheet = true }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+                Text("The large one has an icon in its header, a header action, a secondary footer action, and closes on a click outside.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
             }
             DemoBlock(title: "Toasts") {
                 HStack(spacing: Spacing.sm) {
@@ -619,11 +841,32 @@ struct SheetsPage: View {
                     Button("Progress") { runProgressToast() }
                         .buttonStyle(SecondaryButtonStyle(compact: true))
                 }
+                HStack(spacing: Spacing.sm) {
+                    Button("Warning") {
+                        ToastService.shared.showWarning(title: "Low disk space", message: "4 GB left on Macintosh HD.")
+                    }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+                    Button("Prominent action") {
+                        ToastService.shared.showInfo(
+                            title: "Update ready",
+                            message: "Version 2.4 downloaded.",
+                            actions: [ToastAction(label: "Install", icon: "arrow.down.circle", isProminent: true) {}]
+                        )
+                    }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+                    Button("Stacked") {
+                        ToastService.shared.show(ToastData(title: "Backup complete", message: "Saved 1.2 GB to the external drive, 8 minutes.", style: .success, layout: .stacked))
+                    }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+                }
             }
         }
         // A fixed-width sheet is content-sized.
         .appSheet(isPresented: $showingSheet, contentSized: true) {
             CatalogSheet()
+        }
+        .appSheet(isPresented: $showingLargeSheet, size: .large, dismissesOnScrimTap: true) {
+            CatalogLargeSheet()
         }
         .onAppear(perform: showDemoState)
     }
@@ -659,6 +902,47 @@ struct SheetsPage: View {
                 tick(Double(step) / 10)
             }
             ToastService.shared.showSuccess(title: "Exported", message: "12 files")
+        }
+    }
+}
+
+/// The large sheet: an icon in the header, a header action, a loading confirm
+/// and a secondary footer action.
+private struct CatalogLargeSheet: View {
+    @Environment(\.appSheetDismiss) private var dismiss
+    @State private var title = "Quarterly report"
+    @State private var isCreating = false
+
+    var body: some View {
+        AppSheetScaffold {
+            SheetHeader(title: "New Report", subtitle: "From the Q3 template.", icon: "doc.badge.plus", iconColor: Color.accent, onDismiss: { dismiss() }) {
+                Button("Help") {}.buttonStyle(GhostButtonStyle(compact: true))
+            }
+        } content: {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                TextField("Title", text: $title).textFieldStyle(.largePadded)
+                Text("A large sheet is as wide as the window allows, up to the preset.")
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+        } footer: {
+            ActionBar(
+                confirmTitle: "Create",
+                isConfirmDisabled: title.isEmpty,
+                isConfirmLoading: isCreating,
+                secondaryTitle: "Save Draft",
+                onSecondary: { dismiss() },
+                onCancel: { dismiss() }
+            ) {
+                isCreating = true
+                Task {
+                    try? await Task.sleep(for: .seconds(1))
+                    isCreating = false
+                    dismiss()
+                }
+            }
         }
     }
 }

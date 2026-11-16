@@ -4,8 +4,9 @@
 //
 //  A thin, tintable progress bar: determinate (the fill springs to each new
 //  value) or indeterminate (a segment sweeping across the track). Optional
-//  label and percentage above it. Native `ProgressView` can't be tinted on
-//  macOS, so this is the bar to use; `ThinkingSpinner` stays the one spinner.
+//  label and readout above it, or on one line with it. Native `ProgressView`
+//  can't be tinted on macOS, so this is the bar to use; `ThinkingSpinner`
+//  stays the one spinner.
 //
 
 import SwiftUI
@@ -15,7 +16,8 @@ import SwiftUI
 /// ```swift
 /// ProgressBar(value: uploaded, total: fileCount, label: "Uploading", showsPercentage: true)
 /// ProgressBar(value: nil, label: "Preparing…")          // indeterminate
-/// ProgressBar(value: 0.8, tint: Success.success500)
+/// ProgressBar(value: 0.8, tint: Success.success500, thickness: .thin)
+/// ProgressBar(value: 4, total: 12, label: "Steps", readout: .text("4 of 12"), inline: true)
 /// ```
 ///
 /// The fill is a mark, like a status dot: pass a status `*500` or the accent,
@@ -25,9 +27,10 @@ public struct ProgressBar: View {
     private let value: Double?
     private let total: Double
     private let label: LocalizedStringKey?
-    private let showsPercentage: Bool
+    private let readout: ProgressReadout
     private let tint: Color
     private let height: CGFloat
+    private let inline: Bool
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -37,24 +40,54 @@ public struct ProgressBar: View {
     ///   - total: The value that fills the bar.
     ///   - label: A title above the bar, looked up in your app's strings. Also
     ///     what VoiceOver calls the bar ("Progress" when nil).
-    ///   - showsPercentage: Shows the whole percent above the bar's trailing
-    ///     end (determinate only).
+    ///   - showsPercentage: Shows the whole percent at the bar's trailing end
+    ///     (determinate only); the same as `readout: .percentage`.
+    ///   - readout: What's written at the trailing end: the percent, your own
+    ///     text ("4 of 12"), or nothing.
     ///   - tint: The fill.
-    ///   - height: The bar's thickness.
+    ///   - thickness: The bar's thickness.
+    ///   - inline: Puts the label, the bar and the readout on one line, for a
+    ///     settings row or a table cell.
+    public init(
+        value: Double?,
+        total: Double = 1,
+        label: LocalizedStringKey? = nil,
+        showsPercentage: Bool = false,
+        readout: ProgressReadout = .none,
+        tint: Color = Color.accent,
+        thickness: BarThickness = .regular,
+        inline: Bool = false
+    ) {
+        self.value = value
+        self.total = total
+        self.label = label
+        if showsPercentage, case .none = readout {
+            self.readout = .percentage
+        } else {
+            self.readout = readout
+        }
+        self.tint = tint
+        self.height = thickness.height
+        self.inline = inline
+    }
+
+    /// A bar of any thickness in points.
+    @available(*, deprecated, message: "Pass thickness: (.thin, .regular or .thick) instead of a height")
     public init(
         value: Double?,
         total: Double = 1,
         label: LocalizedStringKey? = nil,
         showsPercentage: Bool = false,
         tint: Color = Color.accent,
-        height: CGFloat = 6
+        height: CGFloat
     ) {
         self.value = value
         self.total = total
         self.label = label
-        self.showsPercentage = showsPercentage
+        self.readout = showsPercentage ? .percentage : .none
         self.tint = tint
         self.height = height
+        self.inline = false
     }
 
     private var fraction: Double? {
@@ -63,23 +96,63 @@ public struct ProgressBar: View {
 
     public var body: some View {
         let fraction = self.fraction
-        let showsReadout = showsPercentage && fraction != nil
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            if label != nil || showsReadout {
-                DataHeaderRow(title: label) {
-                    if showsReadout, let fraction {
-                        Text(fraction, format: DataMetrics.percentFormat)
-                            .contentTransition(prefersReducedMotion ? .opacity : .numericText(value: fraction))
-                            .animation(prefersReducedMotion ? nil : Animations.disclosure, value: fraction)
+        Group {
+            if inline {
+                HStack(alignment: .center, spacing: Spacing.sm) {
+                    if let label {
+                        Text(label)
+                            .font(Typography.labelSmall)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
                     }
+                    track(fraction)
+                    readoutView(fraction)
+                        .font(Typography.captionSmall)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    if label != nil || showsReadout(fraction) {
+                        DataHeaderRow(title: label) {
+                            readoutView(fraction)
+                        }
+                    }
+                    track(fraction)
                 }
             }
-            track(fraction)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label.map { Text($0) } ?? Text("Progress", bundle: .module))
         .accessibilityValue(accessibilityValue(fraction))
         .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    // MARK: - Readout
+
+    private func showsReadout(_ fraction: Double?) -> Bool {
+        switch readout {
+        case .none: return false
+        case .percentage: return fraction != nil
+        case .text: return true
+        }
+    }
+
+    @ViewBuilder
+    private func readoutView(_ fraction: Double?) -> some View {
+        switch readout {
+        case .none:
+            EmptyView()
+        case .percentage:
+            if let fraction {
+                Text(fraction, format: DataMetrics.percentFormat)
+                    .contentTransition(prefersReducedMotion ? .opacity : .numericText(value: fraction))
+                    .animation(prefersReducedMotion ? nil : Animations.disclosure, value: fraction)
+            }
+        case .text(let text):
+            Text(text)
+        }
     }
 
     // MARK: - Track
@@ -127,9 +200,12 @@ private struct IndeterminateSweep: View {
 
     /// One pass across the track.
     private static let period: TimeInterval = 1.5
+    /// The segment is this share of the track, never narrower than an icon.
+    private static let segmentFraction: CGFloat = 0.3
+    private static let segmentMinimumWidth: CGFloat = Sizing.iconLarge
 
     private var segmentWidth: CGFloat {
-        min(width, max(width * 0.3, 24))
+        min(width, max(width * Self.segmentFraction, Self.segmentMinimumWidth))
     }
 
     var body: some View {
@@ -155,11 +231,12 @@ private struct IndeterminateSweep: View {
 
 // MARK: - Preview
 
-#Preview(traits: .fixedLayout(width: 320, height: 200)) {
+#Preview(traits: .fixedLayout(width: 320, height: 240)) {
     VStack(alignment: .leading, spacing: Spacing.lg) {
         ProgressBar(value: 0.62, label: "Uploading", showsPercentage: true)
         ProgressBar(value: 0.9, tint: Success.success500)
-        ProgressBar(value: 0.35, label: "Low disk", tint: Warning.warning500, height: 4)
+        ProgressBar(value: 0.35, label: "Low disk", tint: Warning.warning500, thickness: .thin)
+        ProgressBar(value: 4, total: 12, label: "Steps", readout: .text("4 of 12"), inline: true)
         ProgressBar(value: nil, label: "Preparing…")
     }
     .padding(Spacing.xl)

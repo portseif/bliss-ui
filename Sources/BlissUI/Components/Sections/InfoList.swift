@@ -2,7 +2,8 @@
 //  InfoList.swift
 //  BlissUI
 //
-//  Created by Chris Seifert on 12/8/25.
+//  Rows for a `RoundedSection` of facts: a labeled value, a hint, a status
+//  line with an icon, a branch name, or any view.
 //
 
 import SwiftUI
@@ -16,24 +17,34 @@ public struct InfoRow: View, Identifiable {
         switch rowContent {
         case .labeled(let label, let value):
             LabeledContent(label, value: value)
+                .font(Typography.bodySmall)
 
         case .hint(let text):
             Text(text)
                 .font(Typography.caption)
                 .foregroundStyle(.secondary)
 
-        case .status(let text, let icon, let style):
-            HStack {
+        case .status(let text, let icon, let style, let detail):
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
                 Image(systemName: icon)
+                    .font(Typography.caption)
                     .foregroundStyle(style.color)
-                Text(text)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
+                    Text(text)
+                        .font(Typography.caption)
+                        .foregroundStyle(.secondary)
+                    if let detail {
+                        Text(detail)
+                            .font(Typography.captionSmall)
+                            .foregroundStyle(Color.textTertiary)
+                    }
+                }
             }
 
         case .branch(let branch):
             HStack {
                 Spacer()
-                HStack(spacing: 4) {
+                HStack(spacing: Spacing.xxs) {
                     Image(systemName: "arrow.triangle.branch")
                         .font(Typography.captionTiny)
                     Text(branch)
@@ -56,8 +67,10 @@ public struct InfoRow: View, Identifiable {
         InfoRow(rowContent: .hint(text: text))
     }
 
-    public static func status(_ text: LocalizedStringKey, icon: String, style: StatusStyle = .secondary) -> InfoRow {
-        InfoRow(rowContent: .status(text: text, icon: icon, style: style))
+    /// A status line: an icon in the status color, the text, and an optional
+    /// tertiary detail under it ("Last checked 2m ago").
+    public static func status(_ text: LocalizedStringKey, icon: String, style: StatusStyle = .secondary, detail: LocalizedStringKey? = nil) -> InfoRow {
+        InfoRow(rowContent: .status(text: text, icon: icon, style: style, detail: detail))
     }
 
     public static func branch(_ branch: String) -> InfoRow {
@@ -72,7 +85,7 @@ public struct InfoRow: View, Identifiable {
     private enum InfoRowContent {
         case labeled(label: LocalizedStringKey, value: String)
         case hint(text: LocalizedStringKey)
-        case status(text: LocalizedStringKey, icon: String, style: StatusStyle)
+        case status(text: LocalizedStringKey, icon: String, style: StatusStyle, detail: LocalizedStringKey?)
         case branch(branch: String)
         case custom(view: CustomViewWrapper)
     }
@@ -102,11 +115,32 @@ public struct InfoRow: View, Identifiable {
 
 // MARK: - Supporting Types
 
+/// A status row's color: one of the status marks, or the secondary tone.
 public enum StatusStyle {
     case success
     case warning
     case error
     case secondary
+
+    /// The row style for a `StatusKind`; info takes the secondary tone.
+    public init(_ kind: StatusKind) {
+        switch kind {
+        case .success: self = .success
+        case .warning: self = .warning
+        case .danger: self = .error
+        case .info: self = .secondary
+        }
+    }
+
+    /// The `StatusKind` this maps to; nil for `.secondary`.
+    public var kind: StatusKind? {
+        switch self {
+        case .success: .success
+        case .warning: .warning
+        case .error: .danger
+        case .secondary: nil
+        }
+    }
 
     public var color: Color {
         switch self {
@@ -120,7 +154,7 @@ public enum StatusStyle {
 
 // MARK: - Preview
 
-#Preview {
+#Preview(traits: .fixedLayout(width: 420, height: 420)) {
     SettingsForm {
         RoundedSection("Repository Info") {
             Group {
@@ -130,7 +164,7 @@ public enum StatusStyle {
         }
         RoundedSection("Status Examples") {
             Group {
-                InfoRow.status("Git repository detected", icon: "checkmark.circle.fill", style: .success)
+                InfoRow.status("Git repository detected", icon: "checkmark.circle.fill", style: .success, detail: "Last checked 2 minutes ago")
                 InfoRow.status("Warning message", icon: "exclamationmark.triangle.fill", style: .warning)
                 InfoRow.status("No repository found", icon: "xmark.circle", style: .secondary)
             }
@@ -139,7 +173,7 @@ public enum StatusStyle {
             Group {
                 InfoRow.custom {
                     LabeledContent("Custom") {
-                        HStack(spacing: 4) {
+                        HStack(spacing: Spacing.xxs) {
                             Image(systemName: "arrow.triangle.branch")
                                 .font(Typography.caption)
                             Text("feature/new-ui")

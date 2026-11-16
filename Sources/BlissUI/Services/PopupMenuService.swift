@@ -31,7 +31,7 @@ public final class PopupMenuService {
     private var navigator: PopupMenuNavigator?
     private var resignActiveObserver: NSObjectProtocol?
     /// Padding inside the hosting view to allow the drop shadow to render.
-    private let shadowPadding: CGFloat = 32
+    private let shadowPadding: CGFloat = PanelMetrics.shadowInset
 
     private init() {}
 
@@ -414,10 +414,10 @@ final class PopupMenuNavigator {
 // MARK: - Chrome wrapper
 
 /// Card chrome that wraps caller-provided menu content. Matches
-/// `FloatingMenuContentWrapper` exactly (same `radiusLarge` corner + themed
-/// surface) so a popup and its fly-out submenu — which renders through
-/// `floatingMenu` — read as the same surface. 1pt border + soft shadow; layout
-/// includes `shadowPadding` so the shadow has room to render outside the card.
+/// `FloatingMenuContentWrapper` exactly (`PanelSurface`, `radiusLarge`,
+/// `menuBorder`, `Elevation.panel`) so a popup and its fly-out submenu — which
+/// renders through `floatingMenu` — read as the same surface. Layout includes
+/// `shadowPadding` so the shadow has room to render outside the card.
 private struct PopupChrome: ViewModifier {
     let shadowPadding: CGFloat
     let animationState: MenuAnimationState
@@ -425,29 +425,18 @@ private struct PopupChrome: ViewModifier {
 
     private let cornerRadius: CGFloat = Sizing.radiusLarge
 
-    /// Solid themed elevated color when a color theme is active (menus match the
-    /// theme), else the vibrant material for the Default theme — identical to
-    /// `FloatingMenuContentWrapper.surface`.
-    private var surface: AnyShapeStyle {
-        if ThemeColors.activePalette != nil {
-            return AnyShapeStyle(Color.controlBackground)
-        }
-        return AnyShapeStyle(.ultraThinMaterial)
-    }
-
     func body(content: Content) -> some View {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(surface)
+                    .fill(PanelSurface.fill)
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(Color.menuBorder, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 6)
-            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+            .elevation(.panel)
             // The same open/close as every menu, grown from the top-leading
             // corner — where the cursor that opened it is.
             .modifier(MenuPresentationMotion(anchor: .topLeading, animatesIn: animatesIn, animationState: animationState))

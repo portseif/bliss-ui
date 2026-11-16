@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 105 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 106 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -221,7 +221,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/date-range-picker-field-dark.webp"><img src="docs/images/components/date-range-picker-field-light.webp" alt="Date range picker" width="420"></picture><br><b>Date range picker</b><br><code>DateRangePickerField</code> · <code>DateRangePreset</code><br><sub>Start to end on one calendar, with presets like Last 7 days.</sub></td>
-    <td width="50%"></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/time-field-dark.webp"><img src="docs/images/components/time-field-light.webp" alt="Time field" width="360"></picture><br><b>Time field</b><br><code>TimeField</code><br><sub>Hour, minute and AM/PM segments in the locale's order; arrows step, digits type.</sub></td>
   </tr>
 </table>
 

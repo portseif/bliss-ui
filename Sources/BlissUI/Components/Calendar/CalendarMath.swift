@@ -136,44 +136,49 @@ nonisolated enum CalendarStep: Equatable {
 
 // MARK: - Bounds
 
-/// The days a calendar lets you pick, from `minimum` through `maximum` (whole
-/// days, both included). Either end may be open.
-nonisolated struct CalendarBounds: Equatable {
+/// The days a calendar lets you pick: from `minimum` through `maximum` (whole
+/// days, both included; either end may be open), less any day `isDateEnabled`
+/// turns down (weekends, booked days).
+nonisolated struct CalendarBounds {
     let minimum: Date?
     let maximum: Date?
+    /// A day-by-day veto inside the bounds, asked with the start of the day.
+    let isDateEnabled: ((Date) -> Bool)?
 
-    static let unbounded = CalendarBounds(minimum: nil, maximum: nil)
+    static let unbounded = CalendarBounds(minimum: nil, maximum: nil, isDateEnabled: nil)
 
-    private init(minimum: Date?, maximum: Date?) {
+    private init(minimum: Date?, maximum: Date?, isDateEnabled: ((Date) -> Bool)?) {
         self.minimum = minimum
         self.maximum = maximum
+        self.isDateEnabled = isDateEnabled
     }
 
     /// Normalizes both ends to their day; a maximum before the minimum is
     /// raised to it, so there's always at least one day to pick.
-    init(minimum: Date?, maximum: Date?, calendar: Calendar) {
+    init(minimum: Date?, maximum: Date?, isDateEnabled: ((Date) -> Bool)? = nil, calendar: Calendar) {
         let lower = minimum.map(calendar.startOfDay(for:))
         var upper = maximum.map(calendar.startOfDay(for:))
         if let lower, let current = upper, current < lower { upper = lower }
-        self.init(minimum: lower, maximum: upper)
+        self.init(minimum: lower, maximum: upper, isDateEnabled: isDateEnabled)
     }
 
     /// Whether `day` (a start of day) can be picked.
     func contains(_ day: Date) -> Bool {
         if let minimum, day < minimum { return false }
         if let maximum, day > maximum { return false }
-        return true
+        return isDateEnabled?(day) ?? true
     }
 
-    /// `day` moved to the nearest day that can be picked.
+    /// `day` moved inside the minimum and maximum. A day the predicate turns
+    /// down stays where it is: the focus can rest on it, a pick can't land.
     func clamp(_ day: Date) -> Date {
         if let minimum, day < minimum { return minimum }
         if let maximum, day > maximum { return maximum }
         return day
     }
 
-    /// The part of `range` that can be picked, or nil when none of it can —
-    /// how a preset like "Last 30 days" behaves next to a minimum date.
+    /// The part of `range` inside the minimum and maximum, or nil when none of
+    /// it is — how a preset like "Last 30 days" behaves next to a minimum date.
     func clamp(_ range: ClosedRange<Date>) -> ClosedRange<Date>? {
         let lower = minimum.map { max($0, range.lowerBound) } ?? range.lowerBound
         let upper = maximum.map { min($0, range.upperBound) } ?? range.upperBound
@@ -188,6 +193,13 @@ nonisolated struct CalendarBounds: Equatable {
         let lastDay = calendar.startOfDay(for: interval.end.addingTimeInterval(-1))
         if let minimum, lastDay < minimum { return false }
         if let maximum, interval.start > maximum { return false }
-        return true
+        guard isDateEnabled != nil else { return true }
+        var day = calendar.startOfDay(for: interval.start)
+        while day <= lastDay {
+            if contains(day) { return true }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = calendar.startOfDay(for: next)
+        }
+        return false
     }
 }

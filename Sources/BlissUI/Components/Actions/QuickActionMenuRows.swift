@@ -9,6 +9,28 @@
 
 import SwiftUI
 
+// MARK: - Metrics
+
+/// The menu row's geometry, shared by the quick-action rows, the filter rows
+/// and a picker's rows.
+enum MenuRowMetrics {
+    /// The row's inset.
+    static let horizontalPadding: CGFloat = Spacing.menuRowPaddingH
+    static let verticalPadding: CGFloat = Spacing.menuRowPaddingV
+    /// Between the icon slot and the title.
+    static let iconSpacing: CGFloat = Spacing.menuRowPaddingH
+    /// The leading icon slot.
+    static let iconSlot: CGFloat = Sizing.iconDefault
+    /// A custom (asset) icon's size.
+    static let customIconSize: CGFloat = Sizing.iconTiny
+    /// The hover fill's corners.
+    static let cornerRadius: CGFloat = Sizing.radiusDefault
+    /// Between rows.
+    static let rowSpacing: CGFloat = Spacing.hairline
+    /// How far down a fly-out submenu opens from its row's top.
+    static let flyoutYOffset: CGFloat = 34
+}
+
 // MARK: - Quick Action Fly-out Row
 
 /// Root-menu row that opens a nested submenu (`floatingMenu`) to the trailing
@@ -54,21 +76,21 @@ public struct QuickActionFlyoutRow<Items: View>: View {
     private var isKeyboardFocused: Bool { isFocused || navigator?.focusedRowID == rowID }
 
     public var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: MenuRowMetrics.iconSpacing) {
             Group {
                 if isCustomIcon {
                     Image(icon)
                         .resizable()
                         .renderingMode(.template)
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 12, height: 12)
+                        .frame(width: MenuRowMetrics.customIconSize, height: MenuRowMetrics.customIconSize)
                 } else {
                     Image(systemName: icon)
                         .font(Typography.caption)
                 }
             }
             .foregroundStyle(.secondary)
-            .frame(width: 16)
+            .frame(width: MenuRowMetrics.iconSlot)
 
             Text(title)
                 .font(Typography.bodySmall)
@@ -80,17 +102,17 @@ public struct QuickActionFlyoutRow<Items: View>: View {
                 .font(Typography.captionSmallSemibold)
                 .foregroundStyle(Color.secondary)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .padding(.horizontal, MenuRowMetrics.horizontalPadding)
+        .padding(.vertical, MenuRowMetrics.verticalPadding)
         // Full-width so the chevron right-aligns whether the parent menu is a
         // fixed width or auto-sizing (`.fixedSize`).
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: MenuRowMetrics.cornerRadius, style: .continuous)
                 .fill(isHovered || isPresented || isKeyboardFocused ? RowTint.hover(colorScheme) : Color.clear)
         )
         // The row the keys are on (arrows / Tab) carries the focus ring.
-        .focusRing(isFocused: isKeyboardFocused, cornerRadius: 6)
+        .focusRing(isFocused: isKeyboardFocused, cornerRadius: MenuRowMetrics.cornerRadius)
         .contentShape(Rectangle())
         // Hover opens the submenu (and switches away from any sibling). We
         // only set on enter — leaving the row toward its own submenu must NOT
@@ -132,14 +154,14 @@ public struct QuickActionFlyoutRow<Items: View>: View {
             yPosition: .below,
             menuGap: 0,
             xOffset: 0,
-            yOffset: 34
+            yOffset: MenuRowMetrics.flyoutYOffset
         ) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: MenuRowMetrics.rowSpacing) {
                 items()
             }
             // Inside a popup the submenu's rows answer the keys too.
             .environment(navigator == nil ? nil : submenuNavigator)
-            .padding(6)
+            .padding(Spacing.menuPadding)
             // Auto-width to the longest submenu row (was a fixed 210). `.afterTrailing`
             // anchors the panel's left edge to the parent row's right edge, so the
             // width no longer needs to be known for positioning.
@@ -148,9 +170,11 @@ public struct QuickActionFlyoutRow<Items: View>: View {
     }
 }
 
-/// A menu action row: leading icon + title, an optional Pro badge, and a red
+/// A menu action row: leading icon + title, an optional detail line, a
+/// trailing shortcut or Pro badge, a checkmark for a toggle item, and a red
 /// destructive variant. `isCustomIcon` draws `icon` as a template asset from the
-/// app's catalog; `iconView` takes any view instead.
+/// app's catalog; `iconView` takes any view instead. A disabled row greys out
+/// and ignores clicks and the keys.
 public struct QuickActionMenuItem: View {
     let title: LocalizedStringKey
     let iconName: String?
@@ -160,6 +184,10 @@ public struct QuickActionMenuItem: View {
     let showProBadge: Bool
     /// The menu's arrow-key highlight; drawn like the hover.
     let isFocused: Bool
+    var shortcut: String? = nil
+    var isEnabled: Bool = true
+    var isChecked: Bool? = nil
+    var detail: LocalizedStringKey? = nil
     let action: () -> Void
 
     @State private var isHovered = false
@@ -174,6 +202,18 @@ public struct QuickActionMenuItem: View {
     /// destructive button's red wash (`DestructiveButtonStyle`).
     private var destructiveColor: Color { Danger.danger500 }
 
+    /// - Parameters:
+    ///   - title: The row's label.
+    ///   - icon: The leading SF Symbol (or asset, with `isCustomIcon`).
+    ///   - isCustomIcon: `icon` is a template asset from the app's catalog.
+    ///   - isDestructive: The red mark and the red wash on hover.
+    ///   - showProBadge: A Pro badge trailing the title.
+    ///   - isFocused: The menu's arrow-key highlight.
+    ///   - shortcut: A trailing key cap ("⌘D").
+    ///   - isEnabled: A greyed row that ignores clicks and the keys.
+    ///   - isChecked: A checkmark before the title for a toggle item; nil for an action.
+    ///   - detail: A caption under the title ("Opens in Safari").
+    ///   - action: What the row does.
     public init(
         title: LocalizedStringKey,
         icon: String,
@@ -181,6 +221,10 @@ public struct QuickActionMenuItem: View {
         isDestructive: Bool = false,
         showProBadge: Bool = false,
         isFocused: Bool = false,
+        shortcut: String? = nil,
+        isEnabled: Bool = true,
+        isChecked: Bool? = nil,
+        detail: LocalizedStringKey? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
@@ -190,6 +234,10 @@ public struct QuickActionMenuItem: View {
         self.isDestructive = isDestructive
         self.showProBadge = showProBadge
         self.isFocused = isFocused
+        self.shortcut = shortcut
+        self.isEnabled = isEnabled
+        self.isChecked = isChecked
+        self.detail = detail
         self.action = action
     }
 
@@ -199,6 +247,10 @@ public struct QuickActionMenuItem: View {
         isDestructive: Bool = false,
         showProBadge: Bool = false,
         isFocused: Bool = false,
+        shortcut: String? = nil,
+        isEnabled: Bool = true,
+        isChecked: Bool? = nil,
+        detail: LocalizedStringKey? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
@@ -208,10 +260,14 @@ public struct QuickActionMenuItem: View {
         self.isDestructive = isDestructive
         self.showProBadge = showProBadge
         self.isFocused = isFocused
+        self.shortcut = shortcut
+        self.isEnabled = isEnabled
+        self.isChecked = isChecked
+        self.detail = detail
         self.action = action
     }
 
-    private var isHighlighted: Bool { isHovered || isKeyboardFocused }
+    private var isHighlighted: Bool { isEnabled && (isHovered || isKeyboardFocused) }
 
     private var textColor: Color {
         isDestructive ? destructiveColor : .primary
@@ -221,10 +277,10 @@ public struct QuickActionMenuItem: View {
         isDestructive ? destructiveColor : .secondary
     }
 
-    /// Hovered rows fill with the shared neutral gray; destructive rows with the
-    /// red wash the subtle destructive button uses on hover.
+    /// Hovered rows fill with the shared neutral gray; destructive rows with
+    /// the status wash.
     private var hoverBackgroundColor: Color {
-        isDestructive ? Danger.tint.opacity(colorScheme == .dark ? 0.14 : 0.06) : RowTint.hover(colorScheme)
+        isDestructive ? StatusWash.fill(Danger.danger500, colorScheme) : RowTint.hover(colorScheme)
     }
 
     @ViewBuilder
@@ -235,7 +291,7 @@ public struct QuickActionMenuItem: View {
                     .resizable()
                     .renderingMode(.template)
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 12, height: 12)
+                    .frame(width: MenuRowMetrics.customIconSize, height: MenuRowMetrics.customIconSize)
                     .foregroundStyle(iconColor)
             } else {
                 Image(systemName: iconName)
@@ -251,45 +307,69 @@ public struct QuickActionMenuItem: View {
     /// popup closes after the action. A floating menu's trigger owns its
     /// `isPresented`, so there the action closes it (or leaves it open).
     private func activate() {
+        guard isEnabled else { return }
         action()
         if navigator != nil { PopupMenuService.shared.hide() }
     }
 
     public var body: some View {
         Button(action: activate) {
-            HStack(spacing: 10) {
-                iconContent
-                    .frame(width: 16)
+            HStack(spacing: MenuRowMetrics.iconSpacing) {
+                if let isChecked {
+                    Image(systemName: "checkmark")
+                        .font(Typography.labelSmallBold)
+                        .foregroundStyle(iconColor)
+                        .opacity(isChecked ? 1 : 0)
+                        .frame(width: MenuRowMetrics.iconSlot)
+                        .accessibilityHidden(true)
+                }
 
-                Text(title)
-                    .font(Typography.bodySmall)
-                    .foregroundStyle(textColor)
+                iconContent
+                    .frame(width: MenuRowMetrics.iconSlot)
+
+                VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
+                    Text(title)
+                        .font(Typography.bodySmall)
+                        .foregroundStyle(textColor)
+                    if let detail {
+                        Text(detail)
+                            .font(Typography.captionSmall)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                }
 
                 Spacer()
 
                 if showProBadge {
                     Badge.pro(size: .small)
                 }
+
+                if let shortcut {
+                    ShortcutKey(shortcut, compact: true)
+                }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, MenuRowMetrics.horizontalPadding)
+            .padding(.vertical, MenuRowMetrics.verticalPadding)
             // Full-width so trailing content right-aligns whether the parent menu
             // is fixed width or auto-sizing (`.fixedSize`).
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: MenuRowMetrics.cornerRadius, style: .continuous)
                     .fill(isHighlighted ? hoverBackgroundColor : Color.clear)
             )
             // The row the keys are on (arrows / Tab) carries the focus ring.
-            .focusRing(isFocused: isKeyboardFocused, cornerRadius: 6)
+            .focusRing(isFocused: isKeyboardFocused && isEnabled, cornerRadius: MenuRowMetrics.cornerRadius)
             .contentShape(Rectangle())
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
         .interactiveCursor()
         .onHover { hovering in
             isHovered = hovering
-            if hovering { navigator?.notePointerHover(rowID) }
+            if hovering, isEnabled { navigator?.notePointerHover(rowID) }
         }
+        .accessibilityValue(isChecked.map { $0 ? Text("Checked", bundle: .module) : Text("Unchecked", bundle: .module) } ?? Text(verbatim: ""))
         .onAppear { navigator?.register(rowID, row: PopupMenuNavigator.Row(activate: activate)) }
         .onDisappear { navigator?.unregister(rowID) }
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { minY in
@@ -304,15 +384,17 @@ private struct QuickActionMenuRowsPreview: View {
     @State private var isFlyoutOpen = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: MenuRowMetrics.rowSpacing) {
             QuickActionFlyoutRow(title: "Open in", icon: "arrow.up.forward.app", isPresented: $isFlyoutOpen, onHoverEnter: { isFlyoutOpen = true }) {
                 QuickActionMenuItem(title: "Browser", icon: "safari") {}
                 QuickActionMenuItem(title: "Finder", icon: "folder") {}
             }
-            Divider().padding(.vertical, 4)
+            MenuDivider()
             QuickActionMenuItem(title: "Summarize", icon: "sparkles", showProBadge: true) {}
-            QuickActionMenuItem(title: "Refresh", icon: "arrow.clockwise") {}
-            Divider().padding(.vertical, 4)
+            QuickActionMenuItem(title: "Refresh", icon: "arrow.clockwise", shortcut: "⌘R", detail: "Reloads from the server") {}
+            QuickActionMenuItem(title: "Show hidden", icon: "eye", isChecked: true) {}
+            QuickActionMenuItem(title: "Archive", icon: "archivebox", isEnabled: false) {}
+            MenuDivider()
             QuickActionMenuItem(title: "Remove", icon: "trash", isDestructive: true) {}
         }
         .padding(Spacing.menuPadding)

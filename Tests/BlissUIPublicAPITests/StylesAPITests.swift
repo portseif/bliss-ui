@@ -78,10 +78,8 @@ import BlissUI
             .glassBorder(cornerRadius: 20, lineWidth: 2, opacity: 0.5)
             .dimmedOverlay(isPresented: true) { Text("Loading") }
             .dimmedOverlay(isPresented: false, dimOpacity: 0.5) { Text("Loading") }
-        _ = Text("Scanning").shimmer()
-        _ = Text("Scanning").shimmer(baseColor: .gray, shimmerColor: .white, duration: 2)
         _ = ShimmerTextOverlay(text: "Scanning")
-        _ = ShimmerTextOverlay(text: "Scanning", font: .caption, baseColor: .gray, shimmerColor: .white, duration: 1.5, shimmerWidth: 0.4)
+        _ = ShimmerTextOverlay(text: "Scanning", font: Typography.caption, baseColor: .gray, shimmerColor: .white, duration: 1.5, shimmerWidth: 0.4)
     }
 
     @Test func focusVisibilityServiceIsReachable() {

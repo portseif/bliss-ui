@@ -6,11 +6,11 @@
 //  sidebar (or trailing panel) every Mac app has. The resized pane's width is
 //  the caller's binding, clamped to a range and never so wide that the other
 //  pane loses its minimum, and it can persist under a `UserDefaults` key.
-//  The divider is a Tab stop too: ←/→ nudge it, Home/End send it to the ends.
+//  The divider is the shared `SplitGrip`, so it's a Tab stop too: ←/→ nudge
+//  it, Home/End send it to the ends.
 //
-//  Same mechanics as `InspectorSplit`'s grip (drag measured in the window,
-//  `InspectorSplitMetrics` for the clamp, a pointer style rather than a
-//  push/pop cursor), so the two feel identical.
+//  Same mechanics as `InspectorSplit` (one grip, `InspectorSplitMetrics` for
+//  the clamp), so the two feel identical.
 //
 
 import SwiftUI
@@ -30,11 +30,14 @@ import SwiftUI
 /// Drag the divider, or Tab to it and press ←/→ (⇧ for ten times the step)
 /// or Home/End; a double-click puts the width back where it started. With a
 /// `persistenceKey` the stored width wins over the binding's value on appear.
+/// With `isCollapsed`, dragging well past the minimum folds the pane away.
 public struct ResizableSplit<Leading: View, Trailing: View>: View {
     @Binding private var width: CGFloat
     private let range: ClosedRange<CGFloat>
     private let resizes: HorizontalEdge
     private let persistenceKey: String?
+    private let isCollapsed: Binding<Bool>?
+    private let showsDivider: Bool
     /// The width the caller started with: what a double-click returns to.
     private let initialWidth: CGFloat
     private let leading: Leading
@@ -44,8 +47,6 @@ public struct ResizableSplit<Leading: View, Trailing: View>: View {
     @State private var dragWidth: CGFloat?
     @State private var dragStartWidth: CGFloat?
     @State private var containerWidth: CGFloat = 0
-    @State private var isHovering = false
-    @FocusState private var isFocused: Bool
 
     @Environment(\.layoutDirection) private var layoutDirection
 
@@ -57,6 +58,11 @@ public struct ResizableSplit<Leading: View, Trailing: View>: View {
     ///   - persistenceKey: A `UserDefaults` key to keep the width under
     ///     (readable with `@AppStorage`). On appear the stored width replaces
     ///     the binding's value.
+    ///   - isCollapsed: Whether the resizable pane is folded away. A drag past
+    ///     the minimum folds it; dragging the divider back out, or setting it
+    ///     false (a `SidebarToggleButton`), brings it back at its width.
+    ///   - showsDivider: The hairline between the panes; off when a pane draws
+    ///     its own edge (`Sidebar` on `appShell`). The grip still works.
     ///   - leading: The pane on the leading side.
     ///   - trailing: The pane on the trailing side.
     public init(
@@ -64,6 +70,8 @@ public struct ResizableSplit<Leading: View, Trailing: View>: View {
         in range: ClosedRange<CGFloat> = Sizing.sidebarMinWidth...Sizing.sidebarMaxWidth,
         resizes: HorizontalEdge = .leading,
         persistenceKey: String? = nil,
+        isCollapsed: Binding<Bool>? = nil,
+        showsDivider: Bool = true,
         @ViewBuilder leading: () -> Leading,
         @ViewBuilder trailing: () -> Trailing
     ) {
@@ -71,6 +79,8 @@ public struct ResizableSplit<Leading: View, Trailing: View>: View {
         self.range = range
         self.resizes = resizes
         self.persistenceKey = persistenceKey
+        self.isCollapsed = isCollapsed
+        self.showsDivider = showsDivider
         self.initialWidth = width.wrappedValue
         self.leading = leading()
         self.trailing = trailing()
@@ -78,10 +88,14 @@ public struct ResizableSplit<Leading: View, Trailing: View>: View {
 
     // MARK: Width
 
-    /// The width on screen: the drag's while dragging, clamped to the range
-    /// and to what the container leaves the other pane.
+    private var collapsed: Bool { isCollapsed?.wrappedValue ?? false }
+
+    /// The width on screen: nothing while collapsed; the drag's while
+    /// dragging, clamped to the range and to what the container leaves the
+    /// other pane.
     private var currentWidth: CGFloat {
-        clamped(dragWidth ?? width)
+        if collapsed && dragWidth == nil { return 0 }
+        return clamped(dragWidth ?? width)
     }
 
     private func clamped(_ proposed: CGFloat) -> CGFloat {
@@ -125,93 +139,53 @@ public struct ResizableSplit<Leading: View, Trailing: View>: View {
 
     // MARK: Divider
 
-    /// The divider's hit area: a few points either side of the hairline.
-    private static var hitWidth: CGFloat { Spacing.sm + 1 }
-    /// One keyboard step; ⇧ multiplies it by ten.
-    private static var keyboardStep: CGFloat { Spacing.sm }
-    /// How far one VoiceOver increment moves the divider.
-    private static var adjustableStep: CGFloat { Spacing.xl }
-
-    private var isDragging: Bool { dragWidth != nil }
-
-    private var hairlineColor: Color {
-        if isDragging { return Color.accent }
-        if isHovering { return Color.primary.opacity(0.25) }
-        return Color.menuBorder
-    }
-
-    /// A strip straddling the panes' edge: a hairline that thickens under the
-    /// pointer and turns accent while dragged. The cursor is a pointer style,
-    /// not a push/pop, which could stay stuck if the panes change under it.
     private var divider: some View {
-        Color.clear
-            .frame(width: Self.hitWidth)
-            .frame(maxHeight: .infinity)
-            .overlay {
-                Rectangle()
-                    .fill(hairlineColor)
-                    .frame(width: isDragging || isHovering ? 2 : 1)
-                    .animation(Animations.hover, value: isDragging || isHovering)
-            }
-            .contentShape(Rectangle())
-            .pointerStyle(.columnResize)
-            .onHover { isHovering = $0 }
-            .gesture(dragGesture)
-            .onTapGesture(count: 2) { commit(width: initialWidth) }
-            .focusable()
-            .focused($isFocused)
-            .focusEffectDisabled()
-            .focusRingCapsule(isFocused: isFocused)
-            .onKeyPress(keys: [.leftArrow, .rightArrow, .home, .end], phases: [.down, .repeat]) { press in
-                move(press.key, isLarge: press.modifiers.contains(.shift))
-                return .handled
-            }
-            // In a hidden-title-bar window the divider reaches up into the
-            // title bar band, where a press would drag the window instead.
-            .windowDragDisabled()
-            .accessibilityElement()
-            .accessibilityLabel(accessibilityLabel)
-            .accessibilityValue(Text(verbatim: "\(Int(currentWidth))"))
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: commit(width: currentWidth + Self.adjustableStep)
-                case .decrement: commit(width: currentWidth - Self.adjustableStep)
-                @unknown default: break
+        SplitGrip(
+            isDragging: dragWidth != nil,
+            showsHairline: showsDivider,
+            label: isResizingLeading ? Text("Sidebar width", bundle: .module) : Text("Inspector width", bundle: .module),
+            value: currentWidth,
+            onDragChanged: { translation in
+                let start = dragStartWidth ?? (collapsed ? 0 : width)
+                if dragStartWidth == nil { dragStartWidth = start }
+                let proposed = start + translation * trailingSign
+                if let isCollapsed {
+                    // Well past the minimum folds the pane; back out unfolds it.
+                    let folds = proposed < range.lowerBound - SplitGripMetrics.collapseDistance
+                    if folds != isCollapsed.wrappedValue {
+                        withAnimation(Animations.pane) { isCollapsed.wrappedValue = folds }
+                    }
+                    dragWidth = folds ? nil : proposed
+                } else {
+                    dragWidth = proposed
                 }
-            }
-    }
-
-    private var accessibilityLabel: Text {
-        isResizingLeading ? Text("Sidebar width", bundle: .module) : Text("Inspector width", bundle: .module)
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 1, coordinateSpace: .global)
-            .onChanged { value in
-                let start = dragStartWidth ?? width
-                if dragStartWidth == nil { dragStartWidth = width }
-                dragWidth = start + value.translation.width * trailingSign
-            }
-            .onEnded { _ in
-                commit(width: dragWidth ?? width)
+            },
+            onDragEnded: {
+                if !collapsed { commit(width: dragWidth ?? width) }
                 dragWidth = nil
                 dragStartWidth = nil
-            }
+            },
+            onMove: move,
+            onReset: { commit(width: initialWidth) }
+        )
     }
 
     // MARK: Keys
 
     /// ←/→ move the divider on screen (so → always goes right, whichever pane
-    /// resizes); Home and End send it to the range's ends.
-    private func move(_ key: KeyEquivalent, isLarge: Bool) {
-        let step = Self.keyboardStep * (isLarge ? 10 : 1)
-        // `trailingSign` already turns a rightward move into a width change.
-        switch key {
-        case .rightArrow: commit(width: currentWidth + step * trailingSign)
-        case .leftArrow: commit(width: currentWidth - step * trailingSign)
-        case .home: commit(width: range.lowerBound)
-        default: commit(width: range.upperBound)
+    /// resizes); Home and End send it to the range's ends. A move unfolds a
+    /// collapsed pane.
+    private func move(_ move: SplitGripMove) {
+        switch move {
+        case .trailing(let isLarge): commit(width: currentWidth + step(isLarge) * trailingSign)
+        case .leading(let isLarge): commit(width: currentWidth - step(isLarge) * trailingSign)
+        case .start: commit(width: range.lowerBound)
+        case .end: commit(width: range.upperBound)
         }
+    }
+
+    private func step(_ isLarge: Bool) -> CGFloat {
+        SplitGripMetrics.keyboardStep * (isLarge ? SplitGripMetrics.largeStepMultiplier : 1)
     }
 
     // MARK: Commit
@@ -219,6 +193,9 @@ public struct ResizableSplit<Leading: View, Trailing: View>: View {
     private func commit(width proposed: CGFloat) {
         let clamped = clamped(proposed)
         width = clamped
+        if let isCollapsed, isCollapsed.wrappedValue {
+            withAnimation(Animations.pane) { isCollapsed.wrappedValue = false }
+        }
         if let persistenceKey {
             UserDefaults.standard.set(Double(clamped), forKey: persistenceKey)
         }
@@ -244,10 +221,11 @@ private enum SplitPreviewDestination: Hashable {
 
 private struct ResizableSplitPreviewHost: View {
     @State private var sidebarWidth: CGFloat = 220
+    @State private var isCollapsed = false
     @State private var destination = SplitPreviewDestination.today
 
     var body: some View {
-        ResizableSplit(width: $sidebarWidth, in: 160...320) {
+        ResizableSplit(width: $sidebarWidth, in: 160...320, isCollapsed: $isCollapsed) {
             Sidebar(selection: $destination) {
                 SidebarSection {
                     SidebarRow("Inbox", icon: "tray", value: SplitPreviewDestination.inbox, count: 4)
@@ -258,8 +236,11 @@ private struct ResizableSplitPreviewHost: View {
             .background(Color.appShell)
         } trailing: {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text(verbatim: "Today").font(Typography.headingMedium)
-                Text(verbatim: "Drag the divider, or Tab to it and use the arrow keys.")
+                HStack {
+                    SidebarToggleButton(isCollapsed: $isCollapsed)
+                    Text(verbatim: "Today").font(Typography.headingMedium)
+                }
+                Text(verbatim: "Drag the divider, or Tab to it and use the arrow keys. Drag it well past the edge to fold the sidebar.")
                     .font(Typography.bodySmall)
                     .foregroundStyle(.secondary)
                 Text(verbatim: "\(Int(sidebarWidth)) pt")

@@ -12,6 +12,26 @@
 
 import SwiftUI
 
+// MARK: - Metrics
+
+/// The bar's chip geometry: the chips, the add button and Clear share one
+/// height, a step under the compact control's.
+enum FilterBarMetrics {
+    static let chipHeight: CGFloat = Sizing.controlSmall
+    static let cornerRadius: CGFloat = Sizing.radiusDefault
+    /// A typed text value is cut here so a chip never swallows the bar.
+    static let maximumTextValueWidth: CGFloat = 160
+    /// How many option marks a multi-value chip shows before the count.
+    static let maximumMarks = 3
+    /// The marks sit nearly flush, like a stack of dots.
+    static let markSpacing: CGFloat = 1
+    /// The field menu anchors to the Filter button, which needs a laid-out
+    /// frame first; a value menu waits for the field menu to close and the
+    /// new chip to lay out.
+    static let fieldMenuOpenDelay: Duration = .milliseconds(120)
+    static let valueMenuOpenDelay: Duration = .milliseconds(150)
+}
+
 /// Edits a list of filter conditions as chips, over the fields you describe.
 ///
 /// ```swift
@@ -34,10 +54,14 @@ import SwiftUI
 /// menu with nothing picked drops the chip again. An option field that already
 /// has an "is" chip reopens it instead of adding a second. Values ticked when
 /// a value menu opens lead its list until it closes, so rows don't jump under
-/// the pointer while you tick.
+/// the pointer while you tick. A locked condition (`FilterCondition.isLocked`)
+/// keeps its field and operator and survives Clear.
 public struct FilterBar: View {
     @Binding private var conditions: [FilterCondition]
     private let fields: [FilterField]
+    private let matchMode: Binding<FilterMatchMode>?
+    private let showsClearButton: Bool
+    private let alwaysShowsAddTitle: Bool
     private let opensFieldMenuOnAppear: Bool
     private let onMenusClosed: (() -> Void)?
 
@@ -54,6 +78,11 @@ public struct FilterBar: View {
     /// - Parameters:
     ///   - conditions: The chips, in order. The bar adds, edits and removes them.
     ///   - fields: What can be filtered on, in the field menu's order.
+    ///   - matchMode: A leading "Match all" / "Match any" chip that flips how
+    ///     the conditions combine (pass it to `matches(_:value:)`); nil hides it.
+    ///   - showsClearButton: The Clear button after the chips, when any can be cleared.
+    ///   - alwaysShowsAddTitle: Keeps "Add filter" beside its icon once chips
+    ///     exist (by default the title gives way to the chips).
     ///   - opensFieldMenuOnAppear: Opens the field menu as soon as the bar
     ///     appears with no conditions, so a brand-new filter lands straight in
     ///     the field picker instead of costing a click on Filter.
@@ -63,17 +92,30 @@ public struct FilterBar: View {
     public init(
         conditions: Binding<[FilterCondition]>,
         fields: [FilterField],
+        matchMode: Binding<FilterMatchMode>? = nil,
+        showsClearButton: Bool = true,
+        alwaysShowsAddTitle: Bool = false,
         opensFieldMenuOnAppear: Bool = false,
         onMenusClosed: (() -> Void)? = nil
     ) {
         self._conditions = conditions
         self.fields = fields
+        self.matchMode = matchMode
+        self.showsClearButton = showsClearButton
+        self.alwaysShowsAddTitle = alwaysShowsAddTitle
         self.opensFieldMenuOnAppear = opensFieldMenuOnAppear
         self.onMenusClosed = onMenusClosed
     }
 
+    private var hasClearableConditions: Bool {
+        conditions.contains { !$0.isLocked }
+    }
+
     public var body: some View {
         FlowLayout(spacing: Spacing.xs) {
+            if let matchMode {
+                MatchModeChip(mode: matchMode)
+            }
             ForEach($conditions) { $condition in
                 FilterConditionChip(
                     condition: $condition,
@@ -83,17 +125,15 @@ public struct FilterBar: View {
                 )
             }
             addButton
-            if !conditions.isEmpty {
+            if showsClearButton, hasClearableConditions {
                 clearButton
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             guard opensFieldMenuOnAppear, conditions.isEmpty else { return }
-            // Deferred: the menu anchors to the Filter button, which needs a
-            // laid-out frame first.
             Task {
-                try? await Task.sleep(for: .milliseconds(120))
+                try? await Task.sleep(for: FilterBarMetrics.fieldMenuOpenDelay)
                 showingFieldMenu = true
             }
         }
@@ -106,20 +146,24 @@ public struct FilterBar: View {
         return Button {
             showingFieldMenu.toggle()
         } label: {
-            HStack(spacing: Spacing.xxs + 1) {
+            HStack(spacing: Spacing.xxs) {
                 Image(systemName: "line.3.horizontal.decrease")
                     .font(Typography.captionSmall)
-                if conditions.isEmpty {
+                if conditions.isEmpty || alwaysShowsAddTitle {
                     Text(verbatim: title)
                 }
             }
             .font(Typography.labelSmall)
             .foregroundStyle(.secondary)
             .padding(.horizontal, Spacing.sm)
-            .frame(height: FilterConditionChip.height)
+            .frame(height: FilterBarMetrics.chipHeight)
+            .overlay {
+                RoundedRectangle(cornerRadius: FilterBarMetrics.cornerRadius, style: .continuous)
+                    .strokeBorder(Color.menuBorder, lineWidth: 1)
+            }
         }
         .buttonStyle(ChipSegmentButtonStyle(isActive: showingFieldMenu))
-        .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FilterBarMetrics.cornerRadius, style: .continuous))
         .accessibilityLabel(Text(verbatim: title))
         .tooltip(configuration: .iconHint, position: .above) {
             Text(verbatim: title).font(Typography.labelSmall)
@@ -153,20 +197,20 @@ public struct FilterBar: View {
     private var clearButton: some View {
         Button {
             openValueMenuID = nil
-            conditions.removeAll()
+            conditions.removeAll { !$0.isLocked }
         } label: {
             Text("Clear", bundle: .module)
                 .font(Typography.labelSmall)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.sm)
-                .frame(height: FilterConditionChip.height)
+                .frame(height: FilterBarMetrics.chipHeight)
                 .overlay {
-                    RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
+                    RoundedRectangle(cornerRadius: FilterBarMetrics.cornerRadius, style: .continuous)
                         .strokeBorder(Color.menuBorder, lineWidth: 1)
                 }
         }
         .buttonStyle(ChipSegmentButtonStyle())
-        .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FilterBarMetrics.cornerRadius, style: .continuous))
     }
 
     // MARK: - Actions
@@ -200,7 +244,7 @@ public struct FilterBar: View {
     private func openValueMenu(_ id: UUID) {
         pendingValueMenuID = id
         Task {
-            try? await Task.sleep(for: .milliseconds(150))
+            try? await Task.sleep(for: FilterBarMetrics.valueMenuOpenDelay)
             openValueMenuID = id
             pendingValueMenuID = nil
         }
@@ -226,12 +270,57 @@ public struct FilterBar: View {
                     openValueMenuID = id
                 } else if openValueMenuID == id {
                     openValueMenuID = nil
-                    // Closed before anything was picked: drop the empty chip.
-                    conditions.removeAll { $0.id == id && $0.values.isEmpty }
+                    // Closed before anything was picked: drop the empty chip
+                    // (a locked one stays, it was put there on purpose).
+                    conditions.removeAll { $0.id == id && $0.values.isEmpty && !$0.isLocked }
                     notifyIfIdle()
                 }
             }
         )
+    }
+}
+
+// MARK: - Match mode chip
+
+/// "Match all ▾" / "Match any ▾": a click flips it.
+private struct MatchModeChip: View {
+    @Binding var mode: FilterMatchMode
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: FilterBarMetrics.cornerRadius, style: .continuous)
+    }
+
+    private var title: Text {
+        switch mode {
+        case .all: Text("Match all", bundle: .module)
+        case .any: Text("Match any", bundle: .module)
+        }
+    }
+
+    var body: some View {
+        Button {
+            withAnimation(Animations.selection) {
+                mode = mode == .all ? .any : .all
+            }
+        } label: {
+            HStack(spacing: Spacing.xxs) {
+                title
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(Typography.labelXTiny)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+            .font(Typography.labelSmall)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, Spacing.sm)
+            .frame(height: FilterBarMetrics.chipHeight)
+            .background(shape.fill(Color.restingFill))
+            .overlay(shape.strokeBorder(Color.menuBorder, lineWidth: 1))
+        }
+        .buttonStyle(ChipSegmentButtonStyle())
+        .clipShape(shape)
+        .accessibilityLabel(Text("Match", bundle: .module))
+        .accessibilityValue(title)
     }
 }
 
@@ -243,7 +332,7 @@ private struct FilterConditionChip: View {
     @Binding var isValueMenuOpen: Bool
     let onRemove: () -> Void
 
-    static let height: CGFloat = Sizing.controlSmall
+    static let height: CGFloat = FilterBarMetrics.chipHeight
 
     @Environment(\.colorScheme) private var scheme
     @State private var showingOperatorMenu = false
@@ -255,7 +344,7 @@ private struct FilterConditionChip: View {
     @State private var pinnedValues: [String] = []
 
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
+        RoundedRectangle(cornerRadius: FilterBarMetrics.cornerRadius, style: .continuous)
     }
 
     var body: some View {
@@ -265,11 +354,14 @@ private struct FilterConditionChip: View {
             operatorSegment
             separator
             valueSegment
-            separator
-            removeButton
+            if !condition.isLocked {
+                separator
+                removeButton
+            }
         }
         .frame(height: Self.height)
-        .background(shape.fill(RowTint.hover(scheme)))
+        // A surface, not the hover wash: a hovered segment must still read.
+        .background(shape.fill(Color.restingFill))
         .overlay(shape.strokeBorder(Color.menuBorder, lineWidth: 1))
         .clipShape(shape)
         .fixedSize()
@@ -288,9 +380,15 @@ private struct FilterConditionChip: View {
     }
 
     private var fieldSegment: some View {
-        HStack(spacing: Spacing.xxs + 1) {
+        HStack(spacing: Spacing.xxs) {
+            if condition.isLocked {
+                Image(systemName: "lock.fill")
+                    .font(Typography.labelXTiny)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityLabel(Text("Locked", bundle: .module))
+            }
             if let icon = field.icon {
-                IconGlyph(name: icon, color: .secondary, size: Sizing.iconTiny - 1)
+                IconGlyph(name: icon, color: .secondary, size: Sizing.iconTiny)
             }
             Text(verbatim: field.title)
         }
@@ -300,38 +398,45 @@ private struct FilterConditionChip: View {
         .frame(maxHeight: .infinity)
     }
 
+    @ViewBuilder
     private var operatorSegment: some View {
-        Button {
-            showingOperatorMenu.toggle()
-        } label: {
-            Text(verbatim: condition.operator.title(valueCount: condition.values.count))
-                .font(Typography.labelSmall)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, Spacing.sm - 1)
-                .frame(maxHeight: .infinity)
-        }
-        .buttonStyle(ChipSegmentButtonStyle(isActive: showingOperatorMenu))
-        .floatingMenu(
-            isPresented: $showingOperatorMenu,
-            itemCount: field.operators.count,
-            focusedIndex: $operatorFocusedIndex,
-            xPosition: .leading,
-            yPosition: .below,
-            onSelect: { index in
-                let operators = field.operators
-                guard operators.indices.contains(index) else { return }
-                condition.operator = operators[index]
+        let label = Text(verbatim: condition.operator.title(valueCount: condition.values.count))
+            .font(Typography.labelSmall)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, Spacing.xs)
+            .frame(maxHeight: .infinity)
+        if condition.isLocked {
+            // Inert: a locked condition keeps its operator.
+            label
+        } else {
+            Button {
+                showingOperatorMenu.toggle()
+            } label: {
+                label
             }
-        ) {
-            FilterOperatorMenu(
-                condition: $condition,
-                operators: field.operators,
+            .buttonStyle(ChipSegmentButtonStyle(isActive: showingOperatorMenu))
+            .floatingMenu(
+                isPresented: $showingOperatorMenu,
+                itemCount: field.operators.count,
                 focusedIndex: $operatorFocusedIndex,
-                onPick: { pickedOperator in
-                    condition.operator = pickedOperator
-                    showingOperatorMenu = false
+                xPosition: .leading,
+                yPosition: .below,
+                onSelect: { index in
+                    let operators = field.operators
+                    guard operators.indices.contains(index) else { return }
+                    condition.operator = operators[index]
                 }
-            )
+            ) {
+                FilterOperatorMenu(
+                    condition: $condition,
+                    operators: field.operators,
+                    focusedIndex: $operatorFocusedIndex,
+                    onPick: { pickedOperator in
+                        condition.operator = pickedOperator
+                        showingOperatorMenu = false
+                    }
+                )
+            }
         }
     }
 
@@ -342,7 +447,7 @@ private struct FilterConditionChip: View {
             valueLabel
                 .font(Typography.labelSmall)
                 .foregroundStyle(.primary)
-                .padding(.horizontal, Spacing.sm - 1)
+                .padding(.horizontal, Spacing.xs)
                 .frame(maxHeight: .infinity)
         }
         .buttonStyle(ChipSegmentButtonStyle(isActive: isValueMenuOpen))
@@ -383,19 +488,19 @@ private struct FilterConditionChip: View {
             Text(verbatim: values[0])
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .frame(maxWidth: 160)
+                .frame(maxWidth: FilterBarMetrics.maximumTextValueWidth)
         } else if values.count == 1 {
-            HStack(spacing: Spacing.xxs + 1) {
+            HStack(spacing: Spacing.xxs) {
                 FilterOptionMark(option: field.option(forValue: values[0]))
                 Text(verbatim: field.title(forValue: values[0]))
                     .lineLimit(1)
             }
         } else {
             let marked = values.compactMap(field.option(forValue:)).filter { $0.markName != nil }
-            HStack(spacing: Spacing.xxs + 1) {
+            HStack(spacing: Spacing.xxs) {
                 if !marked.isEmpty {
-                    HStack(spacing: 1) {
-                        ForEach(marked.prefix(3)) { option in
+                    HStack(spacing: FilterBarMetrics.markSpacing) {
+                        ForEach(marked.prefix(FilterBarMetrics.maximumMarks)) { option in
                             FilterOptionMark(option: option)
                         }
                     }
@@ -418,7 +523,8 @@ private struct FilterConditionChip: View {
             Image(systemName: "xmark")
                 .font(Typography.labelXTiny)
                 .foregroundStyle(.secondary)
-                .frame(width: Self.height - 2)
+                // A square a hairline inside the chip's height.
+                .frame(width: Self.height - Spacing.hairline)
                 .frame(maxHeight: .infinity)
         }
         .buttonStyle(ChipSegmentButtonStyle())
@@ -470,7 +576,7 @@ private struct FilterFieldMenu: View {
 
     var body: some View {
         let visible = FilterBar.visibleFields(fields, query: query)
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             FilterMenuSearchHeader(
                 query: query,
                 placeholder: .verbatim(String(localized: "Filter…", bundle: .module)),
@@ -493,7 +599,7 @@ private struct FilterFieldMenu: View {
             }
         }
         .padding(Spacing.menuPadding)
-        .frame(minWidth: 200, alignment: .leading)
+        .frame(minWidth: Sizing.menuMinWidth, alignment: .leading)
         .fixedSize(horizontal: true, vertical: false)
     }
 }
@@ -505,7 +611,7 @@ private struct FilterOperatorMenu: View {
     let onPick: (FilterOperator) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             ForEach(Array(operators.enumerated()), id: \.element) { index, candidate in
                 let isCurrent = condition.operator == candidate
                 FilterMenuRow(
@@ -514,12 +620,8 @@ private struct FilterOperatorMenu: View {
                     isSelected: isCurrent
                 ) {
                     onPick(candidate)
-                } leading: {
-                    Image(systemName: "checkmark")
-                        .font(Typography.labelSmall)
-                        .foregroundStyle(.secondary)
-                        .opacity(isCurrent ? 1 : 0)
-                        .accessibilityHidden(true)
+                } trailing: {
+                    FilterMenuCheckmark(isShown: isCurrent)
                 }
                 .onHover { hovering in
                     if hovering { focusedIndex = index }
@@ -527,6 +629,7 @@ private struct FilterOperatorMenu: View {
             }
         }
         .padding(Spacing.menuPadding)
+        .frame(minWidth: Sizing.menuMinWidth, alignment: .leading)
         .fixedSize(horizontal: true, vertical: false)
     }
 }
@@ -540,7 +643,7 @@ private struct FilterValueMenu: View {
     let onPickText: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             if case .text(let placeholder) = field.kind {
                 textRows(placeholder: placeholder)
             } else {
@@ -548,7 +651,7 @@ private struct FilterValueMenu: View {
             }
         }
         .padding(Spacing.menuPadding)
-        .frame(minWidth: 220, alignment: .leading)
+        .frame(minWidth: Sizing.menuMinWidth, alignment: .leading)
         .fixedSize(horizontal: true, vertical: false)
     }
 
@@ -599,18 +702,28 @@ private struct FilterValueMenu: View {
         } else if let current = condition.values.first {
             FilterMenuRow(.verbatim(current), isFocused: false, isSelected: true) {
                 onPickText(current)
-            } leading: {
-                Image(systemName: "checkmark")
-                    .font(Typography.labelSmall)
-                    .foregroundStyle(.secondary)
-                    .frame(width: Sizing.iconDefault)
-                    .accessibilityHidden(true)
+            } trailing: {
+                FilterMenuCheckmark(isShown: true)
             }
         }
     }
 }
 
 // MARK: - Pieces
+
+/// The trailing check of a menu's current choice, laid out even while hidden
+/// so the rows' titles don't shift.
+private struct FilterMenuCheckmark: View {
+    let isShown: Bool
+
+    var body: some View {
+        Image(systemName: "checkmark")
+            .font(Typography.labelSmall)
+            .foregroundStyle(.secondary)
+            .opacity(isShown ? 1 : 0)
+            .accessibilityHidden(true)
+    }
+}
 
 /// An option's mark — its icon or color dot — drawn by `IconGlyph`, or
 /// nothing for an option without one.
@@ -620,7 +733,7 @@ private struct FilterOptionMark: View {
 
     var body: some View {
         if let option, let name = option.markName {
-            IconGlyph(name: name, color: option.color ?? .secondary, size: size - 1)
+            IconGlyph(name: name, color: option.color ?? .secondary, size: size)
                 .frame(width: size, height: size)
                 .accessibilityHidden(true)
         }
@@ -653,7 +766,7 @@ private struct ChipSegmentButtonStyle: ButtonStyle {
                 .contentShape(Rectangle())
                 .background(isHovering || isActive || configuration.isPressed ? RowTint.hover(scheme) : Color.clear)
                 // Inset, so the chip's clip shape can't cut the band off.
-                .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusSmall, padding: 2)
+                .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusSmall, padding: Spacing.hairline)
                 .focusable()
                 .focused($isFocused)
                 .focusEffectDisabled()
@@ -667,10 +780,11 @@ private struct ChipSegmentButtonStyle: ButtonStyle {
 
 private struct FilterBarPreview: View {
     @State private var conditions = [
-        FilterCondition(fieldID: "status", operator: .is, values: ["active"]),
+        FilterCondition(fieldID: "status", operator: .is, values: ["active"], isLocked: true),
         FilterCondition(fieldID: "label", operator: .is, values: ["design", "bug"]),
         FilterCondition(fieldID: "title", operator: .contains, values: ["onboarding"]),
     ]
+    @State private var matchMode = FilterMatchMode.all
 
     private let fields = [
         FilterField(id: "status", title: "Status", icon: "circle.dashed", kind: .options([
@@ -686,7 +800,7 @@ private struct FilterBarPreview: View {
     ]
 
     var body: some View {
-        FilterBar(conditions: $conditions, fields: fields)
+        FilterBar(conditions: $conditions, fields: fields, matchMode: $matchMode)
             .padding(Spacing.lg)
     }
 }

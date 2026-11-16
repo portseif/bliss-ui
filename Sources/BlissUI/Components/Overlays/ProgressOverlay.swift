@@ -5,11 +5,18 @@
 //  Created by Chris Seifert on 12/6/25.
 //
 //  A floating card for a long-running scan or import: a header (icon, title,
-//  subtitle) with running counters, the item being worked on under a spinner,
-//  and up to three parallel sub-tasks with what each is on right now.
+//  subtitle) with running counters, an optional determinate bar, the item
+//  being worked on under a spinner, up to `maximumActiveItems` parallel
+//  sub-tasks with what each is on right now, and an optional Cancel.
 //
 
 import SwiftUI
+
+/// The overlay's own numbers.
+private enum ProgressOverlayMetrics {
+    /// The sub-task name column.
+    static let nameColumnWidth: CGFloat = 80
+}
 
 public struct ProgressOverlay: View {
     /// A running count in the header's trailing column (e.g. folders scanned).
@@ -53,6 +60,10 @@ public struct ProgressOverlay: View {
     let activeItems: [ActiveItem]
     let activeItemsTitle: LocalizedStringKey?
     let activeItemsSystemImage: String
+    let progress: Double?
+    let maximumActiveItems: Int
+    let width: CGFloat
+    let onCancel: (() -> Void)?
 
     /// - Parameters:
     ///   - title: What's running ("Importing Library").
@@ -60,10 +71,15 @@ public struct ProgressOverlay: View {
     ///   - systemImage: The header's SF Symbol.
     ///   - currentItem: The item being worked on, shown beside a spinner.
     ///   - counters: Running counts in the header's trailing column.
-    ///   - activeItems: Parallel sub-tasks; the first three are listed.
+    ///   - activeItems: Parallel sub-tasks; the first `maximumActiveItems` are listed.
     ///   - activeItemsTitle: The line above them ("Following 2 linked folders…");
     ///     nil lists them without one.
     ///   - activeItemsSystemImage: The SF Symbol leading that line.
+    ///   - progress: A determinate bar under the header (0…1) for work with a
+    ///     known total; nil shows none.
+    ///   - maximumActiveItems: How many sub-tasks are listed before "+N more".
+    ///   - width: The card's width.
+    ///   - onCancel: A Cancel button in a footer; nil shows none.
     public init(
         title: LocalizedStringKey,
         subtitle: String,
@@ -72,7 +88,11 @@ public struct ProgressOverlay: View {
         counters: [Counter] = [],
         activeItems: [ActiveItem] = [],
         activeItemsTitle: LocalizedStringKey? = nil,
-        activeItemsSystemImage: String = "link"
+        activeItemsSystemImage: String = "link",
+        progress: Double? = nil,
+        maximumActiveItems: Int = 3,
+        width: CGFloat = Sizing.sheetWidthMedium,
+        onCancel: (() -> Void)? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -82,17 +102,21 @@ public struct ProgressOverlay: View {
         self.activeItems = activeItems
         self.activeItemsTitle = activeItemsTitle
         self.activeItemsSystemImage = activeItemsSystemImage
+        self.progress = progress
+        self.maximumActiveItems = max(maximumActiveItems, 0)
+        self.width = width
+        self.onCancel = onCancel
     }
 
     public var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.lg) {
             // Header
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.md) {
                 Image(systemName: systemImage)
                     .font(Typography.displayMediumMedium)
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(Color.accent)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
                     Text(title)
                         .font(Typography.bodyMediumSemibold)
                     Text(subtitle)
@@ -106,9 +130,9 @@ public struct ProgressOverlay: View {
 
                 // Stats
                 if !counters.isEmpty {
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .trailing, spacing: Spacing.headingSpacing) {
                         ForEach(counters) { counter in
-                            HStack(spacing: 4) {
+                            HStack(spacing: Spacing.xxs) {
                                 Image(systemName: counter.systemImage)
                                     .font(Typography.captionTiny)
                                 Text("\(counter.value)")
@@ -120,9 +144,14 @@ public struct ProgressOverlay: View {
                 }
             }
 
+            // A known total: the bar.
+            if let progress {
+                ProgressBar(value: progress)
+            }
+
             // Current item being worked on
-            HStack(spacing: 8) {
-                ThinkingSpinner(size: 14, lineWidth: 1.5)
+            HStack(spacing: Spacing.sm) {
+                ThinkingSpinner(size: Sizing.iconSmall, lineWidth: Spacing.hairline)
                 Text(currentItem)
                     .font(Typography.codeTiny)
                     .foregroundStyle(.secondary)
@@ -131,11 +160,11 @@ public struct ProgressOverlay: View {
                 Spacer()
             }
 
-            // Active sub-tasks (show up to 3)
+            // Active sub-tasks
             if !activeItems.isEmpty {
                 Divider()
 
-                VStack(spacing: 8) {
+                VStack(spacing: Spacing.sm) {
                     if let activeItemsTitle {
                         HStack {
                             Image(systemName: activeItemsSystemImage)
@@ -148,15 +177,15 @@ public struct ProgressOverlay: View {
                         }
                     }
 
-                    ForEach(activeItems.prefix(3)) { item in
-                        HStack(spacing: 6) {
+                    ForEach(activeItems.prefix(maximumActiveItems)) { item in
+                        HStack(spacing: Spacing.xs) {
                             Text(item.name)
                                 .font(Typography.codeTiny)
                                 .foregroundStyle(Warning.warning500)
                                 .lineLimit(1)
-                                .frame(width: 80, alignment: .leading)
+                                .frame(width: ProgressOverlayMetrics.nameColumnWidth, alignment: .leading)
 
-                            ThinkingSpinner(size: 10, lineWidth: 1)
+                            ThinkingSpinner(size: Sizing.controlTiny, lineWidth: 1)
 
                             Text(item.detail)
                                 .font(Typography.codeTiny)
@@ -168,29 +197,39 @@ public struct ProgressOverlay: View {
                         }
                     }
 
-                    if activeItems.count > 3 {
-                        Text("+ \(activeItems.count - 3) more...", bundle: .module)
+                    if activeItems.count > maximumActiveItems {
+                        Text("+ \(activeItems.count - maximumActiveItems) more…", bundle: .module)
                             .font(Typography.captionTiny)
                             .foregroundStyle(.tertiary)
                     }
                 }
             }
+
+            if let onCancel {
+                Divider()
+                HStack {
+                    Spacer()
+                    Button(String(localized: "Cancel", bundle: .module), action: onCancel)
+                        .buttonStyle(SecondaryButtonStyle(compact: true))
+                        .keyboardShortcut(.cancelAction)
+                }
+            }
         }
-        .padding(20)
-        .frame(width: 380)
+        .padding(Spacing.cardPadding)
+        .frame(width: width)
         .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+            RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
+                .fill(Color.controlBackground)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.separator.opacity(0.5), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
+                .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
+        .elevation(.panel)
     }
 }
 
-#Preview {
+#Preview(traits: .fixedLayout(width: 520, height: 320)) {
     ZStack {
         Color.windowBackground
             .ignoresSafeArea()
@@ -207,7 +246,9 @@ public struct ProgressOverlay: View {
                 .init(name: "Shared", detail: "Family/Birthdays"),
                 .init(name: "Archive", detail: "2019/Scans")
             ],
-            activeItemsTitle: "Following 2 linked folders..."
+            activeItemsTitle: "Following 2 linked folders…",
+            progress: 0.42,
+            onCancel: {}
         )
     }
 }

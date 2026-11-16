@@ -43,6 +43,8 @@ public struct TextArea: View {
     private let characterLimit: Int?
     private let showsCharacterCount: Bool
     private let fontStyle: TextAreaFontStyle
+    private let isBordered: Bool
+    private let onCommandReturn: (() -> Void)?
     /// Off when a container draws the box itself (`MessageComposer`); see `embedded`.
     private var showsBox = true
     private var embeddedFocusChange: ((Bool) -> Void)?
@@ -68,6 +70,9 @@ public struct TextArea: View {
     ///   - showsCharacterCount: Shows the count without a limit too (it always
     ///     shows with one).
     ///   - monospaced: Sets the text in the monospaced code font.
+    ///   - isBordered: The box's resting fill and hairline. Off for a note
+    ///     field inside a card: the box shows only while focused.
+    ///   - onCommandReturn: ⌘Return — a form's submit, where Return types.
     public init(
         _ title: LocalizedStringResource,
         text: Binding<String>,
@@ -75,7 +80,9 @@ public struct TextArea: View {
         lineLimit: ClosedRange<Int> = 3...8,
         characterLimit: Int? = nil,
         showsCharacterCount: Bool = false,
-        monospaced: Bool = false
+        monospaced: Bool = false,
+        isBordered: Bool = true,
+        onCommandReturn: (() -> Void)? = nil
     ) {
         self.title = title
         self._text = text
@@ -84,6 +91,8 @@ public struct TextArea: View {
         self.characterLimit = characterLimit.flatMap { $0 > 0 ? $0 : nil }
         self.showsCharacterCount = showsCharacterCount
         self.fontStyle = monospaced ? .code : .body
+        self.isBordered = isBordered
+        self.onCommandReturn = onCommandReturn
     }
 
     private var showsCount: Bool { characterLimit != nil || showsCharacterCount }
@@ -103,6 +112,7 @@ public struct TextArea: View {
                     embeddedFocusChange?(focused)
                 },
                 onReturn: onReturn,
+                onCommandReturn: onCommandReturn,
                 onScroll: handleScroll
             )
             .overlay(alignment: .topLeading) { placeholder }
@@ -116,7 +126,7 @@ public struct TextArea: View {
         // A click on the box around the text (the count row) still edits.
         .contentShape(Rectangle())
         .onTapGesture { focusRequest += 1 }
-        .modifier(TextAreaBox(isOn: showsBox, isFocused: isFocused))
+        .modifier(TextAreaBox(isOn: showsBox, isFocused: isFocused, isBordered: isBordered))
         .onHover { hovering in isHovering = hovering }
         .onDisappear { scrollEndTask?.cancel() }
     }
@@ -126,11 +136,17 @@ public struct TextArea: View {
     /// text view's focus reported so the container can ring its box, and Return
     /// handed to the container first. `onReturn` gets the key's modifiers and
     /// returns true when it took the key (send); false inserts a plain newline.
+    /// `onCommandReturn` takes ⌘Return the same way.
     func embedded(
         onFocusChange: @escaping (Bool) -> Void,
-        onReturn: @escaping (NSEvent.ModifierFlags) -> Bool
+        onReturn: @escaping (NSEvent.ModifierFlags) -> Bool,
+        onCommandReturn: (() -> Void)? = nil
     ) -> TextArea {
-        var copy = self
+        var copy = TextArea(
+            title, text: $text, prompt: prompt, lineLimit: lineLimit, characterLimit: characterLimit,
+            showsCharacterCount: showsCharacterCount, monospaced: fontStyle == .code,
+            isBordered: isBordered, onCommandReturn: onCommandReturn ?? self.onCommandReturn
+        )
         copy.showsBox = false
         copy.embeddedFocusChange = onFocusChange
         copy.onReturn = onReturn
@@ -186,20 +202,7 @@ public struct TextArea: View {
     @ViewBuilder
     private var scrollIndicator: some View {
         let metrics = scrollMetrics
-        if metrics.overflows {
-            let track = metrics.viewportHeight - 2 * ThinIndicatorMetrics.verticalPadding
-            let thumbHeight = min(max(ThinIndicatorMetrics.minimumHeight, track * metrics.viewportHeight / metrics.contentHeight), track)
-            let progress = min(max(metrics.offset / (metrics.contentHeight - metrics.viewportHeight), 0), 1)
-            RoundedRectangle(cornerRadius: ThinIndicatorMetrics.width / 2)
-                .fill(Color.primary.opacity(0.35))
-                .frame(width: ThinIndicatorMetrics.width, height: thumbHeight)
-                .padding(.top, ThinIndicatorMetrics.verticalPadding + progress * (track - thumbHeight))
-                .padding(.trailing, ThinIndicatorMetrics.trailingPadding)
-                .opacity(isHovering || isScrolling ? 1 : 0)
-                .animation(Animations.scrollIndicator, value: isHovering || isScrolling)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
+        TextBoxScrollThumb(metrics: metrics, isVisible: isHovering || isScrolling)
     }
 
     private func handleScroll(_ metrics: TextAreaScrollMetrics, didScroll: Bool) {
@@ -208,7 +211,7 @@ public struct TextArea: View {
         isScrolling = true
         scrollEndTask?.cancel()
         scrollEndTask = Task {
-            try? await Task.sleep(for: .milliseconds(800))
+            try? await Task.sleep(for: TextBoxMetrics.scrollIndicatorHideDelay)
             guard !Task.isCancelled else { return }
             withAnimation(Animations.scrollIndicator) { isScrolling = false }
         }
@@ -220,11 +223,12 @@ public struct TextArea: View {
 private struct TextAreaBox: ViewModifier {
     let isOn: Bool
     let isFocused: Bool
+    let isBordered: Bool
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if isOn {
-            content.inputBox(isFocused: isFocused, cornerRadius: Sizing.radiusDefault)
+            content.inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius, fill: isBordered ? .resting : .none)
         } else {
             content
         }
@@ -233,12 +237,38 @@ private struct TextAreaBox: ViewModifier {
 
 // MARK: - Metrics
 
-/// The thin indicator's proportions, matching `ScrollViewWithThinIndicator`.
-private enum ThinIndicatorMetrics {
-    static let width: CGFloat = Spacing.xs
-    static let minimumHeight: CGFloat = 30
-    static let trailingPadding: CGFloat = Spacing.hairline
-    static let verticalPadding: CGFloat = Spacing.xxs
+/// What the hosted text boxes (`TextArea`, `RichTextEditor`) share.
+enum TextBoxMetrics {
+    /// A width-less proposal (`fixedSize`) gets a typical field width.
+    static let idealWidth: CGFloat = 240
+    /// How long the thin indicator stays after the last scroll.
+    static let scrollIndicatorHideDelay: Duration = ThinIndicatorMetrics.hideDelay
+    /// How far the hosted text view's thumb stops short of the box's ends.
+    static let thumbInset: CGFloat = Spacing.xxs
+}
+
+/// The thin thumb `ScrollViewWithThinIndicator` draws, for a hosted text
+/// view's own scroll: only when the text overflows, and never hit-testable.
+struct TextBoxScrollThumb: View {
+    let metrics: TextAreaScrollMetrics
+    let isVisible: Bool
+
+    var body: some View {
+        if metrics.overflows {
+            let track = metrics.viewportHeight - 2 * TextBoxMetrics.thumbInset
+            let thumbHeight = min(max(ThinIndicatorMetrics.minimumThumbHeight, track * metrics.viewportHeight / metrics.contentHeight), track)
+            let progress = min(max(metrics.offset / (metrics.contentHeight - metrics.viewportHeight), 0), 1)
+            RoundedRectangle(cornerRadius: ThinIndicatorMetrics.thumbWidth / 2)
+                .fill(Color.primary.opacity(ThinIndicatorMetrics.thumbOpacity))
+                .frame(width: ThinIndicatorMetrics.thumbWidth, height: thumbHeight)
+                .padding(.top, TextBoxMetrics.thumbInset + progress * (track - thumbHeight))
+                .padding(.trailing, ThinIndicatorMetrics.trailingInset)
+                .opacity(isVisible ? 1 : 0)
+                .animation(Animations.scrollIndicator, value: isVisible)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
 }
 
 /// The text view's scroll position, reported to draw the thin indicator.
@@ -256,11 +286,12 @@ enum TextAreaFontStyle {
     case body
     case code
 
-    /// `Typography.bodySmall` / `Typography.codeSmall`.
+    /// `Typography.bodySmall` / `Typography.codeSmall`, in the user's font and
+    /// at their base size, like the SwiftUI tokens.
     var nsFont: NSFont {
         switch self {
-        case .body: return .systemFont(ofSize: FontSize.footnote)
-        case .code: return .monospacedSystemFont(ofSize: FontSize.caption, weight: .regular)
+        case .body: return FontResolver.nsFont(.ui, size: FontSize.footnote, weight: .regular)
+        case .code: return FontResolver.nsFont(.code, size: FontSize.caption, weight: .regular)
         }
     }
 
@@ -288,13 +319,13 @@ struct TextAreaEditor: NSViewRepresentable {
     var onFocusChange: (Bool) -> Void
     /// A container's claim on Return (see `TextArea.embedded`); nil types a newline.
     var onReturn: ((NSEvent.ModifierFlags) -> Bool)?
+    /// ⌘Return; nil leaves it to the text view (which ignores it).
+    var onCommandReturn: (() -> Void)?
     var onScroll: (TextAreaScrollMetrics, _ didScroll: Bool) -> Void
 
     /// Padding between the box and the text, inside the scroll view so the
     /// text scrolls to the box's edge and the thin indicator sits in the gutter.
-    static let textInset = NSSize(width: Spacing.sm, height: Spacing.xs)
-    /// A width-less proposal (`fixedSize`) gets a typical field width.
-    static let idealWidth: CGFloat = 240
+    static let textInset = NSSize(width: Spacing.fieldPaddingH, height: Spacing.fieldPaddingV)
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -337,6 +368,11 @@ struct TextAreaEditor: NSViewRepresentable {
         textView.onFocusChange = { [weak coordinator] focused in
             // First-responder changes can land inside a SwiftUI update.
             DispatchQueue.main.async { coordinator?.parent.onFocusChange(focused) }
+        }
+        textView.onCommandReturn = { [weak coordinator] in
+            guard let action = coordinator?.parent.onCommandReturn else { return false }
+            action()
+            return true
         }
 
         let scrollView = NSScrollView()
@@ -405,7 +441,7 @@ struct TextAreaEditor: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
-        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? Self.idealWidth
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? TextBoxMetrics.idealWidth
         let font = fontStyle.nsFont
         let coordinator = context.coordinator
         let contentHeight = coordinator.contentHeight(of: text, width: width, font: font)
@@ -546,6 +582,18 @@ struct TextAreaEditor: NSViewRepresentable {
 /// Tab move focus like a form field instead of typing a tab.
 final class TextAreaTextView: NSTextView {
     var onFocusChange: ((Bool) -> Void)?
+    /// ⌘Return, which no key binding maps to a selector; true when taken.
+    var onCommandReturn: (() -> Bool)?
+
+    /// ⌘Return goes to the container (a form's submit, a composer's send);
+    /// the text view has no binding for it and would only beep.
+    override func keyDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if modifiers == .command, event.keyCode == 36 || event.keyCode == 76, onCommandReturn?() == true {
+            return
+        }
+        super.keyDown(with: event)
+    }
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()

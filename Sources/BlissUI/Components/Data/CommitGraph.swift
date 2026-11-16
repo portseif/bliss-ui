@@ -10,8 +10,8 @@
 //
 //  The lanes are laid out once from the parent links (`CommitGraphLayout`)
 //  and each row draws only its own slice in a Canvas, so rows stack flush and
-//  their lines meet. Colors come from the status marks plus purple, so they
-//  follow the theme and keep their contrast on both schemes.
+//  their lines meet. Colors are the chart palette plus purple, so they follow
+//  the theme and keep their contrast on both schemes.
 //
 
 import SwiftUI
@@ -118,23 +118,37 @@ public struct CommitGraphRef: Identifiable, Hashable, Sendable {
 public struct CommitGraph<Accessory: View>: View {
     private let commits: [CommitGraphCommit]
     private let laneWidth: CGFloat
+    private let selection: Binding<String?>?
+    private let compact: Bool
+    private let showsAuthor: Bool
     private let onOpen: ((CommitGraphCommit) -> Void)?
     private let accessory: (CommitGraphCommit, Bool) -> Accessory
 
     /// - Parameters:
     ///   - commits: Newest first, in topological order.
     ///   - laneWidth: Horizontal space per lane.
-    ///   - onOpen: A click on a row; nil leaves rows inert.
+    ///   - selection: The selected commit's id, drawn on the selection fill; a
+    ///     click selects. nil leaves rows unselectable.
+    ///   - compact: Refs, title and hash on one line and no avatar — half the
+    ///     row, for a sidebar history.
+    ///   - showsAuthor: The avatar and name; off for a single-author history.
+    ///   - onOpen: A click on a row (after it selects); nil leaves rows inert.
     ///   - accessory: Trailing content per row, given whether the row is
     ///     hovered (a hover-only control should also be `.disabled` while hidden).
     public init(
         _ commits: [CommitGraphCommit],
-        laneWidth: CGFloat = 18,
+        laneWidth: CGFloat = CommitGraphMetrics.laneWidth,
+        selection: Binding<String?>? = nil,
+        compact: Bool = false,
+        showsAuthor: Bool = true,
         onOpen: ((CommitGraphCommit) -> Void)? = nil,
         @ViewBuilder accessory: @escaping (CommitGraphCommit, Bool) -> Accessory
     ) {
         self.commits = commits
         self.laneWidth = laneWidth
+        self.selection = selection
+        self.compact = compact
+        self.showsAuthor = showsAuthor
         self.onOpen = onOpen
         self.accessory = accessory
     }
@@ -150,19 +164,56 @@ public struct CommitGraph<Accessory: View>: View {
                     row: row,
                     laneWidth: laneWidth,
                     graphWidth: graphWidth,
-                    onOpen: onOpen,
+                    isSelected: selection?.wrappedValue == commit.id,
+                    compact: compact,
+                    showsAuthor: showsAuthor,
+                    onTap: tapAction(for: commit),
                     accessory: accessory
                 )
             }
+        }
+    }
+
+    /// What a click on a row does: selects it, opens it, or both. nil when
+    /// the graph is inert.
+    private func tapAction(for commit: CommitGraphCommit) -> (() -> Void)? {
+        guard selection != nil || onOpen != nil else { return nil }
+        return {
+            selection?.wrappedValue = commit.id
+            onOpen?(commit)
         }
     }
 }
 
 extension CommitGraph where Accessory == EmptyView {
     /// A graph with no trailing content per row.
-    public init(_ commits: [CommitGraphCommit], laneWidth: CGFloat = 18, onOpen: ((CommitGraphCommit) -> Void)? = nil) {
-        self.init(commits, laneWidth: laneWidth, onOpen: onOpen) { _, _ in EmptyView() }
+    public init(
+        _ commits: [CommitGraphCommit],
+        laneWidth: CGFloat = CommitGraphMetrics.laneWidth,
+        selection: Binding<String?>? = nil,
+        compact: Bool = false,
+        showsAuthor: Bool = true,
+        onOpen: ((CommitGraphCommit) -> Void)? = nil
+    ) {
+        self.init(commits, laneWidth: laneWidth, selection: selection, compact: compact, showsAuthor: showsAuthor, onOpen: onOpen) { _, _ in EmptyView() }
     }
+}
+
+/// The graph's drawing constants.
+public enum CommitGraphMetrics {
+    /// 18pt — horizontal space per lane: room for a lane's dot and its elbow.
+    public static let laneWidth: CGFloat = 18
+    /// A lane's stroke, the family line.
+    static let lineWidth: CGFloat = DataMetrics.lineWidth
+    /// A commit's dot: `Sizing.statusCircle` plus a point either side, like a timeline's.
+    static let dotRadius: CGFloat = (Sizing.statusCircle + Spacing.hairline) / 2
+    /// A merge's ring: a point and a half past the dot.
+    static let mergeRingRadius: CGFloat = dotRadius + 1.5
+    /// The ring's stroke and the dot inside it: drawing geometry at this size.
+    static let mergeRingStroke: CGFloat = 1.5
+    static let mergeInnerRadius: CGFloat = 2
+    /// The widest an elbow's curve gets.
+    static let maximumCornerRadius: CGFloat = Spacing.xs
 }
 
 // MARK: - Row
@@ -172,20 +223,38 @@ private struct CommitGraphRowView<Accessory: View>: View {
     let row: CommitGraphRow
     let laneWidth: CGFloat
     let graphWidth: CGFloat
-    let onOpen: ((CommitGraphCommit) -> Void)?
+    let isSelected: Bool
+    let compact: Bool
+    let showsAuthor: Bool
+    let onTap: (() -> Void)?
     let accessory: (CommitGraphCommit, Bool) -> Accessory
 
     @Environment(\.colorScheme) private var scheme
     @State private var isHovering = false
 
+    /// The list-row fill: selected above hovered, like a table's rows.
+    private var rowFill: Color {
+        if isSelected { return RowTint.selected(scheme) }
+        if isHovering { return RowTint.hover(scheme) }
+        return .clear
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.sm) {
             details
-                .modifier(CommitGraphRowTap(commit: commit, onOpen: onOpen))
+                .modifier(CommitGraphRowTap(isSelected: isSelected, onTap: onTap))
             // Outside the combined element, so VoiceOver and Tab reach its controls.
             accessory(commit, isHovering)
         }
-        .listRowHover(isHovering: isHovering, scheme: scheme, verticalPadding: Spacing.sm, horizontalBleed: 0)
+        // The list-row chrome (`listRowHover`'s padding, radius and bleed),
+        // drawn here so the selection fill can join the hover's.
+        .padding(.vertical, compact ? Spacing.xs : Spacing.listRowPadding)
+        .padding(.horizontal, Spacing.sm)
+        .background {
+            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                .fill(rowFill)
+        }
+        .padding(.horizontal, -Spacing.sm)
         // Outside the padding, so each row's lanes span its full height and meet the next row's.
         .background(alignment: .leading) {
             CommitGraphLanes(row: row, laneWidth: laneWidth, isMerge: commit.isMerge)
@@ -200,35 +269,37 @@ private struct CommitGraphRowView<Accessory: View>: View {
     }
 
     /// Everything but the accessory: one element for VoiceOver (a button when
-    /// the graph has `onOpen`), read as refs, title, hash, author and age.
+    /// the row has a tap), read as refs, title, hash, author and age.
     private var details: some View {
         HStack(alignment: .center, spacing: Spacing.sm) {
             // Text starts after the lanes this row uses, not the widest row's.
             Color.clear
                 .frame(width: CGFloat(row.maxColumn + 1) * laneWidth, height: 1)
 
-            VStack(alignment: .leading, spacing: 3) {
+            if compact {
                 HStack(spacing: Spacing.xs) {
-                    ForEach(commit.refs) { ref in
-                        Badge(.verbatim(ref.name))
-                            .badgeStyle(ref.badgeStyle)
-                            .badgeSize(.small)
-                    }
-                    Text(verbatim: commit.title)
-                        .font(Typography.bodySmall)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-                HStack(spacing: Spacing.xs) {
+                    refs
+                    title
                     CommitHashChip(shortHash: commit.shortHash)
-                    // The name follows, so VoiceOver shouldn't read it twice.
-                    Avatar(name: commit.authorName, size: .small)
-                        .accessibilityHidden(true)
-                    Text(verbatim: commit.authorName)
-                        .font(Typography.captionSmall)
-                        .foregroundStyle(Color.textSecondary)
-                        .lineLimit(1)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: Spacing.hairline) {
+                    HStack(spacing: Spacing.xs) {
+                        refs
+                        title
+                    }
+                    HStack(spacing: Spacing.xs) {
+                        CommitHashChip(shortHash: commit.shortHash)
+                        if showsAuthor {
+                            // The name follows, so VoiceOver shouldn't read it twice.
+                            Avatar(name: commit.authorName, size: .small)
+                                .accessibilityHidden(true)
+                            Text(verbatim: commit.authorName)
+                                .font(Typography.captionSmall)
+                                .foregroundStyle(Color.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
 
@@ -240,17 +311,33 @@ private struct CommitGraphRowView<Accessory: View>: View {
         }
         .contentShape(Rectangle())
     }
+
+    private var refs: some View {
+        ForEach(commit.refs) { ref in
+            Badge(.verbatim(ref.name))
+                .badgeStyle(ref.badgeStyle)
+                .badgeSize(.small)
+        }
+    }
+
+    private var title: some View {
+        Text(verbatim: commit.title)
+            .font(Typography.bodySmall)
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
 }
 
-/// `rowTapAction` (one VoiceOver button, a Tab stop) only when the graph has
-/// an `onOpen`; otherwise the row is one combined element and no Tab stop.
+/// `rowTapAction` (one VoiceOver button, a Tab stop) only when the row has a
+/// tap; otherwise the row is one combined element and no Tab stop.
 private struct CommitGraphRowTap: ViewModifier {
-    let commit: CommitGraphCommit
-    let onOpen: ((CommitGraphCommit) -> Void)?
+    let isSelected: Bool
+    let onTap: (() -> Void)?
 
     func body(content: Content) -> some View {
-        if let onOpen {
-            content.rowTapAction { onOpen(commit) }
+        if let onTap {
+            content.rowTapAction(isSelected: isSelected, perform: onTap)
         } else {
             content.accessibilityElement(children: .combine)
         }
@@ -267,7 +354,8 @@ private struct CommitHashChip: View {
             .font(Typography.codeTiny)
             .foregroundStyle(Color.textSecondary)
             .padding(.horizontal, Spacing.xs)
-            .padding(.vertical, 1)
+            // Half a hairline: the chip hugs the code font's line.
+            .padding(.vertical, Spacing.hairline / 2)
             .overlay {
                 RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
                     .strokeBorder(Color.menuBorder, lineWidth: 1)
@@ -285,17 +373,30 @@ private struct CommitGraphLanes: View {
 
     @Environment(\.colorScheme) private var scheme
 
-    private static let lineWidth: CGFloat = 2
-    private static let dotRadius: CGFloat = 4
-    private static let mergeRingRadius: CGFloat = 5.5
-
     var body: some View {
         Canvas { context, size in
             let middle = size.height / 2
-            let cornerRadius = min(laneWidth / 2, 6)
+            let cornerRadius = min(laneWidth / 2, CommitGraphMetrics.maximumCornerRadius)
             func x(_ column: Int) -> CGFloat { CGFloat(column) * laneWidth + laneWidth / 2 }
+
+            let center = CGPoint(x: x(row.column), y: middle)
+            let ring = Path(ellipseIn: CGRect(
+                x: center.x - CommitGraphMetrics.mergeRingRadius,
+                y: center.y - CommitGraphMetrics.mergeRingRadius,
+                width: CommitGraphMetrics.mergeRingRadius * 2,
+                height: CommitGraphMetrics.mergeRingRadius * 2
+            ))
+            // A merge's ring is a hole in the lanes, not a disc of the surface
+            // color: whatever the graph sits on shows through (an `Avatar`
+            // cuts its gaps the same way). The lanes draw through a copy of
+            // the context with the hole clipped out; the ring itself through
+            // the original.
+            var lanes = context
+            if isMerge {
+                lanes.clip(to: ring, options: .inverse)
+            }
             func stroke(_ path: Path, colorIndex: Int) {
-                context.stroke(path, with: .color(CommitGraphPalette.color(colorIndex, scheme: scheme)), style: StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, lineJoin: .round))
+                lanes.stroke(path, with: .color(CommitGraphPalette.color(colorIndex, scheme: scheme)), style: StrokeStyle(lineWidth: CommitGraphMetrics.lineWidth, lineCap: .round, lineJoin: .round))
             }
 
             for lane in row.passThrough {
@@ -336,26 +437,29 @@ private struct CommitGraphLanes: View {
                 }, colorIndex: lane.color)
             }
 
-            let center = CGPoint(x: x(row.column), y: middle)
             let color = CommitGraphPalette.color(row.color, scheme: scheme)
             if isMerge {
-                let ring = Path(ellipseIn: CGRect(x: center.x - Self.mergeRingRadius, y: center.y - Self.mergeRingRadius, width: Self.mergeRingRadius * 2, height: Self.mergeRingRadius * 2))
-                context.fill(ring, with: .color(Color.contentAreaBackground))
-                context.stroke(ring, with: .color(color), lineWidth: 1.5)
-                let innerRadius: CGFloat = 2
+                context.stroke(ring, with: .color(color), lineWidth: CommitGraphMetrics.mergeRingStroke)
+                let innerRadius = CommitGraphMetrics.mergeInnerRadius
                 context.fill(Path(ellipseIn: CGRect(x: center.x - innerRadius, y: center.y - innerRadius, width: innerRadius * 2, height: innerRadius * 2)), with: .color(color))
             } else {
-                context.fill(Path(ellipseIn: CGRect(x: center.x - Self.dotRadius, y: center.y - Self.dotRadius, width: Self.dotRadius * 2, height: Self.dotRadius * 2)), with: .color(color))
+                let dotRadius = CommitGraphMetrics.dotRadius
+                context.fill(Path(ellipseIn: CGRect(x: center.x - dotRadius, y: center.y - dotRadius, width: dotRadius * 2, height: dotRadius * 2)), with: .color(color))
             }
         }
     }
 }
 
-/// Lane colors: the status marks plus purple, lifted on dark like any mark.
-/// Computed each time — the marks follow the active theme.
+/// Lane colors: the chart palette's marks (accent first, then the status
+/// marks) plus purple, lifted on dark like any mark. Grey is left out — a
+/// grey lane reads as inactive. Computed each time: the marks follow the theme.
 enum CommitGraphPalette {
+    static var lanes: [Color] {
+        Array(ChartPalette.series.prefix(5)) + [Purple.purple500]
+    }
+
     static func color(_ index: Int, scheme: ColorScheme) -> Color {
-        let marks = [Danger.danger500, Success.success500, Warning.warning500, Purple.purple500, Info.info500]
+        let marks = lanes
         return marks[index % marks.count].legibleOnDark(scheme)
     }
 }

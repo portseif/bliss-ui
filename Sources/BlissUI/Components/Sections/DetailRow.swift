@@ -2,7 +2,8 @@
 //  DetailRow.swift
 //  BlissUI
 //
-//  Created by Chris Seifert on 12/4/25.
+//  A label column and a value: a detail pane's facts. The value is text, a
+//  link, or a path chip; a copyable value shows the copy button on hover.
 //
 
 import SwiftUI
@@ -14,17 +15,33 @@ public struct DetailRow: View {
     var isLink: Bool = false
     var isPath: Bool = false
     var copyable: Bool = false
+    var labelWidth: CGFloat = Sizing.detailLabelWidth
+    var isSecret: Bool = false
+    var lineLimit: Int? = 1
     @State private var isHovering = false
     @State private var showCopied = false
     @Environment(\.openURL) private var openURL
 
+    /// - Parameters:
+    ///   - label: The fact's name, in the label column.
+    ///   - value: The fact.
+    ///   - monospace: The value in the code font (a path, an id).
+    ///   - isLink: The value opens as a URL.
+    ///   - isPath: The value is a file path, with Copy and Reveal on hover.
+    ///   - copyable: A copy button on hover.
+    ///   - labelWidth: The label column's width.
+    ///   - isSecret: Copies through `SecretClipboard` (a key, a token).
+    ///   - lineLimit: How many lines the value may take; nil wraps freely.
     public init(
         label: LocalizedStringKey,
         value: String,
         monospace: Bool = false,
         isLink: Bool = false,
         isPath: Bool = false,
-        copyable: Bool = false
+        copyable: Bool = false,
+        labelWidth: CGFloat = Sizing.detailLabelWidth,
+        isSecret: Bool = false,
+        lineLimit: Int? = 1
     ) {
         self.label = label
         self.value = value
@@ -32,6 +49,9 @@ public struct DetailRow: View {
         self.isLink = isLink
         self.isPath = isPath
         self.copyable = copyable
+        self.labelWidth = labelWidth
+        self.isSecret = isSecret
+        self.lineLimit = lineLimit
     }
 
     public var body: some View {
@@ -39,7 +59,7 @@ public struct DetailRow: View {
             Text(label)
                 .font(Typography.caption)
                 .foregroundStyle(Color.textSecondary)
-                .frame(width: 100, alignment: .leading)
+                .frame(width: labelWidth, alignment: .leading)
 
             if isLink {
                 let urlString =
@@ -47,17 +67,19 @@ public struct DetailRow: View {
                     ? value : "https://\(value)"
                 TextLink(
                     value,
-                    font: .system(size: 12, design: monospace ? .monospaced : .default),
+                    font: monospace ? Typography.codeSmall : Typography.caption,
                     truncationMode: .middle
                 ) {
                     if let url = URL(string: urlString) { openURL(url) }
                 }
             } else if isPath {
-                PathHoverChip(path: value, monospaced: true)
+                PathHoverChip(path: value, monospaced: true, compact: true)
             } else {
                 Text(value)
                     .font(monospace ? Typography.codeSmall : Typography.caption)
                     .foregroundStyle(.primary)
+                    .lineLimit(lineLimit)
+                    .truncationMode(.middle)
                     .textSelection(.enabled)
             }
 
@@ -66,12 +88,12 @@ public struct DetailRow: View {
             // Path rows carry their own Copy action inside the hover chip; the
             // standalone copy button is only for non-path copyable values.
             if copyable && !isPath {
-                CopyButton(value: value, showCopied: $showCopied)
+                CopyButton(value: value, showCopied: $showCopied, isSecret: isSecret)
                     .opacity(isHovering ? 1 : 0)
                     .disabled(!isHovering)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xxs)
         .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(Animations.hover) {
@@ -83,7 +105,8 @@ public struct DetailRow: View {
 
 // MARK: - Copy Button
 
-/// Small hover-highlight copy affordance. Its own type (not private to
+/// Small hover-highlight copy affordance: a `HoverIconButton` that shows a
+/// green check for a moment after copying. Its own type (not private to
 /// `DetailRow`) so other surfaces can reuse it — a stat row, a key field.
 public struct CopyButton: View {
     let value: String
@@ -91,7 +114,9 @@ public struct CopyButton: View {
     /// A secret goes through `SecretClipboard` (Touch ID when asked for, concealed
     /// from clipboard managers, cleared after a minute).
     var isSecret = false
-    @State private var isButtonHovering = false
+
+    /// How long the check shows after a copy.
+    public static let confirmationDuration: TimeInterval = 1.5
 
     public init(value: String, showCopied: Binding<Bool>, isSecret: Bool = false) {
         self.value = value
@@ -100,7 +125,11 @@ public struct CopyButton: View {
     }
 
     public var body: some View {
-        Button {
+        HoverIconButton(
+            systemImage: showCopied ? "checkmark" : "doc.on.doc",
+            tint: showCopied ? Success.success500 : nil,
+            help: showCopied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy", bundle: .module)
+        ) {
             Task {
                 if isSecret {
                     guard await SecretClipboard.copy(value, reason: String(localized: "copy a secret", bundle: .module)) else { return }
@@ -108,37 +137,20 @@ public struct CopyButton: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(value, forType: .string)
                 }
-                showCopied = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    showCopied = false
-                }
-            }
-        } label: {
-            Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
-                .font(Typography.captionTiny)
-                .foregroundStyle(showCopied ? Success.success500 : isButtonHovering ? Color.accent : .secondary)
-                .frame(width: 18, height: 18)
-                .background {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(isButtonHovering && !showCopied ? Color.accent.opacity(0.1) : .clear)
-                }
-        }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall))
-        .onHover { hovering in
-            withAnimation(Animations.hover) {
-                isButtonHovering = hovering
+                withAnimation(Animations.hover) { showCopied = true }
+                try? await Task.sleep(for: .seconds(Self.confirmationDuration))
+                withAnimation(Animations.hover) { showCopied = false }
             }
         }
-        .accessibilityLabel(Text("Copy", bundle: .module))
     }
 }
 
 #Preview("Detail Row", traits: .fixedLayout(width: 400, height: 150)) {
-    VStack(spacing: 8) {
+    VStack(spacing: Spacing.sm) {
         DetailRow(label: "Type", value: "Swift Package")
         DetailRow(label: "Path", value: "/Users/test/Documents", monospace: true, copyable: true)
         DetailRow(label: "URL", value: "example.com", isLink: true)
+        DetailRow(label: "API key", value: "sk-live-4f9e…", monospace: true, copyable: true, isSecret: true)
     }
     .padding()
 }
-

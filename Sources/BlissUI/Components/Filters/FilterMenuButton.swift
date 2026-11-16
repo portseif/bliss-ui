@@ -3,9 +3,10 @@
 //  BlissUI
 //
 //  The compact trigger for a Filter or Display menu over a list: an icon and a
-//  title in a hairline pill, filled while its menu is open or a filter
-//  applies, with an accent count of the active filters. Attach the menu with
-//  `.floatingMenu`; the button highlights itself while it's open.
+//  title in a hairline pill at the compact button's size, filled while its
+//  menu is open or a filter applies, with an accent count of the active
+//  filters. Attach the menu with `.floatingMenu`; the button highlights
+//  itself while it's open.
 //
 
 import SwiftUI
@@ -35,6 +36,9 @@ public struct FilterMenuButton: View {
     let systemImage: String
     let isActive: Bool
     let count: Int
+    let compact: Bool
+    let showsTitle: Bool
+    let showsChevron: Bool
     let action: () -> Void
 
     @Environment(\.colorScheme) private var scheme
@@ -49,18 +53,27 @@ public struct FilterMenuButton: View {
     ///   - isActive: Fills the button. It also fills while its `.floatingMenu`
     ///     is open and whenever `count` is above zero.
     ///   - count: Active filters, shown as an accent count; 0 hides it.
+    ///   - compact: The `FilterBar` chips' 24pt size, to sit in their row.
+    ///   - showsTitle: Off, the icon alone with the title as its tooltip.
+    ///   - showsChevron: A trailing chevron, so the button reads as a dropdown.
     ///   - action: Toggles the menu.
     public init(
         _ title: LocalizedStringKey,
         systemImage: String,
         isActive: Bool = false,
         count: Int = 0,
+        compact: Bool = false,
+        showsTitle: Bool = true,
+        showsChevron: Bool = false,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.systemImage = systemImage
         self.isActive = isActive
         self.count = count
+        self.compact = compact
+        self.showsTitle = showsTitle
+        self.showsChevron = showsChevron
         self.action = action
     }
 
@@ -69,13 +82,26 @@ public struct FilterMenuButton: View {
     ///   - isActive: Fills the button. It also fills while its `.floatingMenu`
     ///     is open and whenever `count` is above zero.
     ///   - count: Active filters, shown as an accent count; 0 hides it.
+    ///   - compact: The `FilterBar` chips' 24pt size.
+    ///   - showsTitle: Off, the icon alone with the title as its tooltip.
+    ///   - showsChevron: A trailing chevron.
     ///   - action: Toggles the menu.
-    public init(isActive: Bool = false, count: Int = 0, action: @escaping () -> Void) {
+    public init(
+        isActive: Bool = false,
+        count: Int = 0,
+        compact: Bool = false,
+        showsTitle: Bool = true,
+        showsChevron: Bool = false,
+        action: @escaping () -> Void
+    ) {
         self.init(
             .verbatim(String(localized: "Filter", bundle: .module)),
             systemImage: "line.3.horizontal.decrease",
             isActive: isActive,
             count: count,
+            compact: compact,
+            showsTitle: showsTitle,
+            showsChevron: showsChevron,
             action: action
         )
     }
@@ -87,15 +113,28 @@ public struct FilterMenuButton: View {
         return isHovering ? RowTint.hover(scheme) : .clear
     }
 
+    /// The compact button's radius, or the chips' at the chips' size.
+    private var cornerRadius: CGFloat { compact ? Sizing.radiusDefault : Sizing.radiusMedium }
+
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
-        Button(action: action) {
+        if showsTitle {
+            button
+        } else {
+            button.tooltip(title)
+        }
+    }
+
+    private var button: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return Button(action: action) {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: systemImage)
                     .font(Typography.captionSmall)
                     .accessibilityHidden(true)
-                Text(title)
-                    .font(Typography.labelMedium)
+                if showsTitle {
+                    Text(title)
+                        .font(compact ? Typography.labelSmall : Typography.labelMedium)
+                }
                 if count > 0 {
                     Badge(count: count)
                         .badgeStyle(.custom(
@@ -107,10 +146,17 @@ public struct FilterMenuButton: View {
                         .badgeSize(.small)
                         .accessibilityHidden(true)
                 }
+                if showsChevron {
+                    Image(systemName: "chevron.down")
+                        .font(Typography.captionTiny)
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
             }
             .foregroundStyle(isHighlighted || isHovering ? Color.textPrimary : Color.textSecondary)
-            .padding(.horizontal, Spacing.sm + 2)
-            .padding(.vertical, Spacing.xs)
+            .padding(.horizontal, compact ? Spacing.sm : Spacing.md)
+            // Pinned, not padded: the count badge must never grow the row.
+            .frame(minHeight: compact ? Sizing.controlSmall : Sizing.controlDefault)
             .background {
                 shape
                     .fill(fill)
@@ -119,22 +165,24 @@ public struct FilterMenuButton: View {
             // Make the whole padded pill tappable, not just the icon + text.
             .contentShape(shape)
         }
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault))
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: cornerRadius))
         .onHover { isHovering = $0 }
         .animation(Animations.hover, value: isHovering)
         // The open fill follows the menu: in on its ease-out, out faster.
         .animation(isMenuOpen ? Animations.menuOpen : Animations.menuClose, value: isMenuOpen)
+        .accessibilityLabel(Text(title))
         .accessibilityValue(count > 0 ? Text("\(count) active", bundle: .module) : Text(verbatim: ""))
     }
 }
 
 // MARK: - Preview
 
-#Preview(traits: .fixedLayout(width: 320, height: 80)) {
+#Preview(traits: .fixedLayout(width: 420, height: 80)) {
     HStack(spacing: Spacing.sm) {
         FilterMenuButton {}
         FilterMenuButton(count: 2) {}
-        FilterMenuButton("Display", systemImage: "slider.horizontal.3") {}
+        FilterMenuButton("Display", systemImage: "slider.horizontal.3", showsChevron: true) {}
+        FilterMenuButton(compact: true, showsTitle: false) {}
     }
     .padding(Spacing.lg)
 }

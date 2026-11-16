@@ -4,7 +4,8 @@
 //
 //  A code-font input — a shell command, a YAML file — colored by a
 //  `CodeHighlighter`, in the `.inputBox` chrome, with a Copy button. Or the
-//  same box read-only, to show code the user can select and copy.
+//  same box read-only (`CodeBlock`, wrapping), to show code the user can
+//  select and copy.
 //
 //  How it colors live text: the real editor (a `TextField`, or a `TextEditor`
 //  for several lines) draws its text clear, and the highlighted `Text` sits on
@@ -34,10 +35,14 @@ public enum CodeFieldLayout: Hashable, Sendable {
 /// ```swift
 /// CodeField(text: $command, highlighter: .shell, prompt: "npm install")
 ///     .onSubmit { run(command) }
-/// CodeField(text: $workflow, highlighter: .yaml, layout: .editor(height: 200), font: Typography.codeSmall)
+/// CodeField(text: $workflow, highlighter: .yaml, layout: .editor(height: 200), showsLineNumbers: true)
+/// CodeField(text: $command, highlighter: .shell) {
+///     Button { run(command) } label: { Image(systemName: "play.fill") }
+///         .buttonStyle(InlineIconButtonStyle(chipRadius: Sizing.radiusSmall))
+/// }
 /// CodeField(code: snippet, highlighter: .shell)   // read-only, selectable
 /// ```
-public struct CodeField: View {
+public struct CodeField<Trailing: View>: View {
     private let text: Binding<String>?
     private let code: String
     private let highlighter: CodeHighlighter
@@ -45,7 +50,10 @@ public struct CodeField: View {
     private let layout: CodeFieldLayout
     private let font: Font
     private let showsCopyButton: Bool
+    private let showsLineNumbers: Bool
+    private let compact: Bool
     private let maxHeight: CGFloat?
+    private let trailing: Trailing
 
     @FocusState private var isFocused: Bool
     @State private var showCopied = false
@@ -58,21 +66,28 @@ public struct CodeField: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    /// An editable field.
+    /// An editable field with a trailing control beside Copy (a Run button).
     /// - Parameters:
     ///   - text: The code.
     ///   - highlighter: How to color it.
     ///   - prompt: Shown while empty, looked up in your app's strings.
     ///   - layout: One wrapping command, or a multi-line editor.
-    ///   - font: A code token (`Typography.code`, `codeSmall`, …).
+    ///   - font: A code token (`Typography.codeSmall`, `code`, …).
     ///   - showsCopyButton: A Copy button at the trailing edge.
+    ///   - showsLineNumbers: A gutter of line numbers in the editor layout.
+    ///   - compact: A tighter box (`Spacing.xs` vertical) for a toolbar or a
+    ///     table row.
+    ///   - trailing: A control beside the Copy button.
     public init(
         text: Binding<String>,
         highlighter: CodeHighlighter = .plain,
         prompt: LocalizedStringKey? = nil,
         layout: CodeFieldLayout = .singleLine,
-        font: Font = Typography.code,
-        showsCopyButton: Bool = true
+        font: Font = Typography.codeSmall,
+        showsCopyButton: Bool = true,
+        showsLineNumbers: Bool = false,
+        compact: Bool = false,
+        @ViewBuilder trailing: () -> Trailing
     ) {
         self.text = text
         self.code = ""
@@ -81,45 +96,19 @@ public struct CodeField: View {
         self.layout = layout
         self.font = font
         self.showsCopyButton = showsCopyButton
+        self.showsLineNumbers = showsLineNumbers
+        self.compact = compact
         self.maxHeight = nil
-    }
-
-    /// Read-only code the user can select and copy.
-    /// - Parameters:
-    ///   - code: The code to show.
-    ///   - highlighter: How to color it.
-    ///   - font: A code token (`Typography.code`, `codeSmall`, …).
-    ///   - maxHeight: Scrolls past this height; nil grows with the code.
-    ///   - showsCopyButton: A Copy button at the trailing edge.
-    public init(
-        code: String,
-        highlighter: CodeHighlighter = .plain,
-        font: Font = Typography.code,
-        maxHeight: CGFloat? = nil,
-        showsCopyButton: Bool = true
-    ) {
-        self.text = nil
-        self.code = code
-        self.highlighter = highlighter
-        self.prompt = nil
-        self.layout = .singleLine
-        self.font = font
-        self.showsCopyButton = showsCopyButton
-        self.maxHeight = maxHeight
+        self.trailing = trailing()
     }
 
     // MARK: Metrics
 
-    /// The box's inner padding (StackMe's command field: 12 × 10).
-    private static let horizontalPadding = Spacing.md
-    private static let verticalPadding = Spacing.sm + 2
-    /// `TextEditor`'s text view keeps AppKit's default line fragment padding
-    /// on both sides of every line, so the overlay is inset the same to sit
-    /// exactly over its glyphs (measured: without it the colors drew 5pt left
-    /// of the caret).
-    private static let editorLineInset: CGFloat = 5
-    /// The Copy button's box (`CopyButton` draws 18pt).
-    private static let copyButtonSize: CGFloat = 18
+    /// The box's inner padding: the field inset, a line of air above and below.
+    private static var horizontalPadding: CGFloat { CodeFieldMetrics.horizontalPadding }
+    private var verticalPadding: CGFloat { compact ? Spacing.xs : Spacing.sm }
+    private static var editorLineInset: CGFloat { CodeFieldMetrics.editorLineInset }
+    private static var copyButtonSize: CGFloat { CodeFieldMetrics.copyButtonSize }
 
     public var body: some View {
         if let text {
@@ -130,7 +119,7 @@ public struct CodeField: View {
                 editorField(text, height: height)
             }
         } else {
-            readOnlyField
+            CodeBlock(code, highlighter: highlighter, showsCopyButton: showsCopyButton, font: font, wraps: true, maxHeight: maxHeight)
         }
     }
 
@@ -165,50 +154,54 @@ public struct CodeField: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if showsCopyButton {
-                copyButton(for: text.wrappedValue)
-            }
+            accessories(for: text.wrappedValue)
         }
         .padding(.horizontal, Self.horizontalPadding)
-        .padding(.vertical, Self.verticalPadding)
+        .padding(.vertical, verticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .inputBox(isFocused: isFocused)
+        .inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius)
     }
 
     // MARK: Editor
 
     private func editorField(_ text: Binding<String>, height: CGFloat) -> some View {
         let isEmpty = text.wrappedValue.isEmpty
-        let visibleHeight = max(0, height - Self.verticalPadding * 2)
+        let visibleHeight = max(0, height - verticalPadding * 2)
         return ScrollViewWithThinIndicator(indicatorTopPadding: Spacing.xs, indicatorBottomPadding: Spacing.xs) {
-            ZStack(alignment: .topLeading) {
-                // Invisible TextEditor for editing. It doesn't scroll on its own:
-                // it's as tall as the text plus a line, and the scroll around it
-                // moves it and the overlay together (two scrolls drifted apart).
-                TextEditor(text: text)
-                    .font(font)
-                    .foregroundStyle(isEmpty ? Color.textPrimary : Color.clear)
-                    .scrollContentBackground(.hidden)
-                    .scrollDisabled(true)
-                    .focused($isFocused)
-                    .frame(height: max(visibleHeight, (isEmpty ? 0 : highlightedHeight) + lineHeight))
-
-                if isEmpty, let prompt {
-                    Text(prompt)
-                        .font(font)
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, Self.editorLineInset)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
+            HStack(alignment: .top, spacing: Spacing.md) {
+                if showsLineNumbers {
+                    // One number per line: it lines up while lines don't wrap.
+                    CodeGutter(lineCount: lineCount(of: text.wrappedValue), font: font)
                 }
+                ZStack(alignment: .topLeading) {
+                    // Invisible TextEditor for editing. It doesn't scroll on its own:
+                    // it's as tall as the text plus a line, and the scroll around it
+                    // moves it and the overlay together (two scrolls drifted apart).
+                    TextEditor(text: text)
+                        .font(font)
+                        .foregroundStyle(isEmpty ? Color.textPrimary : Color.clear)
+                        .scrollContentBackground(.hidden)
+                        .scrollDisabled(true)
+                        .focused($isFocused)
+                        .frame(height: max(visibleHeight, (isEmpty ? 0 : highlightedHeight) + lineHeight))
 
-                // Syntax highlighted overlay, above the editor (see `singleLineField`).
-                if !isEmpty {
-                    highlightedText(text.wrappedValue)
-                        .padding(.horizontal, Self.editorLineInset)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { highlightedHeight = $0 }
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
+                    if isEmpty, let prompt {
+                        Text(prompt)
+                            .font(font)
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, Self.editorLineInset)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+
+                    // Syntax highlighted overlay, above the editor (see `singleLineField`).
+                    if !isEmpty {
+                        highlightedText(text.wrappedValue)
+                            .padding(.horizontal, Self.editorLineInset)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { highlightedHeight = $0 }
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
                 }
             }
             .background {
@@ -217,66 +210,32 @@ public struct CodeField: View {
                     .hidden()
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { lineHeight = $0 }
             }
-            .padding(.leading, Self.horizontalPadding - Self.editorLineInset)
+            .padding(.leading, showsLineNumbers ? Self.horizontalPadding : Self.horizontalPadding - Self.editorLineInset)
             .padding(.trailing, trailingInset)
-            .padding(.vertical, Self.verticalPadding)
+            .padding(.vertical, verticalPadding)
         }
         .frame(height: height)
         .overlay(alignment: .topTrailing) {
-            if showsCopyButton {
-                copyButton(for: text.wrappedValue)
-                    .padding(.top, Self.verticalPadding - 1)
-                    .padding(.trailing, Spacing.sm)
-            }
+            accessories(for: text.wrappedValue)
+                // A hair above the text's top, on the caret's line.
+                .padding(.top, verticalPadding - 1)
+                .padding(.trailing, Spacing.sm)
         }
-        .inputBox(isFocused: isFocused)
+        .inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius)
     }
 
-    /// Room on the trailing side for the Copy button, so lines wrap before it.
+    /// Room on the trailing side for the Copy button and the trailing
+    /// control, so lines wrap before them.
     private var trailingInset: CGFloat {
         let edge = Self.horizontalPadding - Self.editorLineInset
-        return showsCopyButton ? edge + Self.copyButtonSize + Spacing.xs : edge
+        var reserved: CGFloat = 0
+        if showsCopyButton { reserved += Self.copyButtonSize + Spacing.xs }
+        if Trailing.self != EmptyView.self { reserved += Self.copyButtonSize + Spacing.xs }
+        return edge + reserved
     }
 
-    // MARK: Read-only
-
-    private var readOnlyField: some View {
-        HStack(alignment: .top, spacing: Spacing.sm) {
-            Group {
-                if let maxHeight {
-                    ScrollViewWithThinIndicator(indicatorTopPadding: 0, indicatorBottomPadding: 0) {
-                        selectableCode
-                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { highlightedHeight = $0 }
-                    }
-                    // Hug the code up to the cap; a bare `maxHeight` frame would
-                    // always grow to it.
-                    .frame(height: min(maxHeight, max(highlightedHeight, lineHeight)))
-                } else {
-                    selectableCode
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if showsCopyButton {
-                copyButton(for: code)
-            }
-        }
-        .background {
-            Text(verbatim: "M")
-                .font(font)
-                .hidden()
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { lineHeight = $0 }
-        }
-        .padding(.horizontal, Self.horizontalPadding)
-        .padding(.vertical, Self.verticalPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .inputBox(isFocused: false)
-    }
-
-    private var selectableCode: some View {
-        highlightedText(code)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private func lineCount(of text: String) -> Int {
+        max(text.split(separator: "\n", omittingEmptySubsequences: false).count, 1)
     }
 
     // MARK: Pieces
@@ -300,14 +259,98 @@ public struct CodeField: View {
         return result
     }
 
-    /// Kept in place (invisible and inert) while there's nothing to copy, so
-    /// the box doesn't change height when the first character lands.
-    private func copyButton(for value: String) -> some View {
-        CopyButton(value: value, showCopied: $showCopied)
-            .opacity(value.isEmpty ? 0 : 1)
-            .disabled(value.isEmpty)
-            .accessibilityHidden(value.isEmpty)
+    /// The trailing control and the Copy button. Copy is kept in place
+    /// (invisible and inert) while there's nothing to copy, so the box doesn't
+    /// change height when the first character lands.
+    private func accessories(for value: String) -> some View {
+        HStack(spacing: Spacing.xs) {
+            trailing
+            if showsCopyButton {
+                CopyButton(value: value, showCopied: $showCopied)
+                    .opacity(value.isEmpty ? 0 : 1)
+                    .disabled(value.isEmpty)
+                    .accessibilityHidden(value.isEmpty)
+            }
+        }
     }
+}
+
+extension CodeField where Trailing == EmptyView {
+    /// An editable field.
+    /// - Parameters:
+    ///   - text: The code.
+    ///   - highlighter: How to color it.
+    ///   - prompt: Shown while empty, looked up in your app's strings.
+    ///   - layout: One wrapping command, or a multi-line editor.
+    ///   - font: A code token (`Typography.codeSmall`, `code`, …).
+    ///   - showsCopyButton: A Copy button at the trailing edge.
+    ///   - showsLineNumbers: A gutter of line numbers in the editor layout.
+    ///   - compact: A tighter box (`Spacing.xs` vertical) for a toolbar or a
+    ///     table row.
+    public init(
+        text: Binding<String>,
+        highlighter: CodeHighlighter = .plain,
+        prompt: LocalizedStringKey? = nil,
+        layout: CodeFieldLayout = .singleLine,
+        font: Font = Typography.codeSmall,
+        showsCopyButton: Bool = true,
+        showsLineNumbers: Bool = false,
+        compact: Bool = false
+    ) {
+        self.init(
+            text: text,
+            highlighter: highlighter,
+            prompt: prompt,
+            layout: layout,
+            font: font,
+            showsCopyButton: showsCopyButton,
+            showsLineNumbers: showsLineNumbers,
+            compact: compact,
+            trailing: { EmptyView() }
+        )
+    }
+
+    /// Read-only code the user can select and copy: a wrapping `CodeBlock`.
+    /// - Parameters:
+    ///   - code: The code to show.
+    ///   - highlighter: How to color it.
+    ///   - font: A code token (`Typography.codeSmall`, `code`, …).
+    ///   - maxHeight: Scrolls past this height; nil grows with the code.
+    ///   - showsCopyButton: A Copy button at the trailing edge.
+    public init(
+        code: String,
+        highlighter: CodeHighlighter = .plain,
+        font: Font = Typography.codeSmall,
+        maxHeight: CGFloat? = nil,
+        showsCopyButton: Bool = true
+    ) {
+        self.text = nil
+        self.code = code
+        self.highlighter = highlighter
+        self.prompt = nil
+        self.layout = .singleLine
+        self.font = font
+        self.showsCopyButton = showsCopyButton
+        self.showsLineNumbers = false
+        self.compact = false
+        self.maxHeight = maxHeight
+        self.trailing = EmptyView()
+    }
+}
+
+// MARK: - Metrics
+
+/// The field's drawing constants (a generic type can't hold stored statics).
+enum CodeFieldMetrics {
+    /// The box's horizontal inset.
+    static let horizontalPadding: CGFloat = Spacing.md
+    /// `TextEditor`'s text view keeps AppKit's default line fragment padding
+    /// on both sides of every line, so the overlay is inset the same to sit
+    /// exactly over its glyphs (measured: without it the colors drew 5pt left
+    /// of the caret).
+    static let editorLineInset: CGFloat = 5
+    /// The Copy button's box.
+    static let copyButtonSize: CGFloat = Sizing.inlineIconButton
 }
 
 // MARK: - Syntax colors
@@ -325,7 +368,7 @@ struct CodeSyntaxPalette {
         switch kind {
         case .plain: return .primary
         case .operator: return .secondary  // Subtle color for &&, ||, etc.
-        case .punctuation: return Color.primary.opacity(0.5)
+        case .punctuation: return Color.textTertiary
         default:
             return legibleColor(for: kind)?.color ?? .primary
         }
@@ -409,8 +452,12 @@ private struct CodeFieldPreviewHost: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            CodeField(text: $command, highlighter: .shell, prompt: "composer create-project…")
-            CodeField(text: $workflow, highlighter: .yaml, layout: .editor(height: 180), font: Typography.codeSmall)
+            CodeField(text: $command, highlighter: .shell, prompt: "composer create-project…") {
+                Button {} label: { Image(systemName: "play.fill") }
+                    .buttonStyle(InlineIconButtonStyle(chipRadius: Sizing.radiusSmall))
+                    .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)
+            }
+            CodeField(text: $workflow, highlighter: .yaml, layout: .editor(height: 180), showsLineNumbers: true)
             CodeField(code: "git clone \"https://github.com/user/repo\" {path}", highlighter: .shell)
         }
         .padding(Spacing.xl)

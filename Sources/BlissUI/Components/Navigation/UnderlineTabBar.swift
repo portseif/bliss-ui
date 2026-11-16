@@ -24,16 +24,31 @@ public nonisolated struct UnderlineTabItem<Value: Hashable>: Identifiable {
     public var isMono: Bool = false
     /// Render after the Spacer, hugging the trailing edge.
     public var alignTrailing: Bool = false
+    /// A greyed tab ("Logs" before the first run): not selectable, skipped by Tab.
+    public var isEnabled: Bool = true
+    /// The count on the accent fill (unread) instead of the neutral chip.
+    public var isCountProminent: Bool = false
 
     public var id: Value { value }
 
+    /// - Parameters:
+    ///   - value: What selecting the tab sets.
+    ///   - title: The tab's title, shown as is.
+    ///   - icon: A leading SF Symbol or `icon-` asset.
+    ///   - count: A trailing count chip; hidden at 0.
+    ///   - isMono: A monospaced title (a file name).
+    ///   - alignTrailing: Hugs the trailing edge, after the other tabs.
+    ///   - isEnabled: A greyed tab that can't be selected.
+    ///   - isCountProminent: The count on the accent fill.
     public init(
         value: Value,
         title: String,
         icon: String? = nil,
         count: Int = 0,
         isMono: Bool = false,
-        alignTrailing: Bool = false
+        alignTrailing: Bool = false,
+        isEnabled: Bool = true,
+        isCountProminent: Bool = false
     ) {
         self.value = value
         self.title = title
@@ -41,6 +56,8 @@ public nonisolated struct UnderlineTabItem<Value: Hashable>: Identifiable {
         self.count = count
         self.isMono = isMono
         self.alignTrailing = alignTrailing
+        self.isEnabled = isEnabled
+        self.isCountProminent = isCountProminent
     }
 }
 
@@ -62,22 +79,43 @@ public struct UnderlineTabBar<Value: Hashable>: View {
     /// padding the whole bar (which would inset the rule too): the tabs sit on an
     /// edge-to-edge line, like a sheet's footer divider.
     var horizontalInset: CGFloat = 0
+    /// A smaller bar for a sheet or an inspector: the label size, a tighter
+    /// gap under the titles.
+    var compact: Bool = false
+    /// Icon-only tabs (an inspector's): the title moves into a tooltip and
+    /// stays the tab's accessibility label.
+    var showsTitles: Bool = true
 
     @Namespace private var tabNamespace
     @State private var hoveredTab: Value?
 
+    /// The focus ring's clearance around a title: the ring's outset and its band.
+    private static var ringClearance: CGFloat { Spacing.ringOutset + Spacing.hairline }
+
+    /// - Parameters:
+    ///   - items: The tabs, in order.
+    ///   - selection: The selected tab's value.
+    ///   - spacing: The gap between tabs.
+    ///   - showsBorder: The hairline rule along the bottom.
+    ///   - horizontalInset: Insets the tab row, not the rule.
+    ///   - compact: The label size and a tighter gap, for a sheet or inspector.
+    ///   - showsTitles: Off for icon-only tabs; titles become tooltips.
     public init(
         items: [UnderlineTabItem<Value>],
         selection: Binding<Value>,
         spacing: CGFloat = Spacing.xl,
         showsBorder: Bool = true,
-        horizontalInset: CGFloat = 0
+        horizontalInset: CGFloat = 0,
+        compact: Bool = false,
+        showsTitles: Bool = true
     ) {
         self.items = items
         self._selection = selection
         self.spacing = spacing
         self.showsBorder = showsBorder
         self.horizontalInset = horizontalInset
+        self.compact = compact
+        self.showsTitles = showsTitles
     }
 
     private var leadingItems: [UnderlineTabItem<Value>] { items.filter { !$0.alignTrailing } }
@@ -98,16 +136,20 @@ public struct UnderlineTabBar<Value: Hashable>: View {
                 // Room inside the scroll view for the focus ring, which it would
                 // otherwise clip; the negative padding outside gives it back.
                 tabRow(.scrolling)
-                    .padding(5)
+                    .padding(Self.ringClearance)
             }
-            .padding(-5)
+            .padding(-Self.ringClearance)
         }
         .padding(.horizontal, horizontalInset)
         .overlay(alignment: .bottom) {
             if showsBorder {
-                Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(Color.menuBorder).frame(height: 1)
             }
         }
+    }
+
+    private var titleFont: Font {
+        compact ? Typography.labelSmall : Typography.labelMedium
     }
 
     private func tabRow(_ fit: Fit) -> some View {
@@ -130,31 +172,25 @@ public struct UnderlineTabBar<Value: Hashable>: View {
                     iconView(icon)
                         .foregroundStyle(isLit ? .primary : .secondary)
                 }
-                Text(item.title)
-                    .font(item.isMono ? Typography.codeSmall : Typography.labelMedium)
-                    .foregroundStyle(isLit ? .primary : .secondary)
-                    // A tab title must never wrap ("Connecti / on") — hold one line
-                    // and let the bar's spacing absorb the pressure instead.
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+                if showsTitles {
+                    Text(item.title)
+                        .font(item.isMono ? Typography.codeSmall : titleFont)
+                        .foregroundStyle(isLit ? .primary : .secondary)
+                        // A tab title must never wrap ("Connecti / on") — hold one line
+                        // and let the bar's spacing absorb the pressure instead.
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
                 if item.count > 0 && fit == .full {
-                    Text("\(item.count)")
-                        .font(Typography.captionTiny)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background {
-                            RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                                .fill(Color.primary.opacity(0.08))
-                        }
+                    countChip(item)
                 }
             }
-            .padding(.bottom, Spacing.sm)
+            .padding(.bottom, compact ? Spacing.xs : Spacing.sm)
             .overlay(alignment: .bottom) {
                 if isSelected {
                     RoundedRectangle(cornerRadius: Sizing.radiusFull)
                         .fill(Color.accent)
-                        .frame(height: 2)
+                        .frame(height: Spacing.hairline)
                         // One id per fit: ViewThatFits keeps every candidate
                         // row around for measuring, and two sources sharing an
                         // id would fight over the underline.
@@ -166,7 +202,9 @@ public struct UnderlineTabBar<Value: Hashable>: View {
         // A Tab stop with the accent ring; only the fitting row is in the tree,
         // so ViewThatFits' other candidates add no hidden stops.
         // Outset so the ring clears the title's letters.
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 3))
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull, outset: Spacing.ringOutset))
+        .disabled(!item.isEnabled)
+        .opacity(item.isEnabled ? 1 : Animations.disabledOpacity)
         .onHover { hovering in
             withAnimation(Animations.hover) {
                 if hovering {
@@ -176,8 +214,31 @@ public struct UnderlineTabBar<Value: Hashable>: View {
                 }
             }
         }
+        // Icon-only, the title moves into a tooltip and stays the label.
+        .tooltip(.verbatim(item.title), position: .below)
+        .tooltipsDisabled(showsTitles)
+        .accessibilityLabel(Text(verbatim: item.title))
         // The underline is drawn only; tell VoiceOver which tab is current.
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    /// The count: the small neutral chip, or the accent fill for unread.
+    @ViewBuilder
+    private func countChip(_ item: UnderlineTabItem<Value>) -> some View {
+        if item.isCountProminent {
+            Badge(count: item.count)
+                .badgeStyle(.custom(
+                    text: AccentHue.contrastForeground,
+                    icon: AccentHue.contrastForeground,
+                    background: Color.accent,
+                    border: nil
+                ))
+                .badgeSize(.small)
+        } else {
+            Badge(count: item.count)
+                .badgeStyle(.secondary)
+                .badgeSize(.small)
+        }
     }
 
     @ViewBuilder
@@ -187,7 +248,7 @@ public struct UnderlineTabBar<Value: Hashable>: View {
                 .renderingMode(.template)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 12, height: 12)
+                .frame(width: Sizing.iconTiny, height: Sizing.iconTiny)
         } else {
             Image(systemName: icon)
                 .font(Typography.labelSmall)
@@ -210,7 +271,7 @@ private struct UnderlineTabBarPreview: View {
             ],
             selection: $selection
         )
-        .padding()
+        .padding(Spacing.lg)
         .background(Color.windowBackground)
     }
 }

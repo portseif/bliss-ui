@@ -29,6 +29,14 @@ struct FieldsPage: View {
     @State private var draftAttachments = [ComposerAttachment(name: "Onboarding.png", systemImage: "photo")]
     @State private var isSendingDraft = false
     @State private var releaseNotes = CatalogRichText.article
+    @State private var price = 12
+    @State private var year = 2026
+    @State private var timeout = 30
+    @State private var warmth = 0.4
+    @State private var comment = ""
+    @State private var commentNotes = AttributedString()
+    @State private var pin = ""
+    @State private var review = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -44,6 +52,12 @@ struct FieldsPage: View {
                     FieldsDemoRow("Line height") {
                         NumberField("Line height", value: $lineHeight, in: 1...3, step: 0.1)
                     }
+                    FieldsDemoRow("Price") {
+                        NumberField("Price", value: $price, in: 0...999, unit: "$", unitPlacement: .leading)
+                    }
+                    FieldsDemoRow("Year (no steppers)") {
+                        NumberField("Year", value: $year, in: 1900...2100, showsSteppers: false)
+                    }
                     FieldsDemoRow("Padding (small)") {
                         NumberField("Padding", value: $padding, in: 0...64, step: 4, unit: "px")
                             .controlSize(.small)
@@ -52,6 +66,10 @@ struct FieldsPage: View {
                         NumberField("Disabled", value: .constant(8), in: 0...10)
                             .disabled(true)
                     }
+                }
+                .frame(maxWidth: 480)
+                FormField("Timeout", hint: "Fills its column like the other boxed fields.") {
+                    NumberField("Timeout", value: $timeout, in: 1...120, unit: "s", fillsWidth: true)
                 }
                 .frame(maxWidth: 480)
             }
@@ -71,6 +89,10 @@ struct FieldsPage: View {
                         BlissSlider("Opacity", value: $opacity, step: 0.1, showsTicks: true)
                             .frame(width: 260)
                     }
+                    FieldsDemoRow("Warmth") {
+                        BlissSlider("Warmth", value: $warmth, color: Warning.warning500, minimumValueLabel: Text("Cool"), maximumValueLabel: Text("Warm"))
+                            .frame(width: 260)
+                    }
                     FieldsDemoRow("Disabled") {
                         BlissSlider("Disabled", value: .constant(0.35))
                             .frame(width: 260)
@@ -81,7 +103,7 @@ struct FieldsPage: View {
             }
 
             DemoBlock(title: "Input field") {
-                FieldsCaption("The boxed field with accessories: a leading icon, a clear button while there's text (Esc clears too), a keyboard hint that hides on focus, a loading spinner and a trailing slot.")
+                FieldsCaption("The boxed field with accessories: a leading icon, a clear button while there's text (Esc clears too), a keyboard hint that hides on focus, a loading spinner, a leading and a trailing slot. The read-only one can be selected and copied but not edited.")
                 VStack(spacing: Spacing.md) {
                     InputField("Search", text: $query, prompt: Text("Search components"), systemImage: "magnifyingglass", isClearable: true, keyboardHint: "⌘K")
                     InputField("Domain", text: $domain, isLoading: isCheckingDomain) {
@@ -96,12 +118,21 @@ struct FieldsPage: View {
                             isCheckingDomain = false
                         }
                     }
+                    InputField("Amount", text: .constant("1,284.00"), isReadOnly: true) {
+                        Text(verbatim: "$")
+                            .font(Typography.bodySmall)
+                            .foregroundStyle(.secondary)
+                    } trailing: {
+                        Text(verbatim: "USD")
+                            .font(Typography.bodySmall)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .frame(maxWidth: 420)
             }
 
             DemoBlock(title: "Message composer") {
-                FieldsCaption("Return sends, ⇧Return adds a line. The paperclip adds a sample attachment; a chip's ✕ removes it.")
+                FieldsCaption("Return sends, ⇧Return adds a line. The paperclip adds a sample attachment; a chip's ✕ removes it. In the comment box Return adds a line and ⌘Return sends.")
                 MessageComposer("Message", text: $draft, prompt: Text("Message the team…"), attachments: $draftAttachments, isSending: isSendingDraft, onSend: {
                     isSendingDraft = true
                     Task {
@@ -115,9 +146,14 @@ struct FieldsPage: View {
                     draftAttachments.append(ComposerAttachment(name: "Notes \(draftAttachments.count + 1).md"))
                 }) {
                     Button {} label: { Image(systemName: "face.smiling") }
-                        .buttonStyle(ToolbarIconButtonStyle(compact: true))
+                        .buttonStyle(ToolbarIconButtonStyle())
                         .accessibilityLabel(Text("Emoji"))
                 }
+                .frame(maxWidth: 520)
+                MessageComposer("Comment", text: $comment, prompt: Text("Leave a comment…"), characterLimit: 280, sendsOnReturn: false, onSend: {
+                    ToastService.shared.showSuccess(title: "Posted", message: comment)
+                    comment = ""
+                })
                 .frame(maxWidth: 520)
             }
 
@@ -125,15 +161,18 @@ struct FieldsPage: View {
                 FieldsCaption("Select text and use the toolbar, or ⌘B, ⌘I, ⌘U and ⌘K. Return in a list item starts the next; Return in an empty item ends the list.")
                 RichTextEditor("Release notes", text: $releaseNotes, prompt: Text("Write the notes…"))
                     .frame(maxWidth: 560)
+                RichTextEditor("Comment", text: $commentNotes, prompt: Text("Bold, italic and links only…"), minimumHeight: Sizing.controlXLarge * 2, tools: [.inlineStyles, .link])
+                    .frame(maxWidth: 560)
             }
 
             DemoBlock(title: "One-time code") {
-                FieldsCaption("Type or paste the code; Backspace steps back. The second takes letters too.")
+                FieldsCaption("Type or paste the code; Backspace steps back. The second takes letters too; the third is a compact, masked PIN.")
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     OneTimeCodeField(code: $code) { code in
                         ToastService.shared.showSuccess(title: "Verified", message: code)
                     }
                     OneTimeCodeField("Pairing code", code: $pairingCode, length: 4, groupSize: nil, allowsLetters: true)
+                    OneTimeCodeField("PIN", code: $pin, length: 4, groupSize: nil, compact: true, isSecure: true)
                 }
             }
 
@@ -143,6 +182,9 @@ struct FieldsPage: View {
                     TextArea("Notes", text: $notes, prompt: Text("Add a note…"))
                     TextArea("Bio", text: $bio, lineLimit: 2...5, characterLimit: 160)
                     TextArea("Ignore file", text: $ignoreFile, prompt: Text("/node_modules"), lineLimit: 2...6, monospaced: true)
+                    RoundedSection("Review") {
+                        TextArea("Review", text: $review, prompt: Text("A borderless note inside a card…"), lineLimit: 2...4, isBordered: false)
+                    }
                 }
                 .frame(maxWidth: 480)
             }

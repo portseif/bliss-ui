@@ -35,10 +35,13 @@ public struct CommandPalette: View {
     private let placeholder: String?
     private let recentsKey: String?
     private let focusesFieldOnAppear: Bool
+    private let compact: Bool
+    private let showsLegend: Bool
+    private let noResultsText: LocalizedStringKey?
     private let onDismiss: () -> Void
     /// The results list's cap, before it scrolls. The modal passes less when the
     /// window is short.
-    var maxResultsHeight: CGFloat = 394
+    var maxResultsHeight: CGFloat = CommandPaletteMetrics.maxResultsHeight
 
     @Environment(\.colorScheme) private var scheme
     @FocusState private var fieldFocused: Bool
@@ -60,6 +63,12 @@ public struct CommandPalette: View {
     ///   - focusesFieldOnAppear: Puts the keyboard in the field when the card
     ///     appears. Off for a card embedded in a page, which shouldn't take the
     ///     keys from the page as it opens.
+    ///   - compact: A tighter card — the field at the label size, rows a step
+    ///     shorter — for a card embedded in a page.
+    ///   - showsLegend: The footer of prefixes and keys; off for an app with no
+    ///     prefixes, or an embedded card.
+    ///   - noResultsText: What an empty result list says ("No projects match");
+    ///     the library's "No results" when nil.
     ///   - onDismiss: Esc on an empty field, or a command ran.
     public init(
         commands: [CommandPaletteSection],
@@ -67,6 +76,9 @@ public struct CommandPalette: View {
         placeholder: String? = nil,
         recentsKey: String? = "bliss.commandPalette.recents",
         focusesFieldOnAppear: Bool = true,
+        compact: Bool = false,
+        showsLegend: Bool = true,
+        noResultsText: LocalizedStringKey? = nil,
         onDismiss: @escaping () -> Void
     ) {
         self.sections = commands
@@ -74,6 +86,9 @@ public struct CommandPalette: View {
         self.placeholder = placeholder
         self.recentsKey = recentsKey
         self.focusesFieldOnAppear = focusesFieldOnAppear
+        self.compact = compact
+        self.showsLegend = showsLegend
+        self.noResultsText = noResultsText
         self.onDismiss = onDismiss
     }
 
@@ -95,17 +110,8 @@ public struct CommandPalette: View {
         resultSections.flatMap(\.commands)
     }
 
-    /// The card's corners: concentric with the rows inside it (a row's radius
-    /// plus the list's padding).
-    private var cornerRadius: CGFloat { Sizing.radiusDefault + Spacing.xs }
-
-    /// The menu surface — the themed raised color under a theme, the vibrant
-    /// material for System — like the floating menus.
-    private var surface: AnyShapeStyle {
-        ThemeColors.activePalette != nil
-            ? AnyShapeStyle(Color.controlBackground)
-            : AnyShapeStyle(.ultraThinMaterial)
-    }
+    /// The card's corners: the floating-panel radius every detached card shares.
+    private var cornerRadius: CGFloat { Sizing.radiusLarge }
 
     public var body: some View {
         let rows = CommandPaletteSearch.displayRows(for: resultSections)
@@ -113,12 +119,14 @@ public struct CommandPalette: View {
             field
             Divider()
             results(rows)
-            Divider()
-            legendFooter
+            if showsLegend {
+                Divider()
+                legendFooter
+            }
         }
         .background {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(surface)
+                .fill(PanelSurface.fill)
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay {
@@ -126,7 +134,7 @@ public struct CommandPalette: View {
                 .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
         // Raised like a sheet: it floats over a blurred page.
-        .shadow(color: .black.opacity(0.28), radius: 28, x: 0, y: 14)
+        .elevation(.sheet)
         .onAppear {
             guard focusesFieldOnAppear else { return }
             fieldFocused = true
@@ -169,16 +177,21 @@ public struct CommandPalette: View {
         placeholder ?? String(localized: "Search or jump to…", bundle: .module)
     }
 
+    /// The field's type: a step up from the rows, or the label size when compact.
+    private var fieldFont: Font {
+        compact ? Typography.labelMedium : Typography.bodyMedium
+    }
+
     private var field: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: "magnifyingglass")
-                .font(Typography.bodyLarge)
+                .font(fieldFont)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
             TextField(placeholderText, text: $query)
                 .textFieldStyle(.plain)
-                .font(Typography.bodyLarge)
+                .font(fieldFont)
                 .focused($fieldFocused)
                 .onSubmit { runSelected() }
 
@@ -190,10 +203,9 @@ public struct CommandPalette: View {
             .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall))
             .accessibilityLabel(Text("Close", bundle: .module))
         }
-        // The card is the box. Inset like the rows below, so the glass lines up
-        // with their icons (the list's padding + a row's).
-        .padding(.horizontal, Spacing.xs + Spacing.sm)
-        .padding(.vertical, Spacing.md)
+        // The card is the box: a field's inset, at the regular tier.
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, compact ? Spacing.fieldPaddingV : Spacing.sm)
         .contentShape(Rectangle())
         .onTapGesture { fieldFocused = true }
     }
@@ -208,7 +220,7 @@ public struct CommandPalette: View {
             AutoHeightScroll(showFadeMask: true, maxHeight: maxResultsHeight) {
                 VStack(alignment: .leading, spacing: Spacing.hairline) {
                     if rows.isEmpty {
-                        Text("No results", bundle: .module)
+                        noResults
                             .font(Typography.bodySmall)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -242,6 +254,16 @@ public struct CommandPalette: View {
         }
     }
 
+    /// The app's own empty line, else the library's.
+    @ViewBuilder
+    private var noResults: some View {
+        if let noResultsText {
+            Text(noResultsText)
+        } else {
+            Text("No results", bundle: .module)
+        }
+    }
+
     private func sectionHeader(_ title: String) -> some View {
         Text(verbatim: title)
             .font(Typography.labelXSmall)
@@ -258,13 +280,14 @@ public struct CommandPalette: View {
         return HStack(spacing: Spacing.sm) {
             Group {
                 if let icon = command.icon {
-                    IconGlyph(name: icon, color: command.iconColor ?? .secondary, size: Sizing.iconSmall)
+                    // The row's glyph at the label size, like a sidebar row's.
+                    IconGlyph(name: icon, color: command.iconColor ?? .secondary, size: FontSize.footnote)
                 }
             }
-            .frame(width: Sizing.iconLarge)
-            VStack(alignment: .leading, spacing: 1) {
+            .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
+            VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
                 Text(verbatim: command.title)
-                    .font(Typography.bodyMedium)
+                    .font(Typography.bodySmall)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 if let subtitle = command.subtitle {
@@ -278,7 +301,7 @@ public struct CommandPalette: View {
             trailingAffordance(command, isSelected: isSelected)
         }
         .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.xs + 1)
+        .padding(.vertical, compact ? Spacing.xxs : Spacing.navRowPaddingV)
         .background {
             RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
                 .fill(isSelected ? RowTint.selected(scheme) : (isHovered ? RowTint.hover(scheme) : Color.clear))
@@ -385,18 +408,13 @@ public struct CommandPalette: View {
         .lineLimit(1)
     }
 
-    /// A prefix in the legend. Hand-drawn rather than a `ShortcutKey`: the active
-    /// one lights in the accent, which the key pill has no state for.
+    /// A prefix in the legend: the small neutral pill, lit in the accent wash
+    /// while its scope is active.
     private func legendBadge(_ prefix: String, isActive: Bool) -> some View {
-        Text(verbatim: prefix)
-            .font(Typography.codeTiny)
-            .foregroundStyle(isActive ? Color.accent : Color.secondary)
-            .padding(.horizontal, Spacing.xs - 1)
-            .padding(.vertical, Spacing.hairline)
-            .background {
-                RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                    .fill(isActive ? Color.accent.opacity(0.15) : Color.primary.opacity(0.08))
-            }
+        Badge(.verbatim(prefix))
+            .badgeStyle(isActive ? .primary : .secondary)
+            .badgeSize(.small)
+            .badgeShape(.roundedRect)
     }
 
     // MARK: Actions
@@ -427,6 +445,29 @@ public struct CommandPalette: View {
 
 // MARK: - Presentation
 
+/// Where the palette's card sits in the window.
+public nonisolated enum CommandPalettePlacement: Sendable {
+    /// A fifth of the way down, like Linear's.
+    case top
+    /// Centered, like Spotlight's.
+    case center
+}
+
+/// The palette's sizes.
+public enum CommandPaletteMetrics {
+    /// The results list's cap before it scrolls.
+    public static let maxResultsHeight: CGFloat = 394
+    /// The narrowest the card gets in a narrow window.
+    static let minimumWidth: CGFloat = 300
+    /// The results list never shrinks below this, even in a short window.
+    static let minimumResultsHeight: CGFloat = 120
+    /// The field, the footer and the dividers around the list — what the card
+    /// needs besides its results.
+    static let chromeHeight: CGFloat = 84
+    /// How far down the window a `.top` card sits.
+    static let topFraction: CGFloat = 0.2
+}
+
 extension View {
     /// Presents a command palette over this view while `isPresented` is true:
     /// the view blurs and dims behind the card and is out of the keyboard's and
@@ -442,19 +483,35 @@ extension View {
     ///   - placeholder: The field's prompt, shown as is; "Search or jump to…" when nil.
     ///   - recentsKey: The `UserDefaults` key the recent picks are kept under;
     ///     nil keeps no recents.
+    ///   - width: The card's widest; a window with a sidebar and a narrow
+    ///     content pane wants less than `Sizing.commandPaletteWidth`.
+    ///   - placement: A fifth of the way down the window, or centered.
+    ///   - compact: A tighter card (see `CommandPalette`).
+    ///   - showsLegend: The footer of prefixes and keys.
+    ///   - noResultsText: What an empty result list says.
     public func commandPalette(
         isPresented: Binding<Bool>,
         commands: [CommandPaletteSection],
         shortcut: KeyboardShortcut? = KeyboardShortcut("k", modifiers: .command),
         placeholder: String? = nil,
-        recentsKey: String? = "bliss.commandPalette.recents"
+        recentsKey: String? = "bliss.commandPalette.recents",
+        width: CGFloat = Sizing.commandPaletteWidth,
+        placement: CommandPalettePlacement = .top,
+        compact: Bool = false,
+        showsLegend: Bool = true,
+        noResultsText: LocalizedStringKey? = nil
     ) -> some View {
         modifier(CommandPaletteModifier(
             isPresented: isPresented,
             sections: commands,
             shortcut: shortcut,
             placeholder: placeholder,
-            recentsKey: recentsKey
+            recentsKey: recentsKey,
+            width: width,
+            placement: placement,
+            compact: compact,
+            showsLegend: showsLegend,
+            noResultsText: noResultsText
         ))
     }
 
@@ -464,14 +521,24 @@ extension View {
         commands: [CommandPaletteCommand],
         shortcut: KeyboardShortcut? = KeyboardShortcut("k", modifiers: .command),
         placeholder: String? = nil,
-        recentsKey: String? = "bliss.commandPalette.recents"
+        recentsKey: String? = "bliss.commandPalette.recents",
+        width: CGFloat = Sizing.commandPaletteWidth,
+        placement: CommandPalettePlacement = .top,
+        compact: Bool = false,
+        showsLegend: Bool = true,
+        noResultsText: LocalizedStringKey? = nil
     ) -> some View {
         commandPalette(
             isPresented: isPresented,
             commands: [CommandPaletteSection("", commands: commands)],
             shortcut: shortcut,
             placeholder: placeholder,
-            recentsKey: recentsKey
+            recentsKey: recentsKey,
+            width: width,
+            placement: placement,
+            compact: compact,
+            showsLegend: showsLegend,
+            noResultsText: noResultsText
         )
     }
 }
@@ -482,15 +549,13 @@ private struct CommandPaletteModifier: ViewModifier {
     let shortcut: KeyboardShortcut?
     let placeholder: String?
     let recentsKey: String?
+    let width: CGFloat
+    let placement: CommandPalettePlacement
+    let compact: Bool
+    let showsLegend: Bool
+    let noResultsText: LocalizedStringKey?
 
     @State private var query = ""
-
-    /// The card's widest, and its distance from the sides in a narrow host.
-    private static let maxWidth: CGFloat = 640
-    private static let minWidth: CGFloat = 300
-    /// The field, the footer and the dividers around the list — what the card
-    /// needs besides its results.
-    private static let chromeHeight: CGFloat = 84
 
     func body(content: Content) -> some View {
         content
@@ -501,7 +566,7 @@ private struct CommandPaletteModifier: ViewModifier {
             // Scoped to the blur: a value-keyed `.animation` here would also
             // retime whatever the picked command changes on the page.
             .animation(Animations.paletteBackdrop) { page in
-                page.blur(radius: isPresented ? 6 : 0)
+                page.blur(radius: isPresented ? Scrim.backdropBlur : 0)
             }
             .overlay { paletteLayer }
             // Outside the part the palette disables, so ⌘K closes it again — but
@@ -514,11 +579,16 @@ private struct CommandPaletteModifier: ViewModifier {
 
     private var paletteLayer: some View {
         GeometryReader { proxy in
-            let top = max(Spacing.xxxl, proxy.size.height * 0.2)
-            ZStack(alignment: .top) {
+            // A `.top` card sits a fifth of the way down; a `.center` one gets
+            // the whole height to center in.
+            let top = placement == .top ? max(Spacing.xxxl, proxy.size.height * CommandPaletteMetrics.topFraction) : 0
+            let spareHeight = placement == .top
+                ? proxy.size.height - top - CommandPaletteMetrics.chromeHeight - Spacing.xl
+                : proxy.size.height - CommandPaletteMetrics.chromeHeight - Spacing.xxl * 2
+            ZStack(alignment: placement == .top ? .top : .center) {
                 // The dim, which also takes the click that closes it. Always
                 // mounted so it can fade.
-                Color.black.opacity(isPresented ? 0.32 : 0)
+                Color.black.opacity(isPresented ? Scrim.opacity : 0)
                     .contentShape(Rectangle())
                     .allowsHitTesting(isPresented)
                     .onTapGesture { isPresented = false }
@@ -530,10 +600,13 @@ private struct CommandPaletteModifier: ViewModifier {
                         query: $query,
                         placeholder: placeholder,
                         recentsKey: recentsKey,
+                        compact: compact,
+                        showsLegend: showsLegend,
+                        noResultsText: noResultsText,
                         onDismiss: { isPresented = false }
                     )
-                    .resultsHeight(max(120, min(394, proxy.size.height - top - Self.chromeHeight - Spacing.xl)))
-                    .frame(width: max(Self.minWidth, min(Self.maxWidth, proxy.size.width - Spacing.xxl * 2)))
+                    .resultsHeight(max(CommandPaletteMetrics.minimumResultsHeight, min(CommandPaletteMetrics.maxResultsHeight, spareHeight)))
+                    .frame(width: max(CommandPaletteMetrics.minimumWidth, min(width, proxy.size.width - Spacing.xxl * 2)))
                     .padding(.top, top)
                     .accessibilityAddTraits(.isModal)
                     // At once, even inside an animated transaction.

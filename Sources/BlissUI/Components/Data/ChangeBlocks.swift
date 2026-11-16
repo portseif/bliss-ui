@@ -10,55 +10,79 @@
 
 import SwiftUI
 
+/// How `ChangeBlocks` writes its counts.
+public nonisolated enum ChangeCountStyle: Hashable, Sendable {
+    /// The locale's compact notation: 1.9K, 19K.
+    case compact
+    /// Every digit: 1,904.
+    case exact
+}
+
 /// Additions/deletions blocks with their counts.
 ///
 /// ```swift
 /// ChangeBlocks(additions: 529, deletions: 12)
 /// ChangeBlocks(additions: added, deletions: removed, showsCounts: false)
+/// ChangeBlocks(additions: added, deletions: removed, showsBlocks: false, countStyle: .exact)
 /// ```
 ///
 /// Blocks are whole points (7pt, 2pt apart), so a column of them stays crisp.
-/// Counts use the locale's compact notation (1.9K, 19K).
 public struct ChangeBlocks: View {
     private let additions: Int
     private let deletions: Int
     private let showsCounts: Bool
+    private let showsBlocks: Bool
+    private let countStyle: ChangeCountStyle
     private let blockCount: Int
     private let unitsPerBlock: Int
+    private let accessibilityLabel: LocalizedStringKey?
+
+    @Environment(\.colorScheme) private var colorScheme
 
     /// - Parameters:
     ///   - additions: Lines (or items) added.
     ///   - deletions: Lines (or items) removed.
     ///   - showsCounts: Shows `+added −removed` (or "No changes") after the blocks.
+    ///   - showsBlocks: Shows the blocks; off, the counts stand alone in a tight column.
+    ///   - countStyle: Compact (1.9K) or exact (1,904) counts.
     ///   - blockCount: How many blocks the scale has.
     ///   - unitsPerBlock: The change one lit block stands for.
+    ///   - accessibilityLabel: What VoiceOver calls it ("Changes" when nil).
     public init(
         additions: Int,
         deletions: Int,
         showsCounts: Bool = true,
+        showsBlocks: Bool = true,
+        countStyle: ChangeCountStyle = .compact,
         blockCount: Int = 5,
-        unitsPerBlock: Int = 150
+        unitsPerBlock: Int = 150,
+        accessibilityLabel: LocalizedStringKey? = nil
     ) {
         self.additions = additions
         self.deletions = deletions
         self.showsCounts = showsCounts
+        self.showsBlocks = showsBlocks
+        self.countStyle = countStyle
         self.blockCount = blockCount
         self.unitsPerBlock = unitsPerBlock
+        self.accessibilityLabel = accessibilityLabel
     }
 
+    /// A block: a 7pt square, whole points so a column stays crisp.
     private static let blockSize: CGFloat = 7
-    private static let blockSpacing: CGFloat = 2
+    private static let blockSpacing: CGFloat = Spacing.hairline
+    /// A hair rounder than square; drawing geometry on a 7pt block.
     private static let blockRadius: CGFloat = 1.5
 
     public var body: some View {
         let added = max(additions, 0)
         let removed = max(deletions, 0)
         HStack(spacing: Spacing.sm) {
-            blocks(added: added, removed: removed)
+            if showsBlocks { blocks(added: added, removed: removed) }
             if showsCounts { counts(added: added, removed: removed) }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Changes", bundle: .module))
+        .accessibilityLabel(accessibilityLabel.map { Text($0) } ?? Text("Changes", bundle: .module))
         .accessibilityValue(
             added + removed == 0
                 ? Text("No changes", bundle: .module)
@@ -83,19 +107,26 @@ public struct ChangeBlocks: View {
                 .font(Typography.captionSmall)
                 .foregroundStyle(.tertiary)
         } else {
-            HStack(spacing: Spacing.xxs + 1) {
+            HStack(spacing: Spacing.xxs) {
                 if added > 0 {
-                    Text(added, format: .number.notation(.compactName).sign(strategy: .always()))
+                    Text(added, format: countFormat.sign(strategy: .always()))
                         .foregroundStyle(Success.success500)
                 }
                 if removed > 0 {
                     // A negative number, so the locale's own minus sign.
-                    Text(-removed, format: .number.notation(.compactName))
+                    Text(-removed, format: countFormat)
                         .foregroundStyle(Danger.danger500)
                 }
             }
-            .font(Typography.codeTiny)
+            .font(Typography.captionSmall.monospacedDigit())
             .lineLimit(1)
+        }
+    }
+
+    private var countFormat: IntegerFormatStyle<Int> {
+        switch countStyle {
+        case .compact: return .number.notation(.compactName)
+        case .exact: return .number
         }
     }
 
@@ -103,7 +134,7 @@ public struct ChangeBlocks: View {
         switch kind {
         case .addition: return Success.success500
         case .deletion: return Danger.danger500
-        case .neutral: return Grey.grey400.opacity(prefersIncreasedContrast ? 0.45 : 0.25)
+        case .neutral: return DataTrack.color(colorScheme)
         }
     }
 
@@ -137,11 +168,12 @@ public struct ChangeBlocks: View {
 
 // MARK: - Preview
 
-#Preview(traits: .fixedLayout(width: 240, height: 150)) {
+#Preview(traits: .fixedLayout(width: 240, height: 170)) {
     VStack(alignment: .leading, spacing: Spacing.sm) {
         ChangeBlocks(additions: 529, deletions: 12)
         ChangeBlocks(additions: 40, deletions: 380)
         ChangeBlocks(additions: 12_400, deletions: 3_100)
+        ChangeBlocks(additions: 12_400, deletions: 3_100, showsBlocks: false, countStyle: .exact)
         ChangeBlocks(additions: 0, deletions: 0)
         ChangeBlocks(additions: 18, deletions: 6, showsCounts: false)
     }

@@ -14,26 +14,28 @@ extension Gallery {
         GalleryEntry("filter-bar", width: 600, height: 102) {
             FilterBar(
                 conditions: .constant([
-                    FilterCondition(fieldID: "status", operator: .is, values: ["todo", "progress"]),
+                    FilterCondition(fieldID: "status", operator: .is, values: ["todo", "progress"], isLocked: true),
                     FilterCondition(fieldID: "priority", operator: .is, values: ["urgent"]),
                     FilterCondition(fieldID: "title", operator: .contains, values: ["onboarding"]),
                 ]),
-                fields: FiltersGallerySamples.fields
+                fields: FiltersGallerySamples.fields,
+                matchMode: .constant(.all)
             )
         },
-        GalleryEntry("filter-menu-button", width: 380, height: 76) {
+        GalleryEntry("filter-menu-button", width: 500, height: 76) {
             HStack(spacing: Spacing.sm) {
                 FilterMenuButton {}
                 FilterMenuButton(count: 3) {}
-                FilterMenuButton("Display", systemImage: "slider.horizontal.3") {}
+                FilterMenuButton("Display", systemImage: "slider.horizontal.3", showsChevron: true) {}
+                FilterMenuButton(count: 2, compact: true) {}
             }
         },
         GalleryEntry("filter-check-rows", width: 280, height: 256) {
             FiltersGalleryMenuCard {
                 FilterMenuSectionHeader("Status")
-                FilterCheckRow("Todo", count: 8, isOn: true) {}
-                FilterCheckRow("In Progress", count: 3, isOn: true, isFocused: true) {}
-                FilterCheckRow("Done", count: 21, isOn: false) {}
+                FilterCheckRow("Todo", count: 8, isOn: true, color: Info.info500) {}
+                FilterCheckRow("In Progress", count: 3, isOn: true, isFocused: true, color: Warning.warning500) {}
+                FilterCheckRow("Done", count: 21, isOn: false, color: Success.success500) {}
                 FilterMenuSectionHeader("Priority")
                 FilterCheckRow("Urgent", count: 2, isOn: false) {}
                 FilterCheckRow("High", count: 5, isOn: false) {}
@@ -42,9 +44,9 @@ extension Gallery {
         GalleryEntry("display-radio-rows", width: 260, height: 258) {
             FiltersGalleryMenuCard {
                 FilterMenuSectionHeader("Sort by")
-                DisplayRadioRow("Title", isOn: false) {}
-                DisplayRadioRow("Last updated", isOn: true) {}
-                DisplayRadioRow("Priority", isOn: false) {}
+                DisplayRadioRow("Title", isOn: false, keyHint: "⌘1") {}
+                DisplayRadioRow("Last updated", isOn: true, keyHint: "⌘2") {}
+                DisplayRadioRow("Priority", isOn: false, keyHint: "⌘3") {}
                 FilterMenuSectionHeader("Columns")
                 FilterCheckRow("Labels", isOn: true) {}
                 FilterCheckRow("Assignee", isOn: false) {}

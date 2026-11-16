@@ -49,7 +49,7 @@ struct FocusRingModifier: ViewModifier {
 
     /// The translucent band just outside the solid ring — the halo web focus
     /// rings use, so focus reads as focus rather than as a thicker border.
-    private let bandWidth: CGFloat = 2
+    private let bandWidth: CGFloat = Spacing.hairline
     private let bandOpacity = 0.3
 
     func body(content: Content) -> some View {
@@ -161,6 +161,44 @@ extension View {
 
 // MARK: - Flat Switch Toggle Style
 
+/// Where a `FlatSwitchToggleStyle` draws its label, when it draws one.
+public enum FlatSwitchLabelPlacement {
+    /// The label, then the switch — a form row.
+    case leading
+    /// The switch, then the label — a checklist.
+    case trailing
+}
+
+/// The switch's geometry per `controlSize`: the native switch's proportions.
+private enum FlatSwitchMetrics {
+    struct Track {
+        let width: CGFloat
+        let height: CGFloat
+        let thumb: CGFloat
+    }
+
+    static func track(for controlSize: ControlSize) -> Track {
+        switch controlSize {
+        case .mini: return Track(width: 26, height: 15, thumb: 11)
+        case .small: return Track(width: 32, height: 18, thumb: 14)
+        default: return Track(width: 38, height: 22, thumb: 18)
+        }
+    }
+
+    /// The gap between the thumb and the track's edge.
+    static let thumbInset: CGFloat = Spacing.hairline
+
+    /// The off track: a faint neutral wash.
+    static func offTrack(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)
+    }
+
+    /// The thumb's contact shadow — the one shadow a control keeps, because a
+    /// white disc on a white track needs it to read as a thumb.
+    static let thumbShadowOpacity: Double = 0.1
+    static let thumbShadowRadius: CGFloat = 1
+}
+
 /// BlissUI's switch, in place of the native `.switch` style: a Tab stop with
 /// the shared focus ring that Space flips (the native one shows the system's
 /// ring, and only when Keyboard navigation is on in System Settings). It
@@ -169,16 +207,23 @@ extension View {
 /// label is drawn only with `showsLabel: true`; VoiceOver hears it either way.
 public struct FlatSwitchToggleStyle: ToggleStyle {
     var showsLabel = false
+    var tint: Color? = nil
+    var labelPlacement: FlatSwitchLabelPlacement = .leading
 
-    /// - Parameter showsLabel: Draw the toggle's label beside the switch.
-    ///   VoiceOver hears the label either way.
-    public init(showsLabel: Bool = false) {
+    /// - Parameters:
+    ///   - showsLabel: Draw the toggle's label beside the switch. VoiceOver
+    ///     hears the label either way.
+    ///   - tint: The on track's color — a status toggle; nil is the accent.
+    ///   - labelPlacement: Which side of the switch the drawn label sits on.
+    public init(showsLabel: Bool = false, tint: Color? = nil, labelPlacement: FlatSwitchLabelPlacement = .leading) {
         self.showsLabel = showsLabel
+        self.tint = tint
+        self.labelPlacement = labelPlacement
     }
 
     public func makeBody(configuration: Configuration) -> some View {
         Group {
-            FlatSwitchToggle(configuration: configuration, showsLabel: showsLabel)
+            FlatSwitchToggle(configuration: configuration, showsLabel: showsLabel, tint: tint, labelPlacement: labelPlacement)
         }
         .interactiveCursor()
     }
@@ -187,26 +232,19 @@ public struct FlatSwitchToggleStyle: ToggleStyle {
 private struct FlatSwitchToggle: View {
     let configuration: ToggleStyleConfiguration
     let showsLabel: Bool
+    let tint: Color?
+    let labelPlacement: FlatSwitchLabelPlacement
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
     @FocusState private var isFocused: Bool
 
-    /// Track width, track height and thumb size for the control size.
-    private var metrics: (trackWidth: CGFloat, trackHeight: CGFloat, thumbSize: CGFloat) {
-        switch controlSize {
-        case .mini: return (26, 15, 11)
-        case .small: return (32, 18, 14)
-        default: return (38, 22, 18)
-        }
-    }
-
     private var trackColor: Color {
         if configuration.isOn {
-            return Color.accent
+            return tint ?? Color.accent
         }
-        return colorScheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)
+        return FlatSwitchMetrics.offTrack(colorScheme)
     }
 
     private func flip() {
@@ -215,36 +253,16 @@ private struct FlatSwitchToggle: View {
     }
 
     var body: some View {
-        let metrics = metrics
-        HStack {
-            if showsLabel {
+        HStack(spacing: Spacing.sm) {
+            if showsLabel && labelPlacement == .leading {
                 configuration.label
             }
 
-            RoundedRectangle(cornerRadius: metrics.trackHeight / 2, style: .continuous)
-                .fill(trackColor)
-                .frame(width: metrics.trackWidth, height: metrics.trackHeight)
-                .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                    Circle()
-                        .fill(.white)
-                        .shadow(color: .black.opacity(0.1), radius: 1, y: 1)
-                        .frame(width: metrics.thumbSize, height: metrics.thumbSize)
-                        .padding(2)
-                }
-                .opacity(isEnabled ? 1 : 0.45)
-                .focusRing(isFocused: isFocused, cornerRadius: metrics.trackHeight / 2)
-                .focusable()
-                .focused($isFocused)
-                .focusEffectDisabled()
-                // Space, like every button (Return arrives as Space through
-                // FocusVisibilityService while the ring shows). Key-down only:
-                // a held key would flip it back and forth.
-                .onKeyPress(.space, phases: .down) { _ in
-                    flip()
-                    return .handled
-                }
-                .animation(Animations.interactionReveal, value: configuration.isOn)
-                .onTapGesture { flip() }
+            track
+
+            if showsLabel && labelPlacement == .trailing {
+                configuration.label
+            }
         }
         // VoiceOver and Voice Control get a real switch with the label.
         .accessibilityRepresentation {
@@ -254,11 +272,54 @@ private struct FlatSwitchToggle: View {
                 .toggleStyle(.switch)
         }
     }
+
+    private var track: some View {
+        let metrics = FlatSwitchMetrics.track(for: controlSize)
+        return RoundedRectangle(cornerRadius: metrics.height / 2, style: .continuous)
+            .fill(trackColor)
+            .frame(width: metrics.width, height: metrics.height)
+            .overlay(alignment: configuration.isOn ? .trailing : .leading) {
+                Circle()
+                    .fill(.white)
+                    .shadow(
+                        color: .black.opacity(FlatSwitchMetrics.thumbShadowOpacity),
+                        radius: FlatSwitchMetrics.thumbShadowRadius,
+                        y: FlatSwitchMetrics.thumbShadowRadius
+                    )
+                    .frame(width: metrics.thumb, height: metrics.thumb)
+                    .padding(FlatSwitchMetrics.thumbInset)
+            }
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
+            .focusRing(isFocused: isFocused, cornerRadius: metrics.height / 2)
+            .focusable()
+            .focused($isFocused)
+            .focusEffectDisabled()
+            // Space, like every button (Return arrives as Space through
+            // FocusVisibilityService while the ring shows). Key-down only:
+            // a held key would flip it back and forth.
+            .onKeyPress(.space, phases: .down) { _ in
+                flip()
+                return .handled
+            }
+            .animation(Animations.interactionReveal, value: configuration.isOn)
+            .onTapGesture { flip() }
+    }
 }
 
 extension ToggleStyle where Self == FlatSwitchToggleStyle {
     public static var flatSwitch: FlatSwitchToggleStyle { FlatSwitchToggleStyle() }
-    public static func flatSwitch(showsLabel: Bool) -> FlatSwitchToggleStyle { FlatSwitchToggleStyle(showsLabel: showsLabel) }
+
+    /// - Parameters:
+    ///   - showsLabel: Draw the toggle's label beside the switch.
+    ///   - tint: The on track's color; nil is the accent.
+    ///   - labelPlacement: Which side of the switch the drawn label sits on.
+    public static func flatSwitch(
+        showsLabel: Bool,
+        tint: Color? = nil,
+        labelPlacement: FlatSwitchLabelPlacement = .leading
+    ) -> FlatSwitchToggleStyle {
+        FlatSwitchToggleStyle(showsLabel: showsLabel, tint: tint, labelPlacement: labelPlacement)
+    }
 }
 
 // MARK: - Bottom Border Modifier
@@ -281,9 +342,9 @@ struct BottomBorderModifier: ViewModifier {
 extension View {
     /// Adds a bottom border to the view
     /// - Parameters:
-    ///   - color: The color of the border (default: subtle gray)
+    ///   - color: The color of the border (default: `Color.menuBorder`, the one neutral hairline)
     ///   - height: The thickness of the border (default: 1)
-    public func bottomBorder(color: Color = Color.primary.opacity(0.1), height: CGFloat = 1) -> some View {
+    public func bottomBorder(color: Color = Color.menuBorder, height: CGFloat = 1) -> some View {
         modifier(BottomBorderModifier(color: color, height: height))
     }
 }
@@ -343,7 +404,7 @@ public struct SettingsForm<Content: View>: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: Spacing.sectionSpacing) {
             content
         }
         .padding(.all, isPlain ? 0 : nil)
@@ -381,10 +442,10 @@ public struct SettingsForm<Content: View>: View {
         RoundedSection {
             Toggle("Show hidden files", isOn: .constant(false))
         } header: {
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.xs) {
                 Text("File Browser")
                 Image(systemName: "info.circle")
-                    .font(.caption)
+                    .font(Typography.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -409,38 +470,39 @@ public struct SettingsForm<Content: View>: View {
         Text("Focus Ring Examples")
             .font(Typography.headingMedium)
 
+        // Sample boxes at the control tiers.
         HStack(spacing: Spacing.lg) {
             // Small radius
             RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                .fill(Color.accent.opacity(0.2))
-                .frame(width: 60, height: 32)
+                .fill(StatusWash.fill(Color.accent, .light))
+                .frame(width: Spacing.xxxxl, height: Sizing.controlMedium)
                 .focusRing(isFocused: true, cornerRadius: Sizing.radiusSmall, showsOnPointerFocus: true)
 
             // Medium radius (default)
             RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                .fill(Color.accent.opacity(0.2))
-                .frame(width: 80, height: 36)
+                .fill(StatusWash.fill(Color.accent, .light))
+                .frame(width: Spacing.xxxxl + Spacing.lg, height: Sizing.controlLarge)
                 .focusRing(isFocused: true, cornerRadius: Sizing.radiusMedium, showsOnPointerFocus: true)
 
             // Large radius
             RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
-                .fill(Color.accent.opacity(0.2))
-                .frame(width: 100, height: 44)
+                .fill(StatusWash.fill(Color.accent, .light))
+                .frame(width: Spacing.xxxxxl, height: Sizing.titleBarHeight)
                 .focusRing(isFocused: true, cornerRadius: Sizing.radiusLarge, showsOnPointerFocus: true)
         }
 
         HStack(spacing: Spacing.lg) {
             // Capsule
             Capsule()
-                .fill(Color.accent.opacity(0.2))
-                .frame(width: 80, height: 28)
+                .fill(StatusWash.fill(Color.accent, .light))
+                .frame(width: Spacing.xxxxl + Spacing.lg, height: Sizing.controlDefault)
                 .focusRingCapsule(isFocused: true, showsOnPointerFocus: true)
 
             // Custom color (destructive)
             RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-                .fill(Danger.tint.opacity(0.2))
-                .frame(width: 80, height: 36)
-                .focusRing(isFocused: true, cornerRadius: Sizing.radiusMedium, color: Danger.danger400.opacity(0.6), showsOnPointerFocus: true)
+                .fill(StatusWash.fill(Danger.danger500, .light))
+                .frame(width: Spacing.xxxxl + Spacing.lg, height: Sizing.controlLarge)
+                .focusRing(isFocused: true, cornerRadius: Sizing.radiusMedium, color: Danger.danger500, showsOnPointerFocus: true)
         }
 
         Text("Ring adapts to corner radius")

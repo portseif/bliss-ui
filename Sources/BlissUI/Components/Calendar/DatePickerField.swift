@@ -39,35 +39,50 @@ enum DatePickerMetrics {
 /// written the way the user's locale writes one ("Mar 5, 2026", "5 mars 2026").
 public struct DatePickerField: View {
     private let title: LocalizedStringKey?
+    private let showsTitle: Bool
     private let selection: Binding<Date?>
     private let placeholder: LocalizedStringKey?
     private let allowsClear: Bool
     private let minimumDate: Date?
     private let maximumDate: Date?
+    private let isDateEnabled: ((Date) -> Bool)?
     private let showsTime: Bool
     private let minuteInterval: Int
+    private let dateStyle: Date.FormatStyle.DateStyle
 
     @Environment(\.calendar) private var calendar
     @Environment(\.locale) private var locale
+    @Environment(\.formFieldIsInvalid) private var isInvalid
     @State private var isPresented = false
 
     /// A field that always holds a date.
     /// - Parameters:
-    ///   - title: A label before the field, looked up in your app's strings; nil for none.
+    ///   - title: A label before the field, looked up in your app's strings;
+    ///     nil for none. It stays the field's VoiceOver label with
+    ///     `showsTitle: false`.
     ///   - selection: The date.
     ///   - minimumDate: The first day that can be picked (any time on it).
     ///   - maximumDate: The last day that can be picked.
+    ///   - isDateEnabled: Turns single days inside the bounds down; asked with the start of the day.
     ///   - showsTime: Adds an hour and minute field after the date.
     ///   - minuteInterval: How far ↑ / ↓ move the minutes.
+    ///   - showsTitle: Draws the title before the field. Off inside a
+    ///     `SettingsRow`, which shows it already.
+    ///   - dateStyle: How the date is written: `.numeric` for a dense table,
+    ///     `.long` for a form.
     public init(
         _ title: LocalizedStringKey? = nil,
         selection: Binding<Date>,
         minimumDate: Date? = nil,
         maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
         showsTime: Bool = false,
-        minuteInterval: Int = 5
+        minuteInterval: Int = 5,
+        showsTitle: Bool = true,
+        dateStyle: Date.FormatStyle.DateStyle = .abbreviated
     ) {
         self.title = title
+        self.showsTitle = showsTitle
         self.selection = Binding(
             get: { selection.wrappedValue },
             set: { newValue in if let newValue { selection.wrappedValue = newValue } }
@@ -76,54 +91,68 @@ public struct DatePickerField: View {
         self.allowsClear = false
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
         self.showsTime = showsTime
         self.minuteInterval = minuteInterval
+        self.dateStyle = dateStyle
     }
 
     /// A field that can be empty: it shows `placeholder` until a day is
     /// picked, and the calendar offers Clear.
     /// - Parameters:
-    ///   - title: A label before the field, looked up in your app's strings; nil for none.
+    ///   - title: A label before the field, looked up in your app's strings;
+    ///     nil for none. It stays the field's VoiceOver label with
+    ///     `showsTitle: false`.
     ///   - selection: The date, or nil.
     ///   - placeholder: Shown while empty, from your app's strings; nil for "Select a date".
     ///   - minimumDate: The first day that can be picked (any time on it).
     ///   - maximumDate: The last day that can be picked.
+    ///   - isDateEnabled: Turns single days inside the bounds down; asked with the start of the day.
     ///   - showsTime: Adds an hour and minute field after the date (disabled while empty).
     ///   - minuteInterval: How far ↑ / ↓ move the minutes.
+    ///   - showsTitle: Draws the title before the field.
+    ///   - dateStyle: How the date is written.
     public init(
         _ title: LocalizedStringKey? = nil,
         selection: Binding<Date?>,
         placeholder: LocalizedStringKey? = nil,
         minimumDate: Date? = nil,
         maximumDate: Date? = nil,
+        isDateEnabled: ((Date) -> Bool)? = nil,
         showsTime: Bool = false,
-        minuteInterval: Int = 5
+        minuteInterval: Int = 5,
+        showsTitle: Bool = true,
+        dateStyle: Date.FormatStyle.DateStyle = .abbreviated
     ) {
         self.title = title
+        self.showsTitle = showsTitle
         self.selection = selection
         self.placeholder = placeholder
         self.allowsClear = true
         self.minimumDate = minimumDate
         self.maximumDate = maximumDate
+        self.isDateEnabled = isDateEnabled
         self.showsTime = showsTime
         self.minuteInterval = minuteInterval
+        self.dateStyle = dateStyle
     }
 
     private var bounds: CalendarBounds {
-        CalendarBounds(minimum: minimumDate, maximum: maximumDate, calendar: calendar)
+        CalendarBounds(minimum: minimumDate, maximum: maximumDate, isDateEnabled: isDateEnabled, calendar: calendar)
     }
 
     private var valueText: Text {
         guard let date = selection.wrappedValue else {
             return placeholder.map { Text($0) } ?? Text("Select a date", bundle: .module)
         }
-        return Text(date, format: Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale, calendar: calendar, timeZone: calendar.timeZone))
+        return Text(date, format: Date.FormatStyle(date: dateStyle, time: .omitted, locale: locale, calendar: calendar, timeZone: calendar.timeZone))
     }
 
     public var body: some View {
         HStack(spacing: Spacing.sm) {
-            if let title {
+            if let title, showsTitle {
                 Text(title)
+                    .font(Typography.bodySmall)
                 Spacer()
             }
             Button {
@@ -132,6 +161,7 @@ public struct DatePickerField: View {
                 DateFieldLabel(text: valueText, isPlaceholder: selection.wrappedValue == nil)
             }
             .buttonStyle(FloatingMenuPickerButtonStyle(isActive: isPresented))
+            .invalidFieldOutline(isInvalid)
             .accessibilityLabel(title.map { Text($0) } ?? Text("Date", bundle: .module))
             .accessibilityValue(valueText)
             .popover(isPresented: $isPresented, arrowEdge: .bottom) {
@@ -143,7 +173,7 @@ public struct DatePickerField: View {
                 )
             }
             if showsTime {
-                TimeOfDayField(date: selection, minuteInterval: minuteInterval)
+                TimeField(selection: selection, minuteInterval: minuteInterval)
             }
         }
     }
@@ -163,11 +193,26 @@ struct DateFieldLabel: View {
                 .accessibilityHidden(true)
             text
                 .lineLimit(1)
-                .opacity(isPlaceholder ? 0.7 : 1)
+                .foregroundStyle(isPlaceholder ? AnyShapeStyle(Color.textTertiary) : AnyShapeStyle(.primary))
             Image(systemName: "chevron.up.chevron.down")
                 .font(Typography.bodySmallSemibold)
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
+        }
+    }
+}
+
+extension View {
+    /// The danger hairline a field draws inside a `FormField` with an error,
+    /// for a trigger whose own style draws no line (`DatePickerField`,
+    /// `DateRangePickerField`), so the whole row turns red with its
+    /// `TimeField` half.
+    func invalidFieldOutline(_ isInvalid: Bool) -> some View {
+        overlay {
+            if isInvalid {
+                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                    .strokeBorder(Danger.danger500, lineWidth: 1)
+            }
         }
     }
 }
@@ -208,7 +253,7 @@ private struct DatePickerPopover: View {
                         selection.wrappedValue = nil
                         onDone()
                     } label: {
-                        Text("Clear", bundle: .module).font(Typography.labelSmall)
+                        Text("Clear", bundle: .module)
                     }
                     .buttonStyle(GhostButtonStyle(compact: true))
                     .disabled(selection.wrappedValue == nil)

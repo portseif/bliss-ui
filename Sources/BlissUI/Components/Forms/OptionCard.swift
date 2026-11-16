@@ -9,6 +9,24 @@
 
 import SwiftUI
 
+// MARK: - Metrics
+
+/// The card's geometry, shared with `WizardRadioRow` so a wizard that mixes
+/// cards and rows reads as one set.
+enum OptionCardMetrics {
+    static let cornerRadius: CGFloat = Sizing.radiusLarge
+    /// A card laid out in a row: the content's inset.
+    static let horizontalInset: CGFloat = Spacing.md
+    static let verticalInset: CGFloat = Spacing.md
+    /// A card stacked vertically (a row of plans): the card's inset.
+    static let stackedInset: CGFloat = Spacing.cardPadding
+    /// A compact card's vertical inset.
+    static let compactVerticalInset: CGFloat = Spacing.sm
+    /// The icon's slot in the row layout and in the stacked layout.
+    static let rowIconSlot: CGFloat = Sizing.iconMedium
+    static let stackedIconSlot: CGFloat = Sizing.iconLarge
+}
+
 // MARK: - Selection mode
 
 /// Whether a set of option cards picks one or several.
@@ -21,59 +39,106 @@ public nonisolated enum OptionCardSelection: Sendable, Hashable {
 
 // MARK: - Option Card
 
-/// A pickable card: an icon, a title, a line of detail and an optional
-/// `Badge`, with a radio (`.single`) or checkbox (`.multiple`) mark showing
-/// whether it's picked. A picked card takes an accent edge. It's a Tab stop
+/// A pickable card: an icon (or your own artwork), a title, a line of detail,
+/// an optional value ("$9 / mo") and an optional `Badge`, with a radio
+/// (`.single`) or checkbox (`.multiple`) mark showing whether it's picked. A
+/// picked card takes the selected wash and an accent edge. It's a Tab stop
 /// with the shared ring; Space or Return picks it. `axis: .vertical` stacks
 /// the content centered, for a row of plans.
 ///
 /// Usually built by `OptionCardGrid`, which keeps the selection; use it alone
 /// for a layout of your own.
-public struct OptionCard: View {
+public struct OptionCard<Artwork: View>: View {
     private let title: LocalizedStringKey
     private let detail: LocalizedStringKey?
+    private let value: LocalizedStringKey?
     private let icon: String?
     private let badge: Badge?
     private let isSelected: Bool
     private let selection: OptionCardSelection
     private let axis: Axis
+    private let compact: Bool
+    private let showsMark: Bool
     private let action: () -> Void
+    private let artwork: (() -> Artwork)?
     /// Set by `OptionCardGrid`: stretch to the tallest card in the row, so a
     /// row of cards with different amounts of text lines up.
     var fillsHeight = false
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
 
-    private let cornerRadius = Sizing.radiusMedium
+    private let cornerRadius = OptionCardMetrics.cornerRadius
 
+    /// A card with your own artwork in the icon's place — a template's
+    /// thumbnail, a theme swatch.
     /// - Parameters:
     ///   - title: The option's name. Looked up in your app's strings.
     ///   - detail: A line on what it means, under the title.
-    ///   - icon: An SF Symbol, accent-colored while the card is picked.
+    ///   - value: A price or a figure, trailing in a row card, under the title
+    ///     in a stacked one.
     ///   - badge: A badge beside the title ("Save 20%", "Soon"), styled as you like.
     ///   - isSelected: Whether the card is picked.
     ///   - selection: The mark: a radio for `.single`, a checkbox for `.multiple`.
     ///   - axis: `.horizontal` lays the content out in a row; `.vertical`
     ///     stacks it centered.
+    ///   - compact: A tighter card with no detail line, for a dense sheet.
+    ///   - showsMark: Off, the card's state is its edge and wash alone (a swatch picker).
     ///   - action: Runs on a click, Space or Return — pick or toggle the option.
+    ///   - artwork: Drawn in the icon's slot.
     public init(
         _ title: LocalizedStringKey,
         detail: LocalizedStringKey? = nil,
-        icon: String? = nil,
+        value: LocalizedStringKey? = nil,
         badge: Badge? = nil,
         isSelected: Bool,
         selection: OptionCardSelection = .single,
         axis: Axis = .horizontal,
-        action: @escaping () -> Void
+        compact: Bool = false,
+        showsMark: Bool = true,
+        action: @escaping () -> Void,
+        @ViewBuilder artwork: @escaping () -> Artwork
     ) {
         self.title = title
         self.detail = detail
+        self.value = value
+        self.icon = nil
+        self.badge = badge
+        self.isSelected = isSelected
+        self.selection = selection
+        self.axis = axis
+        self.compact = compact
+        self.showsMark = showsMark
+        self.action = action
+        self.artwork = artwork
+    }
+
+    fileprivate init(
+        title: LocalizedStringKey,
+        detail: LocalizedStringKey?,
+        value: LocalizedStringKey?,
+        icon: String?,
+        badge: Badge?,
+        isSelected: Bool,
+        selection: OptionCardSelection,
+        axis: Axis,
+        compact: Bool,
+        showsMark: Bool,
+        action: @escaping () -> Void,
+        artwork: (() -> Artwork)?
+    ) {
+        self.title = title
+        self.detail = detail
+        self.value = value
         self.icon = icon
         self.badge = badge
         self.isSelected = isSelected
         self.selection = selection
         self.axis = axis
+        self.compact = compact
+        self.showsMark = showsMark
         self.action = action
+        self.artwork = artwork
     }
 
     public var body: some View {
@@ -91,34 +156,25 @@ public struct OptionCard: View {
             )
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.primary.opacity(0.03))
+                    .fill(isSelected ? RowTint.selected(colorScheme) : Color.restingFill)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: isSelected ? 1.5 : 1)
+                    .strokeBorder(isSelected ? Color.accent : Color.menuBorder, lineWidth: 1)
             }
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .opacity(isEnabled ? 1 : 0.5)
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .animation(Animations.selection, value: isSelected)
         }
         .buttonStyle(SelectableCardButtonStyle(cornerRadius: cornerRadius))
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
-    private var borderColor: Color {
-        guard isSelected else { return Color.menuBorder }
-        return Color.accent.opacity(prefersIncreasedContrast ? 1 : 0.7)
-    }
-
     // MARK: Layouts
 
     private var horizontalContent: some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-            if let icon {
-                iconImage(icon)
-                    .font(Typography.bodyMedium)
-                    .frame(width: Sizing.iconMedium)
-            }
+            leadingMark(font: Typography.bodyMedium, slot: OptionCardMetrics.rowIconSlot)
             VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
                 HStack(spacing: Spacing.xs) {
                     titleText
@@ -126,28 +182,32 @@ public struct OptionCard: View {
                         badge.badgeSize(.small)
                     }
                 }
-                if let detail {
+                if let detail, !compact {
                     detailText(detail)
                         .multilineTextAlignment(.leading)
                 }
             }
             Spacer(minLength: Spacing.xs)
-            mark
-                .centeredOnFirstTextLine(capHeight: SettingsRowText.titleCapHeight)
+            if let value {
+                valueText(value)
+            }
+            if showsMark {
+                mark
+                    .centeredOnFirstTextLine(capHeight: SettingsRowText.titleCapHeight)
+            }
         }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.md)
+        .padding(.horizontal, OptionCardMetrics.horizontalInset)
+        .padding(.vertical, compact ? OptionCardMetrics.compactVerticalInset : OptionCardMetrics.verticalInset)
     }
 
     private var verticalContent: some View {
         VStack(spacing: Spacing.xs) {
-            if let icon {
-                iconImage(icon)
-                    .font(Typography.headingMedium)
-                    .frame(height: Sizing.iconLarge)
-            }
+            leadingMark(font: Typography.headingMedium, slot: OptionCardMetrics.stackedIconSlot)
             titleText
-            if let detail {
+            if let value {
+                valueText(value)
+            }
+            if let detail, !compact {
                 detailText(detail)
                     .multilineTextAlignment(.center)
             }
@@ -156,20 +216,31 @@ public struct OptionCard: View {
                     .padding(.top, Spacing.xxs)
             }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.lg)
+        .padding(.horizontal, OptionCardMetrics.stackedInset)
+        .padding(.vertical, compact ? OptionCardMetrics.compactVerticalInset : OptionCardMetrics.stackedInset)
         .frame(maxWidth: .infinity)
         .overlay(alignment: .topTrailing) {
-            mark.padding(Spacing.sm)
+            if showsMark {
+                mark.padding(Spacing.sm)
+            }
         }
     }
 
     // MARK: Pieces
 
-    private func iconImage(_ name: String) -> some View {
-        Image(systemName: name)
-            .foregroundStyle(isSelected ? Color.accent : Color.secondary)
-            .accessibilityHidden(true)
+    /// The artwork, or the icon in its slot.
+    @ViewBuilder
+    private func leadingMark(font: Font, slot: CGFloat) -> some View {
+        if let artwork {
+            artwork()
+                .accessibilityHidden(true)
+        } else if let icon {
+            Image(systemName: icon)
+                .font(font)
+                .foregroundStyle(isSelected ? Color.accent : Color.secondary)
+                .frame(width: axis == .horizontal ? slot : nil, height: axis == .vertical ? slot : nil)
+                .accessibilityHidden(true)
+        }
     }
 
     private var titleText: some View {
@@ -186,12 +257,64 @@ public struct OptionCard: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    private func valueText(_ value: LocalizedStringKey) -> some View {
+        Text(value)
+            .font(Typography.labelMedium.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+    }
+
     @ViewBuilder
     private var mark: some View {
         switch selection {
-        case .single: RadioGlyph(isOn: isSelected)
-        case .multiple: CheckboxGlyph(isOn: isSelected)
+        case .single: RadioGlyph(isOn: isSelected, size: Sizing.iconSmall)
+        case .multiple: CheckboxGlyph(isOn: isSelected, size: Sizing.iconSmall)
         }
+    }
+}
+
+extension OptionCard where Artwork == EmptyView {
+    /// - Parameters:
+    ///   - title: The option's name. Looked up in your app's strings.
+    ///   - detail: A line on what it means, under the title.
+    ///   - value: A price or a figure, trailing in a row card, under the title
+    ///     in a stacked one.
+    ///   - icon: An SF Symbol, accent-colored while the card is picked.
+    ///   - badge: A badge beside the title ("Save 20%", "Soon"), styled as you like.
+    ///   - isSelected: Whether the card is picked.
+    ///   - selection: The mark: a radio for `.single`, a checkbox for `.multiple`.
+    ///   - axis: `.horizontal` lays the content out in a row; `.vertical`
+    ///     stacks it centered.
+    ///   - compact: A tighter card with no detail line, for a dense sheet.
+    ///   - showsMark: Off, the card's state is its edge and wash alone.
+    ///   - action: Runs on a click, Space or Return — pick or toggle the option.
+    public init(
+        _ title: LocalizedStringKey,
+        detail: LocalizedStringKey? = nil,
+        value: LocalizedStringKey? = nil,
+        icon: String? = nil,
+        badge: Badge? = nil,
+        isSelected: Bool,
+        selection: OptionCardSelection = .single,
+        axis: Axis = .horizontal,
+        compact: Bool = false,
+        showsMark: Bool = true,
+        action: @escaping () -> Void
+    ) {
+        self.init(
+            title: title,
+            detail: detail,
+            value: value,
+            icon: icon,
+            badge: badge,
+            isSelected: isSelected,
+            selection: selection,
+            axis: axis,
+            compact: compact,
+            showsMark: showsMark,
+            action: action,
+            artwork: nil
+        )
     }
 }
 
@@ -199,7 +322,9 @@ public struct OptionCard: View {
 
 /// A set of `OptionCard`s in rows of `columns`, keeping the selection: bind a
 /// single value for one choice (radio marks) or a set for several (checkbox
-/// marks). Cards in a row share the tallest one's height.
+/// marks). Cards in a row share the tallest one's height. With
+/// `minimumCardWidth` the columns follow the width instead (a resizable
+/// window), and rows no longer equalize.
 ///
 /// ```swift
 /// OptionCardGrid(Plan.allCases, selection: $plan, columns: 3, axis: .vertical,
@@ -214,6 +339,7 @@ public struct OptionCardGrid<Option: Hashable>: View {
     @Binding private var multipleSelection: Set<Option>
     private let mode: OptionCardSelection
     private let columns: Int
+    private let minimumCardWidth: CGFloat?
     private let axis: Axis
     private let title: (Option) -> LocalizedStringKey
     private let detail: (Option) -> LocalizedStringKey?
@@ -226,6 +352,8 @@ public struct OptionCardGrid<Option: Hashable>: View {
     ///   - options: The options, in reading order.
     ///   - selection: The picked option.
     ///   - columns: Cards per row (1 for a list of wide cards).
+    ///   - minimumCardWidth: Adaptive columns: as many cards per row as fit at
+    ///     this width, instead of `columns`.
     ///   - axis: The cards' layout (see `OptionCard`).
     ///   - title: Each option's name. Looked up in your app's strings.
     ///   - detail: A line under the name.
@@ -236,6 +364,7 @@ public struct OptionCardGrid<Option: Hashable>: View {
         _ options: [Option],
         selection: Binding<Option>,
         columns: Int = 2,
+        minimumCardWidth: CGFloat? = nil,
         axis: Axis = .horizontal,
         title: @escaping (Option) -> LocalizedStringKey,
         detail: @escaping (Option) -> LocalizedStringKey? = { _ in nil },
@@ -248,6 +377,7 @@ public struct OptionCardGrid<Option: Hashable>: View {
         self._multipleSelection = .constant([])
         self.mode = .single
         self.columns = max(1, columns)
+        self.minimumCardWidth = minimumCardWidth
         self.axis = axis
         self.title = title
         self.detail = detail
@@ -262,6 +392,7 @@ public struct OptionCardGrid<Option: Hashable>: View {
         _ options: [Option],
         selection: Binding<Set<Option>>,
         columns: Int = 2,
+        minimumCardWidth: CGFloat? = nil,
         axis: Axis = .horizontal,
         title: @escaping (Option) -> LocalizedStringKey,
         detail: @escaping (Option) -> LocalizedStringKey? = { _ in nil },
@@ -274,6 +405,7 @@ public struct OptionCardGrid<Option: Hashable>: View {
         self._multipleSelection = selection
         self.mode = .multiple
         self.columns = max(1, columns)
+        self.minimumCardWidth = minimumCardWidth
         self.axis = axis
         self.title = title
         self.detail = detail
@@ -283,20 +415,28 @@ public struct OptionCardGrid<Option: Hashable>: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            ForEach(OptionCardGridLayout.rows(count: options.count, columns: columns), id: \.self) { row in
-                HStack(alignment: .top, spacing: Spacing.sm) {
-                    ForEach(options[row], id: \.self) { option in
-                        card(for: option)
-                    }
-                    // Keep the last row's cards the same width as the rest.
-                    ForEach(0..<(columns - row.count), id: \.self) { _ in
-                        Color.clear.frame(maxWidth: .infinity).frame(height: 0)
-                    }
+        if let minimumCardWidth {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: minimumCardWidth), spacing: Spacing.sm)], alignment: .leading, spacing: Spacing.sm) {
+                ForEach(options, id: \.self) { option in
+                    card(for: option)
                 }
-                // Each card fills the row's height, so the row takes the
-                // tallest card's ideal height and the others stretch to it.
-                .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                ForEach(OptionCardGridLayout.rows(count: options.count, columns: columns), id: \.self) { row in
+                    HStack(alignment: .top, spacing: Spacing.sm) {
+                        ForEach(options[row], id: \.self) { option in
+                            card(for: option)
+                        }
+                        // Keep the last row's cards the same width as the rest.
+                        ForEach(0..<(columns - row.count), id: \.self) { _ in
+                            Color.clear.frame(maxWidth: .infinity).frame(height: 0)
+                        }
+                    }
+                    // Each card fills the row's height, so the row takes the
+                    // tallest card's ideal height and the others stretch to it.
+                    .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -334,7 +474,7 @@ public struct OptionCardGrid<Option: Hashable>: View {
             axis: axis,
             action: { pick(option) }
         )
-        card.fillsHeight = true
+        card.fillsHeight = minimumCardWidth == nil
         return card.disabled(!isOptionEnabled(option))
     }
 }
@@ -390,5 +530,17 @@ private enum PreviewPlan: String, CaseIterable {
         title: { LocalizedStringKey($0) },
         icon: { $0 == "Database" ? "cylinder" : ($0 == "Files" ? "folder" : "gearshape") }
     )
+    .padding(Spacing.lg)
+}
+
+#Preview("Artwork and values", traits: .fixedLayout(width: 520, height: 120)) {
+    HStack(spacing: Spacing.sm) {
+        OptionCard("Pro", detail: "Billed yearly", value: "$80 / yr", isSelected: true, action: {}) {
+            RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+                .fill(Color.accent)
+                .frame(width: OptionCardMetrics.rowIconSlot, height: OptionCardMetrics.rowIconSlot)
+        }
+        OptionCard("Team", value: "$240 / yr", icon: "person.3", isSelected: false, compact: true, action: {})
+    }
     .padding(Spacing.lg)
 }

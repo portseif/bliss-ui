@@ -2,10 +2,10 @@
 //  InputField.swift
 //  BlissUI
 //
-//  The boxed text field with accessories: a leading icon, a clear button that
-//  shows while there's text and the pointer or focus is on the field, a
-//  keyboard hint (⌘K) that hides once the field is focused, a loading spinner,
-//  and a trailing slot for anything else (a unit, a menu). The box is
+//  The boxed text field with accessories: a leading icon or slot, a clear
+//  button that shows while there's text and the pointer or focus is on the
+//  field, a keyboard hint (⌘K) that hides once the field is focused, a loading
+//  spinner, and a trailing slot for anything else (a unit, a menu). The box is
 //  `.inputBox`, so it matches every hand-built input and goes red inside a
 //  `FormField` with an error.
 //
@@ -13,18 +13,24 @@
 import SwiftUI
 
 /// A boxed text field with a leading icon, clear button, keyboard hint,
-/// loading state and a trailing slot.
+/// loading state, and leading and trailing slots.
 ///
 /// ```swift
 /// InputField("Search", text: $query, systemImage: "magnifyingglass", isClearable: true, keyboardHint: "⌘K")
 /// InputField("Domain", text: $domain, isLoading: isChecking) {
 ///     Text(".dev").foregroundStyle(.secondary)
 /// }
+/// InputField("Site", text: $host) {
+///     Text("https://").foregroundStyle(.secondary)
+/// } trailing: {
+///     Text(".dev").foregroundStyle(.secondary)
+/// }
 /// ```
 ///
 /// Esc clears a clearable field; `.onSubmit` on the field fires on Return as
-/// it does for any `TextField`.
-public struct InputField<Trailing: View>: View {
+/// it does for any `TextField`. A read-only field shows its text selectable
+/// in the same box, without the dimmed look of `.disabled`.
+public struct InputField<Leading: View, Trailing: View>: View {
     private let title: LocalizedStringKey
     @Binding private var text: String
     private let prompt: Text?
@@ -32,6 +38,8 @@ public struct InputField<Trailing: View>: View {
     private let isClearable: Bool
     private let keyboardHint: String?
     private let isLoading: Bool
+    private let isReadOnly: Bool
+    private let leading: Leading
     private let trailing: Trailing
 
     @FocusState private var isFocused: Bool
@@ -47,6 +55,8 @@ public struct InputField<Trailing: View>: View {
     ///   - keyboardHint: The shortcut that focuses the field ("⌘K"), shown
     ///     until it has focus. Display only: bind the key in your app.
     ///   - isLoading: A spinner in the trailing position (a lookup in flight).
+    ///   - isReadOnly: Selectable, not editable (an endpoint, a generated ID).
+    ///   - leading: Anything before the text (a "$", a "https://", a chip).
     ///   - trailing: Anything after the text (a unit, a small menu).
     public init(
         _ title: LocalizedStringKey,
@@ -56,6 +66,8 @@ public struct InputField<Trailing: View>: View {
         isClearable: Bool = false,
         keyboardHint: String? = nil,
         isLoading: Bool = false,
+        isReadOnly: Bool = false,
+        @ViewBuilder leading: () -> Leading,
         @ViewBuilder trailing: () -> Trailing
     ) {
         self.title = title
@@ -65,15 +77,13 @@ public struct InputField<Trailing: View>: View {
         self.isClearable = isClearable
         self.keyboardHint = keyboardHint
         self.isLoading = isLoading
+        self.isReadOnly = isReadOnly
+        self.leading = leading()
         self.trailing = trailing()
     }
 
-    private var cornerRadius: CGFloat {
-        isTahoeOrLater ? Sizing.radiusFull : Sizing.radiusDefault
-    }
-
     private var showsClear: Bool {
-        isClearable && !text.isEmpty && (isHovering || isFocused)
+        isClearable && !isReadOnly && !text.isEmpty && (isHovering || isFocused)
     }
 
     public var body: some View {
@@ -81,33 +91,48 @@ public struct InputField<Trailing: View>: View {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(Typography.labelMedium)
-                    .foregroundStyle(isFocused ? Color.accent : Grey.grey400)
+                    .foregroundStyle(isFocused ? Color.accent : Color.textTertiary)
                     .accessibilityHidden(true)
             }
 
-            TextField(title, text: $text, prompt: prompt)
-                .textFieldStyle(.plain)
-                .focused($isFocused)
-                .focusEffectDisabled()
-                .onKeyPress(.escape) {
-                    guard isClearable, !text.isEmpty else { return .ignored }
-                    clear()
-                    return .handled
-                }
+            leading
+
+            if isReadOnly {
+                // Selectable, not editable, in the field's own type.
+                Text(verbatim: text)
+                    .font(Typography.labelMedium)
+                    .textSelection(.enabled)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel(Text(title))
+                    .accessibilityValue(Text(verbatim: text))
+            } else {
+                TextField(title, text: $text, prompt: prompt)
+                    .textFieldStyle(.plain)
+                    .font(Typography.labelMedium)
+                    .focused($isFocused)
+                    .focusEffectDisabled()
+                    .onKeyPress(.escape) {
+                        guard isClearable, !text.isEmpty else { return .ignored }
+                        clear()
+                        return .handled
+                    }
+            }
 
             if isLoading {
-                ThinkingSpinner(size: 12, lineWidth: 1.5)
+                ThinkingSpinner(size: Sizing.iconTiny)
                     .accessibilityLabel(Text("Loading", bundle: .module))
             }
 
-            if isClearable {
+            if isClearable && !isReadOnly {
                 // Mounted even while hidden, so the layout never jumps; disabled
                 // while hidden, or Tab would land on it unseen.
                 Button(action: clear) {
                     Image(systemName: "xmark.circle.fill")
                         .font(Typography.caption)
                         .foregroundStyle(.secondary)
-                        .frame(width: 18, height: 18)
+                        .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)
                 }
                 .buttonStyle(InlineIconButtonStyle(chipRadius: Sizing.radiusSmall))
                 .opacity(showsClear ? 1 : 0)
@@ -124,9 +149,9 @@ public struct InputField<Trailing: View>: View {
 
             trailing
         }
-        .padding(.horizontal, Spacing.sm + 2)
+        .padding(.horizontal, Spacing.fieldPaddingH)
         .frame(minHeight: Sizing.controlDefault)
-        .inputBox(isFocused: isFocused, cornerRadius: cornerRadius)
+        .inputBox(isFocused: isFocused)
         .onHover { isHovering = $0 }
         .animation(Animations.hover, value: showsClear)
         .animation(Animations.hover, value: isFocused)
@@ -139,8 +164,8 @@ public struct InputField<Trailing: View>: View {
     }
 }
 
-extension InputField where Trailing == EmptyView {
-    /// A field with nothing after the text.
+extension InputField where Leading == EmptyView {
+    /// A field with a trailing slot and nothing before the text.
     public init(
         _ title: LocalizedStringKey,
         text: Binding<String>,
@@ -148,9 +173,33 @@ extension InputField where Trailing == EmptyView {
         systemImage: String? = nil,
         isClearable: Bool = false,
         keyboardHint: String? = nil,
-        isLoading: Bool = false
+        isLoading: Bool = false,
+        isReadOnly: Bool = false,
+        @ViewBuilder trailing: () -> Trailing
     ) {
-        self.init(title, text: text, prompt: prompt, systemImage: systemImage, isClearable: isClearable, keyboardHint: keyboardHint, isLoading: isLoading) {
+        self.init(title, text: text, prompt: prompt, systemImage: systemImage, isClearable: isClearable, keyboardHint: keyboardHint, isLoading: isLoading, isReadOnly: isReadOnly) {
+            EmptyView()
+        } trailing: {
+            trailing()
+        }
+    }
+}
+
+extension InputField where Leading == EmptyView, Trailing == EmptyView {
+    /// A field with nothing around the text.
+    public init(
+        _ title: LocalizedStringKey,
+        text: Binding<String>,
+        prompt: Text? = nil,
+        systemImage: String? = nil,
+        isClearable: Bool = false,
+        keyboardHint: String? = nil,
+        isLoading: Bool = false,
+        isReadOnly: Bool = false
+    ) {
+        self.init(title, text: text, prompt: prompt, systemImage: systemImage, isClearable: isClearable, keyboardHint: keyboardHint, isLoading: isLoading, isReadOnly: isReadOnly) {
+            EmptyView()
+        } trailing: {
             EmptyView()
         }
     }
@@ -158,18 +207,23 @@ extension InputField where Trailing == EmptyView {
 
 // MARK: - Preview
 
-#Preview("Input field", traits: .fixedLayout(width: 420, height: 200)) {
+#Preview("Input field", traits: .fixedLayout(width: 420, height: 240)) {
     @Previewable @State var query = "focus ring"
     @Previewable @State var domain = "bliss"
     @Previewable @State var name = ""
     VStack(spacing: Spacing.md) {
         InputField("Search", text: $query, prompt: Text("Search components"), systemImage: "magnifyingglass", isClearable: true, keyboardHint: "⌘K")
         InputField("Domain", text: $domain, isLoading: true) {
+            Text(verbatim: "https://")
+                .font(Typography.labelMedium)
+                .foregroundStyle(.secondary)
+        } trailing: {
             Text(verbatim: ".dev")
-                .font(Typography.bodySmall)
+                .font(Typography.labelMedium)
                 .foregroundStyle(.secondary)
         }
         InputField("Name", text: $name, prompt: Text("Project name"))
+        InputField("Endpoint", text: .constant("https://api.example.com/v2"), isReadOnly: true)
     }
     .padding(Spacing.xl)
 }

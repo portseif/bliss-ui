@@ -2,11 +2,11 @@
 //  TimelineHeaderLabel.swift
 //  BlissUI
 //
-//  A content-sized `headingMedium` + `.primary` header label used above timeline
+//  A content-sized `headingMedium` header label used above timeline
 //  day-groups ("Today" / "Yesterday" / "MMM d") and detail-page stat/column
-//  headers. Unlike `SectionHeader` it has no trailing Spacer, so it sizes to its
-//  text and works inside HStacks / multi-column rows. Its only padding is a
-//  bottom `md`.
+//  headers: `SectionHeader` with `hugsContent: true`, so it sizes to its text
+//  and works inside HStacks / multi-column rows. Its only padding is a bottom
+//  `md`.
 //
 
 import SwiftUI
@@ -19,10 +19,7 @@ public struct TimelineHeaderLabel: View {
     }
 
     public var body: some View {
-        Text(label)
-            .font(Typography.headingMedium)
-            .foregroundStyle(.primary)
-            .padding(.bottom, Spacing.md)
+        SectionHeader<EmptyView>(label, hugsContent: true, topPadding: 0, bottomPadding: Spacing.md)
     }
 }
 

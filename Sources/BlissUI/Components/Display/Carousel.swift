@@ -30,6 +30,9 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
     private let showsArrows: Bool
     private let showsPageControl: Bool
     private let autoplayInterval: TimeInterval?
+    private let cornerRadius: CGFloat
+    private let loops: Bool
+    private let pageSpacing: CGFloat
     private let page: (Data.Element) -> Page
 
     /// The page in view when the caller keeps no selection of their own.
@@ -45,6 +48,9 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
     ///   - autoplayInterval: Seconds between automatic pages (wrapping to the
     ///     first); nil for none. Paused under the pointer or keyboard focus,
     ///     and off under Reduce Motion.
+    ///   - cornerRadius: The pages' clip; 0 for a full-bleed hero.
+    ///   - loops: The arrows and keys wrap at the ends instead of disabling.
+    ///   - pageSpacing: A gap between pages.
     ///   - page: One page's content; it fills the carousel's width.
     public init(
         _ data: Data,
@@ -52,6 +58,9 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
         showsArrows: Bool = true,
         showsPageControl: Bool = true,
         autoplayInterval: TimeInterval? = nil,
+        cornerRadius: CGFloat = Sizing.radiusLarge,
+        loops: Bool = false,
+        pageSpacing: CGFloat = 0,
         @ViewBuilder page: @escaping (Data.Element) -> Page
     ) {
         self.data = data
@@ -59,6 +68,9 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
         self.showsArrows = showsArrows
         self.showsPageControl = showsPageControl
         self.autoplayInterval = autoplayInterval
+        self.cornerRadius = cornerRadius
+        self.loops = loops
+        self.pageSpacing = pageSpacing
         self.page = page
     }
 
@@ -104,7 +116,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
                 .focusable()
                 .focused($isFocused)
                 .focusEffectDisabled()
-                .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusLarge)
+                .focusRing(isFocused: isFocused, cornerRadius: cornerRadius)
                 .onKeyPress(keys: [.leftArrow, .rightArrow, .home, .end], phases: [.down, .repeat]) { press in
                     move(press.key)
                     return .handled
@@ -124,7 +136,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
 
     private var pages: some View {
         ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
+            LazyHStack(spacing: pageSpacing) {
                 ForEach(data) { element in
                     page(element)
                         .containerRelativeFrame(.horizontal)
@@ -138,18 +150,18 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: position)
         .scrollIndicators(.hidden)
-        .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     /// Previous and next over the page edges: visible under the pointer, and
     /// disabled while hidden so Tab never lands on them unseen.
     private var arrows: some View {
         HStack {
-            arrow(systemImage: "chevron.left", label: Text("Previous page", bundle: .module), isEnabled: currentIndex > 0) {
+            arrow(systemImage: "chevron.left", label: Text("Previous page", bundle: .module), isEnabled: loops || currentIndex > 0) {
                 go(to: currentIndex - 1)
             }
             Spacer(minLength: 0)
-            arrow(systemImage: "chevron.right", label: Text("Next page", bundle: .module), isEnabled: currentIndex < ids.count - 1) {
+            arrow(systemImage: "chevron.right", label: Text("Next page", bundle: .module), isEnabled: loops || currentIndex < ids.count - 1) {
                 go(to: currentIndex + 1)
             }
         }
@@ -189,6 +201,8 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
     }
 
     private func go(to index: Int) {
+        // Looping wraps either end; otherwise a step past the ends is ignored.
+        let index = loops && !ids.isEmpty ? (index + ids.count) % ids.count : index
         guard ids.indices.contains(index), index != currentIndex else { return }
         let target = ids[index]
         if prefersReducedMotion {
@@ -227,6 +241,9 @@ public struct PageControl: View {
 
     @FocusState private var isFocused: Bool
 
+    /// How faint an inactive dot is.
+    private static let inactiveOpacity: Double = 0.2
+
     /// - Parameters:
     ///   - count: How many pages there are.
     ///   - current: The page in view, zero-based.
@@ -239,10 +256,10 @@ public struct PageControl: View {
         HStack(spacing: Spacing.xs) {
             ForEach(0..<count, id: \.self) { index in
                 Circle()
-                    .fill(index == current ? Color.accent : Color.primary.opacity(0.2))
-                    .frame(width: 6, height: 6)
+                    .fill(index == current ? Color.accent : Color.primary.opacity(Self.inactiveOpacity))
+                    .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
                     // A hit target bigger than the dot.
-                    .contentShape(Circle().inset(by: -4))
+                    .contentShape(Circle().inset(by: -Spacing.xxs))
                     .onTapGesture { set(index) }
             }
         }
@@ -293,10 +310,10 @@ private struct CarouselPreviewPage: Identifiable {
 #Preview("Carousel", traits: .fixedLayout(width: 520, height: 320)) {
     @Previewable @State var pageID = 1
     let pages = [
-        CarouselPreviewPage(id: 1, title: "Welcome", detail: "A tour of what's new in this release.", systemImage: "sparkles", wash: Success.tint.opacity(0.15)),
-        CarouselPreviewPage(id: 2, title: "Sync", detail: "Your projects follow you to every Mac.", systemImage: "arrow.triangle.2.circlepath", wash: Info.tint.opacity(0.15)),
-        CarouselPreviewPage(id: 3, title: "Shortcuts", detail: "Hold ⌘ to see every row's key.", systemImage: "command", wash: Warning.tint.opacity(0.15)),
-        CarouselPreviewPage(id: 4, title: "Themes", detail: "Four built in, and room for your own.", systemImage: "paintpalette", wash: Danger.tint.opacity(0.15)),
+        CarouselPreviewPage(id: 1, title: "Welcome", detail: "A tour of what's new in this release.", systemImage: "sparkles", wash: StatusWash.fill(Success.success500, .light)),
+        CarouselPreviewPage(id: 2, title: "Sync", detail: "Your projects follow you to every Mac.", systemImage: "arrow.triangle.2.circlepath", wash: StatusWash.fill(Info.info500, .light)),
+        CarouselPreviewPage(id: 3, title: "Shortcuts", detail: "Hold ⌘ to see every row's key.", systemImage: "command", wash: StatusWash.fill(Warning.warning500, .light)),
+        CarouselPreviewPage(id: 4, title: "Themes", detail: "Four built in, and room for your own.", systemImage: "paintpalette", wash: StatusWash.fill(Danger.danger500, .light)),
     ]
     Carousel(pages, selection: $pageID) { page in
         VStack(spacing: Spacing.sm) {

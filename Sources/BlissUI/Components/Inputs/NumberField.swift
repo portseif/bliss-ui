@@ -6,7 +6,7 @@
 //  - Typing applies as it goes (clamped to the range); Return or leaving the
 //    field shows the number that took, so invalid input reverts
 //  - ↑ / ↓ step it, Shift steps ten at a time; the buttons repeat while held
-//  - An optional unit after the number ("days", "px")
+//  - An optional unit before or after the number ("$", "days", "px")
 //
 //  Replaces a native `Stepper`, which shows the system focus ring instead of
 //  the shared one and is only a Tab stop with Keyboard navigation on.
@@ -20,6 +20,7 @@ import SwiftUI
 /// ```swift
 /// NumberField("Days to keep", value: $retentionDays, in: 1...365, unit: "days")
 /// NumberField("Line height", value: $lineHeight, in: 1...3, step: 0.1)
+/// NumberField("Port", value: $port, in: 1...65_535, showsSteppers: false, fillsWidth: true)
 /// ```
 ///
 /// `title` is what VoiceOver reads; it isn't drawn, so put a visible label
@@ -32,6 +33,9 @@ public struct NumberField<Value>: View {
     @Binding private var value: Value
     private let stepping: SteppedRange
     private let unit: LocalizedStringKey?
+    private let unitPlacement: HorizontalEdge
+    private let showsSteppers: Bool
+    private let fillsWidth: Bool
     private let toDouble: (Value) -> Double
     private let fromDouble: (Double) -> Value
 
@@ -53,6 +57,9 @@ public struct NumberField<Value>: View {
         value: Binding<Value>,
         stepping: SteppedRange,
         unit: LocalizedStringKey?,
+        unitPlacement: HorizontalEdge,
+        showsSteppers: Bool,
+        fillsWidth: Bool,
         toDouble: @escaping (Value) -> Double,
         fromDouble: @escaping (Double) -> Value
     ) {
@@ -60,6 +67,9 @@ public struct NumberField<Value>: View {
         self._value = value
         self.stepping = stepping
         self.unit = unit
+        self.unitPlacement = unitPlacement
+        self.showsSteppers = showsSteppers
+        self.fillsWidth = fillsWidth
         self.toDouble = toDouble
         self.fromDouble = fromDouble
     }
@@ -69,12 +79,12 @@ public struct NumberField<Value>: View {
     /// Button side, number font and glyph font for the control size. The
     /// buttons sit `Spacing.hairline` inside the box, so the box is the control
     /// height: 28pt like the compact buttons, 24pt small.
-    private var metrics: (buttonSize: CGFloat, font: Font, glyphFont: Font) {
+    private var metrics: (buttonSize: CGFloat, font: Font, glyphFont: Font, height: CGFloat) {
         switch controlSize {
         case .mini, .small:
-            return (Sizing.controlSmall - 2 * Spacing.hairline, Typography.labelSmall, Typography.labelXTinyBold)
+            return (Sizing.controlSmall - 2 * Spacing.hairline, Typography.labelSmall, Typography.labelXTinyBold, Sizing.controlSmall)
         default:
-            return (Sizing.controlDefault - 2 * Spacing.hairline, Typography.bodySmall, Typography.labelTinyBold)
+            return (Sizing.controlDefault - 2 * Spacing.hairline, Typography.labelMedium, Typography.labelTinyBold, Sizing.controlDefault)
         }
     }
 
@@ -83,14 +93,24 @@ public struct NumberField<Value>: View {
     public var body: some View {
         let metrics = metrics
         let current = toDouble(value)
-        HStack(spacing: Spacing.hairline) {
-            stepButton(direction: -1, systemImage: "minus", label: Text("Decrement", bundle: .module), current: current, size: metrics.buttonSize, font: metrics.glyphFont)
-            numberArea(current: current, font: metrics.font)
-            stepButton(direction: 1, systemImage: "plus", label: Text("Increment", bundle: .module), current: current, size: metrics.buttonSize, font: metrics.glyphFont)
+        Group {
+            if showsSteppers {
+                HStack(spacing: Spacing.hairline) {
+                    stepButton(direction: -1, systemImage: "minus", label: Text("Decrement", bundle: .module), current: current, size: metrics.buttonSize, font: metrics.glyphFont)
+                    numberArea(current: current, font: metrics.font)
+                    stepButton(direction: 1, systemImage: "plus", label: Text("Increment", bundle: .module), current: current, size: metrics.buttonSize, font: metrics.glyphFont)
+                }
+                .padding(Spacing.hairline)
+            } else {
+                // A plain boxed number: the field's own inset, ↑ / ↓ still step.
+                numberArea(current: current, font: metrics.font)
+                    .padding(.horizontal, Spacing.fieldPaddingH - Spacing.xxs)
+                    .frame(minHeight: metrics.height)
+            }
         }
-        .padding(Spacing.hairline)
-        .inputBox(isFocused: isFocused, cornerRadius: Sizing.radiusDefault)
-        .fixedSize()
+        .frame(maxWidth: fillsWidth ? .infinity : nil)
+        .inputBox(isFocused: isFocused)
+        .fixedSize(horizontal: !fillsWidth, vertical: true)
         .accessibilityElement(children: .contain)
         .onAppear { text = formatted(current) }
         // − / +, the arrows, the binding changing elsewhere: show the number
@@ -106,7 +126,10 @@ public struct NumberField<Value>: View {
 
     private func numberArea(current: Double, font: Font) -> some View {
         HStack(spacing: Spacing.xxs) {
-            ZStack(alignment: unit == nil ? .center : .trailing) {
+            if unit != nil, unitPlacement == .leading {
+                unitLabel
+            }
+            ZStack(alignment: numberAlignment) {
                 // Sizes the field to the widest value in range, so it never
                 // resizes (and the buttons never shift) as the number changes.
                 Text(verbatim: widthTemplate)
@@ -114,7 +137,7 @@ public struct NumberField<Value>: View {
                     .accessibilityHidden(true)
                 TextField(title, text: $text, prompt: Text(verbatim: formatted(current)))
                     .textFieldStyle(.plain)
-                    .multilineTextAlignment(unit == nil ? .center : .trailing)
+                    .multilineTextAlignment(numberTextAlignment)
                     .focused($isFocused)
                     .onKeyPress(keys: [.upArrow, .downArrow]) { press in
                         let direction = press.key == .upArrow ? 1 : -1
@@ -135,18 +158,38 @@ public struct NumberField<Value>: View {
                         }
                     }
             }
-            if let unit {
-                Text(unit)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .contentShape(Rectangle())
-                    .onTapGesture { isFocused = true }
-                    // Read as part of the field's value.
-                    .accessibilityHidden(true)
+            .frame(maxWidth: fillsWidth ? .infinity : nil)
+            if unit != nil, unitPlacement == .trailing {
+                unitLabel
             }
         }
         .font(font.monospacedDigit())
         .padding(.horizontal, Spacing.xxs)
+    }
+
+    /// The number hugs its unit: trailing-aligned before a trailing unit,
+    /// leading-aligned after a leading one, centered on its own.
+    private var numberAlignment: Alignment {
+        guard unit != nil else { return fillsWidth ? .leading : .center }
+        return unitPlacement == .trailing ? .trailing : .leading
+    }
+
+    private var numberTextAlignment: TextAlignment {
+        guard unit != nil else { return fillsWidth ? .leading : .center }
+        return unitPlacement == .trailing ? .trailing : .leading
+    }
+
+    @ViewBuilder
+    private var unitLabel: some View {
+        if let unit {
+            Text(unit)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .contentShape(Rectangle())
+                .onTapGesture { isFocused = true }
+                // Read as part of the field's value.
+                .accessibilityHidden(true)
+        }
     }
 
     private func stepButton(direction: Int, systemImage: String, label: Text, current: Double, size: CGFloat, font: Font) -> some View {
@@ -216,7 +259,7 @@ public struct NumberField<Value>: View {
 
     private var widthTemplate: String {
         let bounds = [stepping.range.lowerBound, stepping.range.upperBound]
-        let samples = bounds.map { $0.isFinite ? formatted($0) : String(repeating: "0", count: 6) }
+        let samples = bounds.map { $0.isFinite ? formatted($0) : String(repeating: "0", count: NumberFieldText.fallbackTemplateDigits) }
         return NumberFieldText.widthTemplate(for: samples)
     }
 
@@ -238,13 +281,21 @@ extension NumberField where Value: BinaryInteger {
     ///   - value: The number. Typing applies as it goes, clamped to `range`.
     ///   - range: The lowest and highest values.
     ///   - step: How far − / + and ↑ / ↓ move it (Shift: ten steps).
-    ///   - unit: Drawn after the number ("days", "px"), from your app's strings.
+    ///   - unit: Drawn beside the number ("days", "px"), from your app's strings.
+    ///   - unitPlacement: Where the unit sits: after the number, or before it ("$").
+    ///   - showsSteppers: The − / + buttons; off for a plain boxed number (a
+    ///     port, a year) — ↑ / ↓ still step it.
+    ///   - fillsWidth: Expand to the column like the other boxed fields instead
+    ///     of hugging the widest value.
     public init(
         _ title: LocalizedStringKey,
         value: Binding<Value>,
         in range: ClosedRange<Value>,
         step: Value = 1,
-        unit: LocalizedStringKey? = nil
+        unit: LocalizedStringKey? = nil,
+        unitPlacement: HorizontalEdge = .trailing,
+        showsSteppers: Bool = true,
+        fillsWidth: Bool = false
     ) {
         let lowerBound = range.lowerBound
         let upperBound = range.upperBound
@@ -253,6 +304,9 @@ extension NumberField where Value: BinaryInteger {
             value: value,
             stepping: SteppedRange(range: Double(lowerBound)...Double(upperBound), step: Double(step), fractionDigits: 0),
             unit: unit,
+            unitPlacement: unitPlacement,
+            showsSteppers: showsSteppers,
+            fillsWidth: fillsWidth,
             toDouble: { Double($0) },
             // A value past what `Value` holds (Int.max through Double) takes the bound.
             fromDouble: { number in
@@ -270,20 +324,29 @@ extension NumberField where Value: BinaryFloatingPoint {
     ///   - range: The lowest and highest values.
     ///   - step: How far − / + and ↑ / ↓ move it (Shift: ten steps).
     ///   - fractionDigits: Decimals shown and kept; nil takes what `step` needs.
-    ///   - unit: Drawn after the number ("px", "s"), from your app's strings.
+    ///   - unit: Drawn beside the number ("px", "s"), from your app's strings.
+    ///   - unitPlacement: Where the unit sits: after the number, or before it ("$").
+    ///   - showsSteppers: The − / + buttons; off for a plain boxed number.
+    ///   - fillsWidth: Expand to the column instead of hugging the widest value.
     public init(
         _ title: LocalizedStringKey,
         value: Binding<Value>,
         in range: ClosedRange<Value>,
         step: Value = 1,
         fractionDigits: Int? = nil,
-        unit: LocalizedStringKey? = nil
+        unit: LocalizedStringKey? = nil,
+        unitPlacement: HorizontalEdge = .trailing,
+        showsSteppers: Bool = true,
+        fillsWidth: Bool = false
     ) {
         self.init(
             title: title,
             value: value,
             stepping: SteppedRange(range: Double(range.lowerBound)...Double(range.upperBound), step: Double(step), fractionDigits: fractionDigits),
             unit: unit,
+            unitPlacement: unitPlacement,
+            showsSteppers: showsSteppers,
+            fillsWidth: fillsWidth,
             toDouble: { Double($0) },
             fromDouble: { Value($0) }
         )
@@ -292,15 +355,17 @@ extension NumberField where Value: BinaryFloatingPoint {
 
 // MARK: - Previews
 
-#Preview("Number field", traits: .fixedLayout(width: 320, height: 200)) {
+#Preview("Number field", traits: .fixedLayout(width: 320, height: 240)) {
     @Previewable @State var days = 30
     @Previewable @State var port = 2222
     @Previewable @State var opacity = 0.85
+    @Previewable @State var price = 12
 
     VStack(alignment: .leading, spacing: Spacing.md) {
         NumberField("Days to keep", value: $days, in: 1...365, unit: "days")
-        NumberField("Port", value: $port, in: 1...65_535)
+        NumberField("Port", value: $port, in: 1...65_535, showsSteppers: false, fillsWidth: true)
         NumberField("Opacity", value: $opacity, in: 0...1, step: 0.05)
+        NumberField("Price", value: $price, in: 0...999, unit: "$", unitPlacement: .leading)
         NumberField("Days to keep", value: $days, in: 1...365, unit: "days")
             .controlSize(.small)
     }

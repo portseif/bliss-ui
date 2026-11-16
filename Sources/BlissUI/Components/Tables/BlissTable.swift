@@ -112,6 +112,12 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     private let pinsHeader: Bool
     private let autoSizeColumns: Bool
     private let contentInset: CGFloat
+    private let compact: Bool
+    private let striped: Bool
+    private let divided: Bool
+    private let showsHeader: Bool
+    /// What to show in place of the rows when there are none.
+    private let emptyState: AnyView?
     private let onOpen: ((Row) -> Void)?
     private let onSecondaryClick: ((Row, NSPoint) -> Void)?
     private let cells: (Row) -> Cells
@@ -140,6 +146,12 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     ///     too narrow the widest give way first (never below their minimum).
     ///     Fixed columns keep their width.
     ///   - contentInset: Space on each side of the rows' hover fill.
+    ///   - compact: Denser rows (`Spacing.xs` of vertical padding instead of
+    ///     the list row's) for a log or an issue list.
+    ///   - striped: Alternate rows on a faint band; hover still reads above it.
+    ///   - divided: The hairlines between rows.
+    ///   - showsHeader: The caption header; off for a table inside a card that
+    ///     already has a heading.
     ///   - onOpen: A click on a row (outside its checkbox and buttons).
     ///   - onSecondaryClick: A right- or control-click on a row, with the screen point.
     ///   - cells: One view per column, in column order.
@@ -153,6 +165,10 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
         pinsHeader: Bool = false,
         autoSizeColumns: Bool = false,
         contentInset: CGFloat = Spacing.xl,
+        compact: Bool = false,
+        striped: Bool = false,
+        divided: Bool = true,
+        showsHeader: Bool = true,
         onOpen: ((Row) -> Void)? = nil,
         onSecondaryClick: ((Row, NSPoint) -> Void)? = nil,
         @ViewBuilder cells: @escaping (Row) -> Cells
@@ -165,6 +181,51 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
         self.pinsHeader = pinsHeader
         self.autoSizeColumns = autoSizeColumns
         self.contentInset = contentInset
+        self.compact = compact
+        self.striped = striped
+        self.divided = divided
+        self.showsHeader = showsHeader
+        self.emptyState = nil
+        self.onOpen = onOpen
+        self.onSecondaryClick = onSecondaryClick
+        self.cells = cells
+        _internalSort = State(initialValue: initialSort)
+    }
+
+    /// The same table with an `emptyState` shown under the header while
+    /// `rows` is empty — an `EmptyState.contained()`, usually.
+    public init<Empty: View>(
+        _ rows: [Row],
+        columns: [BlissTableColumn<Row>],
+        selection: Binding<Set<Row.ID>>? = nil,
+        sortOrder: Binding<BlissTableSort?>? = nil,
+        initialSort: BlissTableSort? = nil,
+        isLazy: Bool = false,
+        pinsHeader: Bool = false,
+        autoSizeColumns: Bool = false,
+        contentInset: CGFloat = Spacing.xl,
+        compact: Bool = false,
+        striped: Bool = false,
+        divided: Bool = true,
+        showsHeader: Bool = true,
+        onOpen: ((Row) -> Void)? = nil,
+        onSecondaryClick: ((Row, NSPoint) -> Void)? = nil,
+        @ViewBuilder emptyState: () -> Empty,
+        @ViewBuilder cells: @escaping (Row) -> Cells
+    ) {
+        self.rows = rows
+        self.columns = columns
+        self.selection = selection
+        self.externalSort = sortOrder
+        self.isLazy = isLazy
+        self.pinsHeader = pinsHeader
+        self.autoSizeColumns = autoSizeColumns
+        self.contentInset = contentInset
+        self.compact = compact
+        self.striped = striped
+        self.divided = divided
+        self.showsHeader = showsHeader
+        self.emptyState = AnyView(emptyState())
         self.onOpen = onOpen
         self.onSecondaryClick = onSecondaryClick
         self.cells = cells
@@ -182,7 +243,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
     @ViewBuilder
     private var tableBody: some View {
         let sortedRows = self.sortedRows
-        if pinsHeader {
+        if pinsHeader && showsHeader {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 Section {
                     // One eager child, not a lazy row each: lazy rows are
@@ -209,7 +270,9 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                header(sortedRows)
+                if showsHeader {
+                    header(sortedRows)
+                }
                 if isLazy {
                     LazyVStack(alignment: .leading, spacing: 0) { rowList(sortedRows) }
                 } else {
@@ -225,6 +288,7 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
             sortOrder: sortBinding,
             selectionState: selectionState(for: sortedRows),
             contentInset: contentInset,
+            compact: compact,
             onToggleAll: { toggleAll(sortedRows) }
         )
         if autoSizeColumns {
@@ -238,11 +302,19 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
 
     @ViewBuilder
     private func rowList(_ sortedRows: [Row]) -> some View {
-        DividedForEach(sortedRows) { row in
+        if sortedRows.isEmpty, let emptyState {
+            emptyState
+                .padding(.horizontal, contentInset)
+                .padding(.vertical, Spacing.md)
+        }
+        DividedForEach(Array(sortedRows.enumerated()), id: \.element.id) { entry in
+            let row = entry.element
             BlissTableRow(
                 columns: columns,
                 isSelected: selection?.wrappedValue.contains(row.id) ?? false,
+                isStriped: striped && !entry.offset.isMultiple(of: 2),
                 showsCheckbox: selection != nil,
+                verticalPadding: compact ? Spacing.xs : Spacing.listRowPadding,
                 contentWidths: autoSizeColumns ? columnSizer.contentWidths : nil,
                 measureColumn: autoSizeColumns ? { [columnSizer] column, width in
                     columnSizer.record(width, column: column, from: AnyHashable(row.id))
@@ -256,7 +328,9 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
             .padding(.horizontal, contentInset)
         } separator: {
             // Dividers span the row's content, not its hover fill.
-            Divider().padding(.horizontal, contentInset + Spacing.sm)
+            if divided {
+                Divider().padding(.horizontal, contentInset + Spacing.sm)
+            }
         }
     }
 
@@ -342,6 +416,7 @@ public struct BlissTableHeader<Row>: View {
     @Binding private var sortOrder: BlissTableSort?
     private let selectionState: SelectionState?
     private let contentInset: CGFloat
+    private let compact: Bool
     private let onToggleAll: () -> Void
     /// The table's measured column content, when it autosizes columns.
     var contentWidths: [CGFloat]?
@@ -350,18 +425,22 @@ public struct BlissTableHeader<Row>: View {
 
     @Environment(\.colorScheme) private var scheme
 
-    /// - Parameter selectionState: nil hides the checkbox column.
+    /// - Parameters:
+    ///   - selectionState: nil hides the checkbox column.
+    ///   - compact: The denser band that goes with a compact table's rows.
     public init(
         columns: [BlissTableColumn<Row>],
         sortOrder: Binding<BlissTableSort?>,
         selectionState: SelectionState? = nil,
         contentInset: CGFloat = Spacing.xl,
+        compact: Bool = false,
         onToggleAll: @escaping () -> Void = {}
     ) {
         self.columns = columns
         self._sortOrder = sortOrder
         self.selectionState = selectionState
         self.contentInset = contentInset
+        self.compact = compact
         self.onToggleAll = onToggleAll
     }
 
@@ -370,10 +449,10 @@ public struct BlissTableHeader<Row>: View {
             if let selectionState {
                 Button(action: onToggleAll) {
                     CheckboxGlyph(isOn: selectionState == .allSelected)
-                        .padding(4)
+                        .padding(BlissTableMetrics.checkboxHitPadding)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium, outset: -2))
+                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium, outset: -Spacing.hairline))
                 .frame(width: BlissTableMetrics.checkboxWidth, alignment: .leading)
                 .disabled(selectionState == .empty)
                 .accessibilityLabel(Text("Select all", bundle: .module))
@@ -395,24 +474,17 @@ public struct BlissTableHeader<Row>: View {
         // The rows' content inset (outer inset + each row's own padding), so
         // the labels line up over their columns.
         .padding(.horizontal, contentInset + Spacing.sm)
-        .padding(.vertical, Spacing.sm)
+        .padding(.vertical, compact ? Spacing.xs : Spacing.sm)
         // A band behind the labels, as wide as the rows' hover fill, so the
-        // header reads as its own strip above the rows. It must never look like
-        // a hovered or selected row (`RowTint`): in dark mode those lighten, so
-        // the band darkens; in light mode they darken, so the band takes the
-        // window's shell surface and a hairline instead, which no row has.
+        // header reads as its own strip above the rows. `RowTint.band` is a
+        // static surface a step above the pane that never reads as a hovered
+        // or selected row, and the hairline marks it as a strip no row has.
         .background {
             let band = RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
-            if scheme == .dark {
-                band
-                    .fill(Color.black.opacity(prefersIncreasedContrast ? 0.4 : 0.22))
-                    .padding(.horizontal, contentInset)
-            } else {
-                band
-                    .fill(Color.appShell)
-                    .overlay { band.strokeBorder(Color.menuBorder, lineWidth: 1) }
-                    .padding(.horizontal, contentInset)
-            }
+            band
+                .fill(RowTint.band(scheme))
+                .overlay { band.strokeBorder(Color.menuBorder, lineWidth: 1) }
+                .padding(.horizontal, contentInset)
         }
     }
 
@@ -426,7 +498,7 @@ public struct BlissTableHeader<Row>: View {
                     sortOrder = BlissTableSort(columnID: column.id)
                 }
             } label: {
-                HStack(spacing: 3) {
+                HStack(spacing: Spacing.insetSpacing) {
                     Text(LocalizedStringKey(column.title))
                         .lineLimit(1)
                     if let sortOrder, sortOrder.columnID == column.id {
@@ -436,7 +508,7 @@ public struct BlissTableHeader<Row>: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: 3))
+            .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: Spacing.ringOutset))
             .accessibilityHint(Text("Sorts by this column", bundle: .module))
         } else {
             Text(LocalizedStringKey(column.title))
@@ -452,7 +524,9 @@ public struct BlissTableHeader<Row>: View {
 private struct BlissTableRow<Row, Cells: View>: View {
     let columns: [BlissTableColumn<Row>]
     let isSelected: Bool
+    let isStriped: Bool
     let showsCheckbox: Bool
+    let verticalPadding: CGFloat
     let contentWidths: [CGFloat]?
     let measureColumn: ((Int, CGFloat) -> Void)?
     let onToggleSelection: () -> Void
@@ -468,10 +542,10 @@ private struct BlissTableRow<Row, Cells: View>: View {
             if showsCheckbox {
                 Button(action: onToggleSelection) {
                     CheckboxGlyph(isOn: isSelected)
-                        .padding(4)
+                        .padding(BlissTableMetrics.checkboxHitPadding)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium, outset: -2))
+                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium, outset: -Spacing.hairline))
                 .frame(width: BlissTableMetrics.checkboxWidth, alignment: .leading)
                 .accessibilityLabel(Text("Select row", bundle: .module))
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
@@ -479,13 +553,16 @@ private struct BlissTableRow<Row, Cells: View>: View {
             cellArea
         }
         .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.listRowPadding)
+        .padding(.vertical, verticalPadding)
         .background {
             RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
                 .fill(backgroundFill)
         }
         .contentShape(Rectangle())
-        .onHover { isHovering = $0 }
+        .modifier(OpenKeyboardTarget(onOpen: onOpen))
+        .onHover { hovering in
+            withAnimation(Animations.hover) { isHovering = hovering }
+        }
         .modifier(SecondaryClickIfNeeded(action: onSecondaryClick))
     }
 
@@ -506,9 +583,6 @@ private struct BlissTableRow<Row, Cells: View>: View {
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onOpen)
-                // A Tab stop that Space opens, as a layer behind the cells so
-                // buttons inside a cell keep their own focus.
-                .keyboardTapTarget(cornerRadius: Sizing.radiusDefault, bleed: 0, perform: onOpen)
                 .accessibilityElement(children: .contain)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { onOpen() }
@@ -519,7 +593,23 @@ private struct BlissTableRow<Row, Cells: View>: View {
 
     private var backgroundFill: Color {
         if isSelected { return RowTint.selected(scheme) }
-        return isHovering ? RowTint.hover(scheme) : .clear
+        if isHovering { return RowTint.hover(scheme) }
+        return isStriped ? RowTint.stripe(scheme) : .clear
+    }
+}
+
+/// The row's Tab stop, when it opens: a layer behind the whole row (so the
+/// checkbox and buttons in cells keep their own focus) whose ring traces the
+/// hover fill — the same radius, no bleed, since the fill already pads.
+private struct OpenKeyboardTarget: ViewModifier {
+    let onOpen: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onOpen {
+            content.keyboardTapTarget(cornerRadius: Sizing.radiusMedium, bleed: 0, perform: onOpen)
+        } else {
+            content
+        }
     }
 }
 
@@ -541,7 +631,15 @@ private struct SecondaryClickIfNeeded: ViewModifier {
 
 enum BlissTableMetrics {
     static let columnSpacing: CGFloat = Spacing.md
-    static let checkboxWidth: CGFloat = 22
+    /// The hit area around the 14pt checkbox glyph.
+    static let checkboxHitPadding: CGFloat = Spacing.xxs
+    /// The checkbox column: the glyph (`CheckboxGlyph`'s default, `Sizing.iconSmall`)
+    /// plus its hit padding each side.
+    static let checkboxWidth: CGFloat = Sizing.iconSmall + checkboxHitPadding * 2
+    /// How many halvings the column-fitting search runs; enough to settle on a point.
+    static let fitIterations = 30
+    /// A probe never asks for more than this, however wide a cell says it wants to be.
+    static let maximumProbeWidth: CGFloat = 4000
 }
 
 /// Places its subviews side by side at their column widths: fixed columns get
@@ -621,7 +719,7 @@ public struct BlissTableRowLayout: Layout {
         }
         var low: CGFloat = 0
         var high = wanted.max() ?? 0
-        for _ in 0..<30 {
+        for _ in 0..<BlissTableMetrics.fitIterations {
             let middle = (low + high) / 2
             if total(cappedAt: middle) <= available { low = middle } else { high = middle }
         }
@@ -684,7 +782,7 @@ public struct BlissTableRowLayout: Layout {
             guard let column = probe[ColumnProbeKey.self] else { continue }
             var idealWidth = column < cells.count ? cells[column].sizeThatFits(.unspecified).width : 0
             if !idealWidth.isFinite { idealWidth = 0 }
-            probe.place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(width: min(idealWidth, 4000), height: 0))
+            probe.place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(width: min(idealWidth, BlissTableMetrics.maximumProbeWidth), height: 0))
         }
     }
 }

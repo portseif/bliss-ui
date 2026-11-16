@@ -178,6 +178,8 @@ private struct CommandPaletteDemo: View {
     @State private var isPresented = CatalogDemo.state == "palette"
     @State private var lastRun: String?
     @State private var isHoveringTrigger = false
+    @State private var placement: CommandPalettePlacement = .top
+    @State private var isCompact = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -185,6 +187,11 @@ private struct CommandPaletteDemo: View {
                 .font(Typography.bodySmall)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Spacing.md) {
+                SegmentedPills(options: [CommandPalettePlacement.top, .center], selection: $placement, style: .compact, title: { $0 == .top ? "Top" : "Center" })
+                Toggle("Compact rows", isOn: $isCompact)
+                    .toggleStyle(.flatSwitch(showsLabel: true))
+            }
 
             DemoWindow(height: 460) {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -211,7 +218,11 @@ private struct CommandPaletteDemo: View {
                 .commandPalette(
                     isPresented: $isPresented,
                     commands: CommandSidebarSamples.paletteSections { lastRun = $0 },
-                    recentsKey: "blissCatalog.commandPalette.recents"
+                    recentsKey: "blissCatalog.commandPalette.recents",
+                    width: 560,
+                    placement: placement,
+                    compact: isCompact,
+                    noResultsText: "No commands match"
                 )
             }
         }
@@ -245,10 +256,11 @@ private struct CommandPaletteDemo: View {
 private struct SidebarDemo: View {
     @State private var selection = CatalogDestination.today
     @State private var savedFilters = CommandSidebarSamples.savedFilters
+    @State private var filtersExpanded = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Click a row, or Tab to it and press Space. Hold ⌘ to see each row's shortcut. Right-click a saved filter to remove it; New filter adds one.")
+            Text("Click a row, or Tab to it and press Space. Hold ⌘ to see each row's shortcut. Right-click a saved filter to remove it; New filter or the section's + adds one. Hover Inbox for its action; the Filters section collapses.")
                 .font(Typography.bodySmall)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -265,14 +277,27 @@ private struct SidebarDemo: View {
 
     private var sidebar: some View {
         Sidebar(selection: $selection) {
+            HStack(spacing: Spacing.sm) {
+                Avatar(name: "Bliss Workspace", size: .small, shape: .rounded)
+                    .accessibilityHidden(true)
+                Text(verbatim: "Bliss Workspace")
+                    .font(Typography.bodySmallSemibold)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
+        } content: {
             SidebarSection {
-                SidebarRow("Inbox", icon: "tray", value: CatalogDestination.inbox, count: 4, shortcut: "⌘1")
+                SidebarRow("Inbox", icon: "tray", value: CatalogDestination.inbox, count: 4, shortcut: "⌘1") {
+                    HoverIconButton(systemImage: "square.and.pencil", help: "Compose") {}
+                }
                 SidebarRow("Today", icon: "sun.max", value: CatalogDestination.today, shortcut: "⌘2")
                 SidebarRow("Upcoming", icon: "calendar", value: CatalogDestination.upcoming, shortcut: "⌘3")
-                SidebarRow("Projects", icon: "folder", value: CatalogDestination.projects, count: 12, shortcut: "⌘4")
+                SidebarRow("Projects", icon: "folder", value: CatalogDestination.projects, count: 12, countStyle: .neutral, shortcut: "⌘4")
             }
             SidebarDivider()
-            SidebarSection("Filters") {
+            SidebarSection("Filters", isExpanded: $filtersExpanded) {
                 SidebarFilterRow("Running", color: Success.success500, value: CatalogDestination.running)
                 SidebarFilterRow("In review", color: Warning.warning500, value: CatalogDestination.inReview)
                 SidebarFilterRow("Recent", color: Info.info500, value: CatalogDestination.recent)
@@ -291,6 +316,8 @@ private struct SidebarDemo: View {
                         }
                 }
                 SidebarRow("New filter", icon: "plus") { addFilter() }
+            } trailing: {
+                HoverIconButton(systemImage: "plus", help: "New filter") { addFilter() }
             }
         } footer: {
             SidebarRow("Settings", icon: "gearshape", value: CatalogDestination.settings, shortcut: "⌘,")
@@ -366,10 +393,8 @@ private struct TitleBarDemo: View {
 
             DemoWindow(height: 360) {
                 VStack(spacing: 0) {
-                    WindowTitleBar(insetsForTrafficLights: false) {
+                    WindowTitleBar(title: .verbatim(CatalogDestination.title(for: selection)), subtitle: "3 items", insetsForTrafficLights: false) {
                         SidebarToggleButton(isCollapsed: $isCollapsed)
-                    } center: {
-                        Text(verbatim: CatalogDestination.title(for: selection))
                     } trailing: {
                         Button {} label: { Image(systemName: "magnifyingglass") }
                             .buttonStyle(ToolbarIconButtonStyle())
@@ -454,18 +479,27 @@ struct CatalogOutlineNode: Identifiable {
 private struct OutlineListDemo: View {
     @State private var selection: String? = "readme"
     @State private var expanded: Set<String> = ["sources", "components"]
+    @State private var isCompact = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("One Tab stop: ↑ / ↓ move, → opens a folder or steps into it, ← closes it or steps out, Space selects.")
+            Text("One Tab stop: ↑ / ↓ move, → opens a folder or steps into it, ← closes it or steps out, Space selects, Return or a double-click opens. Folders show a count in their accessory slot.")
                 .font(Typography.bodySmall)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            OutlineList(CatalogOutlineNode.tree, children: \.children, selection: $selection, expanded: $expanded) { node in
+            Toggle("Compact", isOn: $isCompact)
+                .toggleStyle(.flatSwitch(showsLabel: true))
+            OutlineList(CatalogOutlineNode.tree, children: \.children, selection: $selection, expanded: $expanded, compact: isCompact, onOpen: { node in
+                ToastService.shared.showInfo(title: "Opened", message: node.name)
+            }) { node in
                 Label {
                     Text(verbatim: node.name).font(Typography.bodySmall)
                 } icon: {
                     Image(systemName: node.icon).foregroundStyle(.secondary)
+                }
+            } accessory: { node in
+                if let children = node.children, !children.isEmpty {
+                    Badge(count: children.count).badgeStyle(.secondary).badgeSize(.small)
                 }
             }
             .frame(maxWidth: 360)
@@ -487,13 +521,17 @@ private struct SlideoutPanelDemo: View {
 
             DemoWindow(height: 400) {
                 SlideoutPageSample(isPresented: $isPresented)
-                    .slideoutPanel(isPresented: $isPresented, title: "Notifications") {
+                    .slideoutPanel(isPresented: $isPresented, title: "Notifications", subtitle: "4 unread") {
                         NotificationsSample()
                     } actions: {
                         Button("Mark all read") {}
-                            .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: 3))
-                            .font(Typography.labelSmall)
-                            .foregroundStyle(Color.accent)
+                            .buttonStyle(GhostButtonStyle(compact: true, hugsLabel: true))
+                    } footer: {
+                        HStack {
+                            Spacer()
+                            Button("Clear All") {}
+                                .buttonStyle(SecondaryButtonStyle(compact: true))
+                        }
                     }
             }
         }

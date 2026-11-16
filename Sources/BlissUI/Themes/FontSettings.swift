@@ -151,6 +151,25 @@ enum FontResolver {
     /// at BlissUI's default sizes; the stored base size scales it and the
     /// stored family and face draw it.
     static func font(_ role: FontRole, size: CGFloat, weight: Font.Weight) -> Font {
+        let (scaledSize, chosen) = resolve(role, size: size, weight: weight)
+        if let chosen { return Font(chosen as CTFont) }
+        return .system(size: scaledSize, weight: weight, design: role == .code ? .monospaced : .default)
+    }
+
+    /// The same font as an `NSFont`, for a hosted `NSTextView` (`TextArea`,
+    /// `RichTextEditor`): hosted text then follows the user's family, face and
+    /// base size like SwiftUI text does.
+    static func nsFont(_ role: FontRole, size: CGFloat, weight: Font.Weight) -> NSFont {
+        let (scaledSize, chosen) = resolve(role, size: size, weight: weight)
+        if let chosen { return chosen }
+        let nsWeight = NSFont.Weight(rawValue: CGFloat(managerWeight(weight) - FontChoice.regularWeight) / 4)
+        return role == .code
+            ? .monospacedSystemFont(ofSize: scaledSize, weight: nsWeight)
+            : .systemFont(ofSize: scaledSize, weight: nsWeight)
+    }
+
+    /// The scaled size and, when the user picked a family, its face.
+    private static func resolve(_ role: FontRole, size: CGFloat, weight: Font.Weight) -> (CGFloat, NSFont?) {
         let settings = FontSettings.current
         let scaledSize = role == .code
             ? size * CGFloat(settings.codeSize) / CGFloat(BlissAppearance.defaultCodeFontSize)
@@ -161,11 +180,8 @@ enum FontResolver {
             for: needsScheme ? ThemeColors.resolvedScheme : .light,
             separateModes: needsScheme && BlissAppearance.separateModes
         )
-        if let family = choice.family,
-           let nsFont = nsFont(family: family, weight: managerWeight(weight) + choice.weight - FontChoice.regularWeight, size: scaledSize) {
-            return Font(nsFont as CTFont)
-        }
-        return .system(size: scaledSize, weight: weight, design: role == .code ? .monospaced : .default)
+        guard let family = choice.family else { return (scaledSize, nil) }
+        return (scaledSize, nsFont(family: family, weight: managerWeight(weight) + choice.weight - FontChoice.regularWeight, size: scaledSize))
     }
 
     /// `Font.Weight` on `NSFontManager`'s 0–15 scale, where 5 is regular and

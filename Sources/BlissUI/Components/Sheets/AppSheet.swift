@@ -44,7 +44,49 @@ extension EnvironmentValues {
     /// (via `AppSheetScaffold`) to cap their scrollable content so a fixed header
     /// and footer stay pinned and only the middle scrolls. A sheet presented with
     /// `scrollsItsOwnContent` reads it to size itself.
-    @Entry public var appSheetMaxHeight: CGFloat = 600
+    @Entry public var appSheetMaxHeight: CGFloat = AppSheetMetrics.defaultMaxHeight
+
+    /// Set by a sheet presented with `interactiveDismissDisabled`: its ✕ and
+    /// Esc are gone while it saves. `SheetHeader` reads it; the sheet's own
+    /// buttons still dismiss through `appSheetDismiss`.
+    @Entry public var appSheetInteractiveDismissDisabled: Bool = false
+}
+
+// MARK: - Metrics
+
+/// The sheet card's sizes and motion.
+public enum AppSheetMetrics {
+    /// The sheet's height cap before the host measures the window.
+    public static let defaultMaxHeight: CGFloat = 600
+    /// The `.regular` width envelope: content sizes within it.
+    static let minimumWidth: CGFloat = 420
+    static let maximumWidth: CGFloat = 640
+    /// The `.large` preset's widest.
+    static let largeWidth: CGFloat = 800
+    /// Breathing room kept around the card inside the window — the card's max
+    /// height is the window height minus this on top and bottom (window − 94px).
+    static let windowMargin: CGFloat = 47
+    /// A scaffold's content never scrolls in less than this.
+    static let minimumScrollHeight: CGFloat = 120
+    /// The card grows from this scale on open (a touch smaller than the
+    /// centered 0.95 so the expansion reads clearly) and shrinks to the exit
+    /// scale on close (less, since it's quicker and on the way out).
+    static let entranceScale: CGFloat = 0.9
+    static let exitScale: CGFloat = 0.97
+    /// How long the exit (`Animations.sheetClose`) runs before the entry is removed.
+    static let exitDuration: TimeInterval = 0.22
+}
+
+/// How wide a sheet is.
+public nonisolated enum AppSheetSize: Sendable, Equatable {
+    /// A confirmation or a picker: `Sizing.sheetWidthMedium`.
+    case small
+    /// The standard envelope, filled to the window's room.
+    case regular
+    /// A wide form or a two-pane sheet.
+    case large
+    /// An exact width.
+    case custom(CGFloat)
 }
 
 // MARK: - Presenter
@@ -77,6 +119,12 @@ final class AppSheetPresenter {
         /// Drives the card's animate-out; the entry stays mounted through the
         /// spring so the exit (scale + drift + fade) is visible before removal.
         var isDismissing = false
+        /// The card's width preset.
+        var size: AppSheetSize = .regular
+        /// A click on the scrim closes the sheet.
+        var dismissesOnScrimTap = false
+        /// The ✕ and Esc are ignored (the sheet is saving).
+        var interactiveDismissDisabled = false
     }
 
     private(set) var stack: [Entry] = []
@@ -86,10 +134,16 @@ final class AppSheetPresenter {
         onDismiss: @escaping () -> Void,
         sizesToContent: Bool = false,
         scrollsItsOwnContent: Bool = false,
+        size: AppSheetSize = .regular,
+        dismissesOnScrimTap: Bool = false,
+        interactiveDismissDisabled: Bool = false,
         content: @escaping () -> C
     ) {
         var entry = Entry(id: id, make: { AnyView(content()) }, onDismiss: onDismiss, sizesToContent: sizesToContent)
         entry.scrollsItsOwnContent = scrollsItsOwnContent
+        entry.size = size
+        entry.dismissesOnScrimTap = dismissesOnScrimTap
+        entry.interactiveDismissDisabled = interactiveDismissDisabled
         if let index = stack.firstIndex(where: { $0.id == id }) {
             // Already showing (or mid-dismiss) — refresh content + cancel exit, but
             // keep the original open location so a content refresh doesn't re-anchor.
@@ -130,7 +184,7 @@ final class AppSheetPresenter {
         // Phase 1: flag the exit so the card animates out (property-driven).
         stack[index].isDismissing = true
         // Phase 2: remove once the exit spring has played.
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.exitDuration) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + AppSheetMetrics.exitDuration) { [weak self] in
             self?.stack.removeAll { $0.id == id }
         }
     }
@@ -149,9 +203,6 @@ final class AppSheetPresenter {
             dismiss(id: entry.id)
         }
     }
-
-    /// How long the exit (`Animations.sheetClose`) runs before the entry is removed.
-    private static let exitDuration: TimeInterval = 0.22
 }
 
 // MARK: - Host
@@ -166,21 +217,13 @@ struct AppSheetContainer: View {
     var leadingInset: CGFloat = 0
     @State private var presenter = AppSheetPresenter.shared
 
-    /// Standard sheet width envelope. Content sizes within this range; height is
-    /// auto (capped to the window so tall content can't overflow).
-    static let minWidth: CGFloat = 420
-    static let maxWidth: CGFloat = 640
-    /// Breathing room kept around the card inside the window — the card's max
-    /// height is the window height minus this on top and bottom (window − 94px).
-    private static let windowMargin: CGFloat = 47
-
     var body: some View {
         GeometryReader { geo in
             // The card clamps its own width (default or override) to this —
             // measured against the CONTENT pane, not the full window, so an
             // inset card never overflows the right edge.
-            let availableWidth = geo.size.width - leadingInset - Self.windowMargin * 2
-            let maxH = geo.size.height - Self.windowMargin * 2
+            let availableWidth = geo.size.width - leadingInset - AppSheetMetrics.windowMargin * 2
+            let maxH = geo.size.height - AppSheetMetrics.windowMargin * 2
             // Only the top sheet takes keys and VoiceOver: a lower one's Esc /
             // Return shortcuts would otherwise fire first (the earliest control
             // with a shortcut wins), closing or saving the sheet underneath.
@@ -235,10 +278,24 @@ private struct AppSheetCard: View {
         entry.make()
             .environment(\.appSheetDismiss, AppSheetDismissAction(sheetID: entry.id))
             .environment(\.appSheetMaxHeight, maxHeight)
+            .environment(\.appSheetInteractiveDismissDisabled, entry.interactiveDismissDisabled)
     }
-    /// Standard fill width, clamped to the window.
-    private var cardMaxWidth: CGFloat {
-        min(AppSheetContainer.maxWidth, availableWidth)
+
+    /// The preset's width envelope, clamped to the window: the narrowest the
+    /// card gets and the widest it fills to.
+    private var widthEnvelope: (minimum: CGFloat?, maximum: CGFloat?) {
+        if entry.sizesToContent { return (nil, nil) }
+        switch entry.size {
+        case .small:
+            return (nil, min(Sizing.sheetWidthMedium, availableWidth))
+        case .regular:
+            return (AppSheetMetrics.minimumWidth, min(AppSheetMetrics.maximumWidth, availableWidth))
+        case .large:
+            return (AppSheetMetrics.minimumWidth, min(AppSheetMetrics.largeWidth, availableWidth))
+        case .custom(let width):
+            let clamped = min(width, availableWidth)
+            return (clamped, clamped)
+        }
     }
 
     /// Scale origin: the point the user clicked to open, expressed in the card's
@@ -266,13 +323,21 @@ private struct AppSheetCard: View {
             // `WindowDragSurface` below it, so the backdrop both blocks clicks to
             // whatever is underneath AND lets a press-drag move the window.
             Rectangle()
-                .fill(Color.black.opacity(0.32))
+                .fill(Color.black.opacity(Scrim.opacity))
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
                 .opacity(isVisible ? 1 : 0)
 
             WindowDragSurface()
                 .ignoresSafeArea()
+
+            // A sheet that closes on a click outside — a picker, not a form.
+            if entry.dismissesOnScrimTap {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture { entry.onDismiss() }
+            }
 
             // The sheet card. Matches `ToastNotification`: scale-from-0.95 +
             // fade + a slight downward enter / upward exit drift.
@@ -304,17 +369,14 @@ private struct AppSheetCard: View {
                 // Standard sheets fill the envelope width (the scroll is constrained
                 // here, since a scroll view is horizontally greedy); self-sizing
                 // sheets hug their own width via `hugsWidth` above.
-                .frame(
-                    minWidth: entry.sizesToContent ? nil : AppSheetContainer.minWidth,
-                    maxWidth: entry.sizesToContent ? nil : cardMaxWidth
-                )
+                .frame(minWidth: widthEnvelope.minimum, maxWidth: widthEnvelope.maximum)
                 .background(Color.windowBackground)
                 .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
                         .strokeBorder(Color.menuBorder, lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.28), radius: 28, x: 0, y: 14)
+                .elevation(.sheet)
                 // Measured for the click-point scale anchor. The resize morph itself
                 // is owned by the AutoHeightScroll's `resizeAnimation` above (an
                 // after-the-fact `.animation(value:)` here can't catch growth whose
@@ -325,10 +387,8 @@ private struct AppSheetCard: View {
                     contentSize = $0
                 }
                 // Grow out of / collapse back into the click point (origin-aware),
-                // so open and close feel anchored to the trigger. A touch smaller at
-                // rest than the centered 0.95 so the expansion reads clearly; the
-                // exit shrinks less (0.97), since it's quicker and on the way out.
-                .scaleEffect(isVisible || prefersReducedMotion ? 1 : (entry.isDismissing ? 0.97 : 0.9), anchor: scaleAnchor)
+                // so open and close feel anchored to the trigger.
+                .scaleEffect(isVisible || prefersReducedMotion ? 1 : (entry.isDismissing ? AppSheetMetrics.exitScale : AppSheetMetrics.entranceScale), anchor: scaleAnchor)
                 .accessibilityAddTraits(.isModal)
                 .opacity(isVisible ? 1 : 0)
                 // Center over the content pane (right of the sidebar), matching
@@ -381,12 +441,21 @@ public struct AppSheetScaffold<Header: View, Content: View, Footer: View>: View 
     @ViewBuilder var header: Header
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
+    let showsHairlines: Bool
 
+    /// - Parameters:
+    ///   - showsHairlines: The lines between the header, content and footer;
+    ///     off for a header or footer that draws its own edge.
+    ///   - header: The pinned header.
+    ///   - content: The scrolling middle.
+    ///   - footer: The pinned footer.
     public init(
+        showsHairlines: Bool = true,
         @ViewBuilder header: () -> Header,
         @ViewBuilder content: () -> Content,
         @ViewBuilder footer: () -> Footer
     ) {
+        self.showsHairlines = showsHairlines
         self.header = header()
         self.content = content()
         self.footer = footer()
@@ -396,10 +465,10 @@ public struct AppSheetScaffold<Header: View, Content: View, Footer: View>: View 
     @State private var headerHeight: CGFloat = 0
     @State private var footerHeight: CGFloat = 0
 
-    /// Height left for the scrollable content after the fixed chrome. The `+ 2`
-    /// covers the two dividers.
+    /// Height left for the scrollable content after the fixed chrome, less the
+    /// two hairlines.
     private var availableForContent: CGFloat {
-        max(120, windowMaxHeight - headerHeight - footerHeight - 2)
+        max(AppSheetMetrics.minimumScrollHeight, windowMaxHeight - headerHeight - footerHeight - 2)
     }
 
     public var body: some View {
@@ -407,7 +476,7 @@ public struct AppSheetScaffold<Header: View, Content: View, Footer: View>: View 
             header
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
 
-            AppSheetHairline()
+            if showsHairlines { AppSheetHairline() }
 
             AutoHeightScroll(
                 showFadeMask: true,
@@ -421,7 +490,7 @@ public struct AppSheetScaffold<Header: View, Content: View, Footer: View>: View 
                 content
             }
 
-            AppSheetHairline()
+            if showsHairlines { AppSheetHairline() }
 
             footer
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { footerHeight = $0 }
@@ -458,7 +527,7 @@ private struct AppSheetHostModifier: ViewModifier {
             .accessibilityHidden(hasActiveSheet)
             // Subtle by design: paired with the dim scrim, a small radius reads
             // as focus without the cost of a heavy full-window blur each frame.
-            .blur(radius: hasActiveSheet ? 6 : 0)
+            .blur(radius: hasActiveSheet ? Scrim.backdropBlur : 0)
             .animation(hasActiveSheet ? Animations.sheet : Animations.sheetClose, value: hasActiveSheet)
             .overlay { AppSheetContainer(leadingInset: leadingInset) }
             // The scrim blocks clicks behind the sheet, but we WANT the dimmed
@@ -476,6 +545,9 @@ private struct AppSheetBoolModifier<SheetContent: View>: ViewModifier {
     let sheetContent: () -> SheetContent
     let sizesToContent: Bool
     var scrollsItsOwnContent = false
+    var size: AppSheetSize = .regular
+    var dismissesOnScrimTap = false
+    var interactiveDismissDisabled = false
     @State private var id = UUID()
 
     func body(content: Content) -> some View {
@@ -484,6 +556,9 @@ private struct AppSheetBoolModifier<SheetContent: View>: ViewModifier {
             .onChange(of: isPresented) { _, presented in
                 if presented { present() } else { AppSheetPresenter.shared.dismiss(id: id) }
             }
+            // A sheet that stops allowing dismissal mid-life (saving started)
+            // re-presents with the new flag; its content and location stay.
+            .onChange(of: interactiveDismissDisabled) { _, _ in if isPresented { present() } }
             .onDisappear { AppSheetPresenter.shared.dismiss(id: id) }
     }
 
@@ -493,6 +568,9 @@ private struct AppSheetBoolModifier<SheetContent: View>: ViewModifier {
             onDismiss: { isPresented = false },
             sizesToContent: sizesToContent,
             scrollsItsOwnContent: scrollsItsOwnContent,
+            size: size,
+            dismissesOnScrimTap: dismissesOnScrimTap,
+            interactiveDismissDisabled: interactiveDismissDisabled,
             content: sheetContent
         )
     }
@@ -503,12 +581,16 @@ private struct AppSheetItemModifier<Item: Identifiable, SheetContent: View>: Vie
     let sheetContent: (Item) -> SheetContent
     let sizesToContent: Bool
     var scrollsItsOwnContent = false
+    var size: AppSheetSize = .regular
+    var dismissesOnScrimTap = false
+    var interactiveDismissDisabled = false
     @State private var id = UUID()
 
     func body(content: Content) -> some View {
         content
             .onAppear { present() }
             .onChange(of: item?.id) { _, _ in present() }
+            .onChange(of: interactiveDismissDisabled) { _, _ in present() }
             .onDisappear { AppSheetPresenter.shared.dismiss(id: id) }
     }
 
@@ -518,7 +600,10 @@ private struct AppSheetItemModifier<Item: Identifiable, SheetContent: View>: Vie
                 id: id,
                 onDismiss: { self.item = nil },
                 sizesToContent: sizesToContent,
-                scrollsItsOwnContent: scrollsItsOwnContent
+                scrollsItsOwnContent: scrollsItsOwnContent,
+                size: size,
+                dismissesOnScrimTap: dismissesOnScrimTap,
+                interactiveDismissDisabled: interactiveDismissDisabled
             ) {
                 sheetContent(item)
             }
@@ -535,35 +620,54 @@ extension View {
     /// width (the card hugs them instead of filling the standard envelope), and
     /// `scrollsItsOwnContent` for one with an exact height that scrolls its own
     /// areas (the card then puts no scroll around it).
+    ///
+    /// - Parameters:
+    ///   - size: The card's width preset (`.regular` fills the standard envelope).
+    ///   - dismissesOnScrimTap: A click outside closes it — a picker, not a form.
+    ///   - interactiveDismissDisabled: The ✕ and Esc are ignored while true (the
+    ///     sheet is saving); `appSheetDismiss` still works.
     public func appSheet<SheetContent: View>(
         isPresented: Binding<Bool>,
         contentSized: Bool = false,
         scrollsItsOwnContent: Bool = false,
+        size: AppSheetSize = .regular,
+        dismissesOnScrimTap: Bool = false,
+        interactiveDismissDisabled: Bool = false,
         @ViewBuilder content: @escaping () -> SheetContent
     ) -> some View {
         modifier(AppSheetBoolModifier(
             isPresented: isPresented,
             sheetContent: content,
             sizesToContent: contentSized,
-            scrollsItsOwnContent: scrollsItsOwnContent
+            scrollsItsOwnContent: scrollsItsOwnContent,
+            size: size,
+            dismissesOnScrimTap: dismissesOnScrimTap,
+            interactiveDismissDisabled: interactiveDismissDisabled
         ))
     }
 
     /// Presents a custom app sheet for a non-nil `item`. Drop-in for
     /// `.sheet(item:)`; the content dismisses via `\.appSheetDismiss`.
     /// Set `contentSized` for sheets that size their own width, and
-    /// `scrollsItsOwnContent` as above.
+    /// `scrollsItsOwnContent`, `size`, `dismissesOnScrimTap` and
+    /// `interactiveDismissDisabled` as above.
     public func appSheet<Item: Identifiable, SheetContent: View>(
         item: Binding<Item?>,
         contentSized: Bool = false,
         scrollsItsOwnContent: Bool = false,
+        size: AppSheetSize = .regular,
+        dismissesOnScrimTap: Bool = false,
+        interactiveDismissDisabled: Bool = false,
         @ViewBuilder content: @escaping (Item) -> SheetContent
     ) -> some View {
         modifier(AppSheetItemModifier(
             item: item,
             sheetContent: content,
             sizesToContent: contentSized,
-            scrollsItsOwnContent: scrollsItsOwnContent
+            scrollsItsOwnContent: scrollsItsOwnContent,
+            size: size,
+            dismissesOnScrimTap: dismissesOnScrimTap,
+            interactiveDismissDisabled: interactiveDismissDisabled
         ))
     }
 }

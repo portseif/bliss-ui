@@ -15,6 +15,20 @@
 
 import SwiftUI
 
+// MARK: - Menu row tones
+
+/// The tones every picker's menu rows draw with (`SuggestionListContent`,
+/// `FloatingMenuPicker`): the title at full strength whether or not the row is
+/// the current value — the checkmark says which — and the marks a step back.
+enum MenuRowTone {
+    /// A row's title.
+    static var title: Color { Color.textPrimary }
+    /// The checkmark on the current value.
+    static var checkmark: Color { Color.textSecondary }
+    /// A row's leading glyph.
+    static var icon: Color { Color.textSecondary }
+}
+
 // MARK: - Ranking
 
 /// Orders suggestions by how well they match what was typed. Pure, so it's
@@ -149,13 +163,15 @@ struct SuggestionListContent<Item: Hashable>: View {
     var showsNoMatches = false
     /// The current value's title, checked in the list.
     var currentTitle: String? = nil
+    /// A leading SF Symbol per row.
+    var icon: ((Item) -> String)? = nil
     let title: (Item) -> String
     let onPick: (Item) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             ForEach(Array(model.matches.enumerated()), id: \.offset) { index, item in
                 row(item, index: index)
             }
@@ -178,21 +194,27 @@ struct SuggestionListContent<Item: Hashable>: View {
             onPick(item)
         } label: {
             HStack(spacing: Spacing.sm) {
+                if let icon {
+                    Image(systemName: icon(item))
+                        .font(Typography.caption)
+                        .foregroundStyle(MenuRowTone.icon)
+                        .frame(width: Sizing.iconDefault)
+                }
                 Text(emphasized(itemTitle))
                     .font(Typography.bodySmall)
-                    .foregroundStyle(textColor(isCurrent: isCurrent))
+                    .foregroundStyle(MenuRowTone.title)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: Spacing.sm)
                 if isCurrent {
                     Image(systemName: "checkmark")
                         .font(Typography.labelSmall)
-                        .foregroundStyle(checkmarkColor)
+                        .foregroundStyle(MenuRowTone.checkmark)
                 }
             }
-            // The menu rows' compact padding (≈ a native menu row).
-            .padding(.horizontal, Spacing.sm + 2)
-            .padding(.vertical, Spacing.xs - 1)
+            // The menu rows' inset: a step tighter than a list row.
+            .padding(.horizontal, Spacing.menuRowPaddingH)
+            .padding(.vertical, Spacing.menuRowPaddingV)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
@@ -221,8 +243,8 @@ struct SuggestionListContent<Item: Hashable>: View {
         text
             .font(Typography.captionSmall)
             .foregroundStyle(.tertiary)
-            .padding(.horizontal, Spacing.sm + 2)
-            .padding(.vertical, Spacing.xs - 1)
+            .padding(.horizontal, Spacing.menuRowPaddingH)
+            .padding(.vertical, Spacing.menuRowPaddingV)
     }
 
     /// The title with the typed text in the semibold face (the same 13pt).
@@ -234,16 +256,5 @@ struct SuggestionListContent<Item: Hashable>: View {
         else { return attributed }
         attributed[lower..<upper].font = Typography.labelMediumBold
         return attributed
-    }
-
-    /// `FloatingMenuPicker`'s row text: full strength for the current value,
-    /// a step back for the rest.
-    private func textColor(isCurrent: Bool) -> Color {
-        if isCurrent { return colorScheme == .dark ? .white : .primary }
-        return colorScheme == .dark ? Color.white.opacity(0.7) : Color.black.opacity(0.6)
-    }
-
-    private var checkmarkColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.5) : Color.black.opacity(0.45)
     }
 }

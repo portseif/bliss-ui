@@ -159,6 +159,24 @@ public enum Animations {
     /// Use only when no semantic token fits. If you reach for this twice,
     /// add a named token instead.
     public static let standard: Animation = .spring(response: 0.3, dampingFraction: 0.85)
+
+    // MARK: - Interaction constants
+
+    /// How far a text button, a card or a chip shrinks while pressed.
+    public static let pressScale: CGFloat = 0.97
+
+    /// How far an icon-only chip shrinks while pressed — a small target needs a
+    /// bigger cue.
+    public static let iconPressScale: CGFloat = 0.92
+
+    /// How a disabled control dims when its style has no dedicated disabled fill.
+    public static let disabledOpacity: Double = 0.5
+
+    /// The indeterminate spinner's turn — the one place linear timing belongs.
+    public static let spinner: Animation = .linear(duration: 0.8).repeatForever(autoreverses: false)
+
+    /// A `SlidingNumber` digit column settling on its new value.
+    public static let slidingNumber: Animation = .spring(response: 0.4, dampingFraction: 0.8)
 }
 
 // MARK: - Platform & Accessibility

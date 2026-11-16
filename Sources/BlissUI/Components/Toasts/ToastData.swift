@@ -54,17 +54,17 @@ public enum ToastStyle: Equatable {
         case .error: return Danger.danger500
         case .warning: return Warning.warning500
         case .info: return Info.info500
-            case .inProgress, .progress: return Color.accent
+        case .inProgress, .progress: return Color.accent
         }
     }
 
+    /// The pill's hairline: the status wash's border for an error or a warning
+    /// (the toasts that stay up and ask for attention), the neutral hairline
+    /// for the rest.
     func borderColor(for colorScheme: ColorScheme) -> Color {
-        let opacity = colorScheme == .dark ? 0.4 : 0.25
         switch self {
-        case .success: return Success.tint.opacity(opacity)
-        case .error: return Danger.tint.opacity(opacity)
-        case .warning: return Warning.tint.opacity(opacity)
-        case .info, .inProgress, .progress: return Color.accent.opacity(opacity)
+        case .error, .warning: return StatusWash.border(iconColor, colorScheme)
+        case .success, .info, .inProgress, .progress: return Color.menuBorder
         }
     }
 
@@ -101,18 +101,31 @@ public struct ToastAction: Equatable, Identifiable {
     public let label: String
     /// SF Symbol name.
     public let icon: String?
+    /// A filled compact button instead of an accent text link — the one action
+    /// the toast is for ("Update ready · Install").
+    public var isProminent: Bool
     public let action: () -> Void
 
-    public init(id: UUID = UUID(), label: String, icon: String? = nil, action: @escaping () -> Void) {
+    public init(id: UUID = UUID(), label: String, icon: String? = nil, isProminent: Bool = false, action: @escaping () -> Void) {
         self.id = id
         self.label = label
         self.icon = icon
+        self.isProminent = isProminent
         self.action = action
     }
 
     public static func == (lhs: ToastAction, rhs: ToastAction) -> Bool {
-        lhs.id == rhs.id && lhs.label == rhs.label && lhs.icon == rhs.icon
+        lhs.id == rhs.id && lhs.label == rhs.label && lhs.icon == rhs.icon && lhs.isProminent == rhs.isProminent
     }
+}
+
+/// How a status toast lays out its title and detail.
+public nonisolated enum ToastLayout: Sendable {
+    /// `Title · detail · detail` on one line.
+    case inline
+    /// The title over a smaller detail line, like a `Banner` — for a detail
+    /// that doesn't fit beside the title.
+    case stacked
 }
 
 /// One inline detail segment rendered after the title as `· text`. `isProminent`
@@ -200,6 +213,8 @@ public struct ToastData: Equatable, Identifiable {
     /// Structured per-item rows for the expanded in-progress card (replaces the
     /// plain `fullMessage` text when present).
     public var detailItems: [ToastDetailItem]
+    /// Title and detail on one line, or the title over the detail.
+    public var layout: ToastLayout
     /// Tap-anywhere handler. When set, clicking the pill runs this INSTEAD of
     /// the expand accordion (e.g. a minimized task's toast reopening its
     /// sheet). Excluded from equality.
@@ -219,6 +234,7 @@ public struct ToastData: Equatable, Identifiable {
             && lhs.totalItems == rhs.totalItems
             && lhs.failedAt == rhs.failedAt
             && lhs.detailItems == rhs.detailItems
+            && lhs.layout == rhs.layout
     }
 
     public init(
@@ -235,6 +251,7 @@ public struct ToastData: Equatable, Identifiable {
         totalItems: Int? = nil,
         failedAt: Date? = nil,
         detailItems: [ToastDetailItem] = [],
+        layout: ToastLayout = .inline,
         primaryAction: (() -> Void)? = nil
     ) {
         self.id = id
@@ -250,6 +267,7 @@ public struct ToastData: Equatable, Identifiable {
         self.totalItems = totalItems
         self.failedAt = failedAt
         self.detailItems = detailItems
+        self.layout = layout
         self.primaryAction = primaryAction
     }
 

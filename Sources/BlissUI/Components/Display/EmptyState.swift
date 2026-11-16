@@ -2,7 +2,8 @@
 //  EmptyState.swift
 //  BlissUI
 //
-//  Created by Chris Seifert on 12/8/25.
+//  The one empty state: a glyph, a title, a line under it, and the actions
+//  that fill the space.
 //
 
 import SwiftUI
@@ -13,50 +14,78 @@ import SwiftUI
 /// look everywhere, and it always fills its container vertically and
 /// horizontally so callers don't need their own `.frame(maxHeight: .infinity)`.
 ///
-/// It never shrinks below `minimumHeight`, so in a height-hugging host (an
+/// It never shrinks below `minHeight`, so in a height-hugging host (an
 /// auto-height sheet) it still reads as a proper empty state. Inside a
 /// `ScrollViewWithThinIndicator`, the scroll must pass `fillsViewport: true`
 /// for the empty state to take the remaining visible height (a scroll view
-/// otherwise proposes no height and the state collapses to `minimumHeight`).
+/// otherwise proposes no height and the state collapses to `minHeight`).
 ///
-/// Optional `actions` builder lets callers slot buttons / menus / links
+/// `compact: true` is the small version for an inspector pane, a table body
+/// or a popover: a 24pt glyph, a semibold body title and a caption, half the
+/// floor. Optional `actions` builder lets callers slot buttons / menus / links
 /// below the subtitle without recreating the layout. When omitted, the
 /// `EmptyView` overload is used and no extra spacing is added.
 public struct EmptyState<Actions: View>: View {
     let icon: String
     let title: LocalizedStringKey
     var subtitle: LocalizedStringKey?
+    var compact: Bool
+    var iconColor: Color?
+    var minHeight: CGFloat
     let actions: Actions
 
     /// Floor for hosts that hug their content (sheets, scroll content).
     public static var minimumHeight: CGFloat { 240 }
 
+    /// The compact version's floor.
+    public static var compactMinimumHeight: CGFloat { 120 }
+
+    /// The dashed outline of `contained()`: `primary` at this opacity, not
+    /// `Color.menuBorder` — a dash only inks half its length, and the menu
+    /// hairline dashed all but disappeared.
+    static var outlineOpacity: Double { 0.16 }
+
+    /// - Parameters:
+    ///   - icon: The SF Symbol.
+    ///   - title: What's missing. Looked up in your app's strings.
+    ///   - subtitle: What to do about it.
+    ///   - compact: The small version, for a pane or a table body.
+    ///   - iconColor: The glyph's color; nil is tertiary. `Danger.danger500`
+    ///     for an error state, `Color.accent` for a first run.
+    ///   - minHeight: The floor; the regular or compact default when nil.
+    ///   - actions: Buttons, menus or links under the subtitle.
     public init(
         icon: String,
         title: LocalizedStringKey,
         subtitle: LocalizedStringKey? = nil,
+        compact: Bool = false,
+        iconColor: Color? = nil,
+        minHeight: CGFloat? = nil,
         @ViewBuilder actions: () -> Actions
     ) {
         self.icon = icon
         self.title = title
         self.subtitle = subtitle
+        self.compact = compact
+        self.iconColor = iconColor
+        self.minHeight = minHeight ?? (compact ? Self.compactMinimumHeight : Self.minimumHeight)
         self.actions = actions()
     }
 
     public var body: some View {
-        VStack(spacing: Spacing.lg) {
+        VStack(spacing: compact ? Spacing.sm : Spacing.lg) {
             Image(systemName: icon)
-                .font(.system(size: Sizing.iconXLarge, weight: .light))
-                .foregroundStyle(.tertiary)
+                .font(compact ? Typography.headingLarge : Typography.displayLargeLight)
+                .foregroundStyle(iconColor.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.tertiary))
 
-            VStack(spacing: Spacing.xs) {
+            VStack(spacing: compact ? Spacing.xxs : Spacing.xs) {
                 Text(title)
-                    .font(Typography.headingMedium)
+                    .font(compact ? Typography.bodySmallSemibold : Typography.headingMedium)
                     .foregroundStyle(.primary)
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(Typography.bodySmall)
+                        .font(compact ? Typography.captionSmall : Typography.bodySmall)
                         .foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.center)
                 }
@@ -69,12 +98,12 @@ public struct EmptyState<Actions: View>: View {
             // stray ~8pt gap underneath the subtitle when there are none.
             if Actions.self != EmptyView.self {
                 actions
-                    .padding(.top, Spacing.sm)
+                    .padding(.top, compact ? Spacing.xxs : Spacing.sm)
             } else {
                 actions
             }
         }
-        .frame(maxWidth: .infinity, minHeight: Self.minimumHeight, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, minHeight: minHeight, maxHeight: .infinity)
         .padding(.horizontal, Spacing.md)
     }
 }
@@ -85,9 +114,12 @@ extension EmptyState where Actions == EmptyView {
     public init(
         icon: String,
         title: LocalizedStringKey,
-        subtitle: LocalizedStringKey? = nil
+        subtitle: LocalizedStringKey? = nil,
+        compact: Bool = false,
+        iconColor: Color? = nil,
+        minHeight: CGFloat? = nil
     ) {
-        self.init(icon: icon, title: title, subtitle: subtitle, actions: { EmptyView() })
+        self.init(icon: icon, title: title, subtitle: subtitle, compact: compact, iconColor: iconColor, minHeight: minHeight, actions: { EmptyView() })
     }
 }
 
@@ -95,7 +127,7 @@ extension EmptyState where Actions == EmptyView {
 
 extension EmptyState {
     /// An empty state that's one section of a page with other content on it —
-    /// a detail page's tabs. It hugs its natural height (`minimumHeight`)
+    /// a detail page's tabs. It hugs its natural height (`minHeight`)
     /// so it sits right under its heading or controls instead of floating in
     /// the middle of whatever viewport is left, inside a dashed placeholder
     /// outline that marks the spot the content will fill. Same icon, title
@@ -103,14 +135,14 @@ extension EmptyState {
     ///
     /// A whole-pane empty (a destination with nothing in it, a sheet) stays
     /// borderless: the pane is already the container.
-    ///
-    /// The outline is `primary` at 0.16, not `Color.menuBorder`: a dash only
-    /// inks half its length, and the menu hairline dashed all but disappeared.
     public func contained() -> some View {
         fixedSize(horizontal: false, vertical: true)
             .background {
                 RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.16), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .strokeBorder(
+                        Color.primary.opacity(Self.outlineOpacity),
+                        style: StrokeStyle(lineWidth: 1, dash: [Spacing.xxs, Spacing.xxs])
+                    )
             }
     }
 }
@@ -140,6 +172,17 @@ extension EmptyState {
         )
         .contained()
         Spacer(minLength: 0)
+    }
+    .padding(Spacing.xl)
+    .background(Color.windowBackground)
+}
+
+#Preview("Compact and error", traits: .fixedLayout(width: 600, height: 300)) {
+    HStack(spacing: Spacing.lg) {
+        EmptyState(icon: "tray", title: .verbatim("No results"), subtitle: .verbatim("Try another search."), compact: true)
+            .contained()
+        EmptyState(icon: "wifi.exclamationmark", title: .verbatim("Couldn't load"), subtitle: .verbatim("Check your connection."), compact: true, iconColor: Danger.danger500)
+            .contained()
     }
     .padding(Spacing.xl)
     .background(Color.windowBackground)

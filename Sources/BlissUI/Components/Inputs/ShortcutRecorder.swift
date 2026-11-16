@@ -249,6 +249,8 @@ nonisolated enum ShortcutRecording {
 /// none). Esc cancels; Delete clears.
 public struct ShortcutRecorder: View {
     @Binding private var shortcut: KeyboardShortcutValue?
+    private let placeholder: LocalizedStringKey?
+    private let isClearable: Bool
 
     @State private var isRecording = false
     /// The modifiers held while recording, shown until a key lands.
@@ -258,21 +260,32 @@ public struct ShortcutRecorder: View {
     @State private var rejectionGeneration = 0
     @FocusState private var isFocused: Bool
 
-    /// - Parameter shortcut: The recorded combination; nil for none.
-    public init(shortcut: Binding<KeyboardShortcutValue?>) {
+    /// - Parameters:
+    ///   - shortcut: The recorded combination; nil for none.
+    ///   - placeholder: What the idle recorder says with no shortcut ("None",
+    ///     "Click to set"); "Record Shortcut" when nil.
+    ///   - isClearable: The ✕ and Delete clear the shortcut. Off for one the
+    ///     app requires.
+    public init(
+        shortcut: Binding<KeyboardShortcutValue?>,
+        placeholder: LocalizedStringKey? = nil,
+        isClearable: Bool = true
+    ) {
         self._shortcut = shortcut
+        self.placeholder = placeholder
+        self.isClearable = isClearable
     }
 
     /// Room the label leaves for the trailing ✕ or esc pill.
     private let trailingReserve: CGFloat = Sizing.controlSmall
 
-    private var showsClearButton: Bool { shortcut != nil && !isRecording }
+    private var showsClearButton: Bool { isClearable && shortcut != nil && !isRecording }
 
     public var body: some View {
         Button(action: toggleRecording) {
             label
                 .padding(.trailing, isRecording || showsClearButton ? trailingReserve : 0)
-                .frame(minWidth: 132, alignment: .leading)
+                .frame(minWidth: ShortcutRecorderMetrics.minimumWidth, alignment: .leading)
         }
         .buttonStyle(ShortcutRecorderButtonStyle(isRecording: isRecording, isFocused: $isFocused))
         .background {
@@ -287,7 +300,7 @@ public struct ShortcutRecorder: View {
         // Delete clears while the recorder has the ring (recording, the
         // monitor has the keys first).
         .onKeyPress(keys: [.delete, .backspace, .deleteForward]) { _ in
-            guard shortcut != nil else { return .ignored }
+            guard isClearable, shortcut != nil else { return .ignored }
             shortcut = nil
             return .handled
         }
@@ -300,8 +313,8 @@ public struct ShortcutRecorder: View {
     /// keyboard focus (it falls to the window's first text field).
     private var label: some View {
         ZStack(alignment: .leading) {
-            Text(verbatim: labelText)
-                .font(rejectedCombo == nil ? Typography.bodySmall : Typography.codeTiny)
+            labelText
+                .font(rejectedCombo == nil ? Typography.labelMedium : Typography.codeTiny)
                 .foregroundStyle(rejectedCombo == nil ? Color.secondary : Danger.danger500)
                 .opacity(keyCapText == nil ? 1 : 0)
             ShortcutKey(keyCapText ?? "")
@@ -310,11 +323,13 @@ public struct ShortcutRecorder: View {
     }
 
     /// The prompt, or a refused combo.
-    private var labelText: String {
+    private var labelText: Text {
         if isRecording {
-            return rejectedCombo ?? String(localized: "Press a shortcut", bundle: .module)
+            if let rejectedCombo { return Text(verbatim: rejectedCombo) }
+            return Text("Press a shortcut", bundle: .module)
         }
-        return String(localized: "Record Shortcut", bundle: .module)
+        if let placeholder { return Text(placeholder) }
+        return Text("Record Shortcut", bundle: .module)
     }
 
     /// The key cap: the held modifiers while recording, else the shortcut.
@@ -334,7 +349,7 @@ public struct ShortcutRecorder: View {
                 .padding(.trailing, Spacing.xs)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
-        } else if shortcut != nil {
+        } else if showsClearButton {
             HoverIconButton(
                 systemImage: "xmark.circle.fill",
                 help: String(localized: "Clear Shortcut", bundle: .module)
@@ -384,7 +399,7 @@ public struct ShortcutRecorder: View {
         case .cancel:
             stopRecording()
         case .clear:
-            shortcut = nil
+            if isClearable { shortcut = nil }
             stopRecording()
         case .leave:
             stopRecording()
@@ -405,18 +420,27 @@ public struct ShortcutRecorder: View {
         let generation = rejectionGeneration
         rejectedCombo = value.displayString
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(900))
+            try? await Task.sleep(for: ShortcutRecorderMetrics.rejectionFlashDuration)
             guard generation == rejectionGeneration else { return }
             withAnimation(Animations.hover) { rejectedCombo = nil }
         }
     }
 }
 
+/// The recorder's measures.
+enum ShortcutRecorderMetrics {
+    /// Wide enough for "Record Shortcut" and the ✕.
+    static let minimumWidth: CGFloat = 132
+    /// How long a refused combo shows in `Danger`.
+    static let rejectionFlashDuration: Duration = .milliseconds(900)
+}
+
 // MARK: - Button Style
 
-/// The recorder's box: the input box's resting fill and hairline, `RowTint`
-/// hover, and the shared ring — after keyboard input while idle, always while
-/// recording (it's taking keys, like a focused field).
+/// The recorder's box: the shared `.inputBox` (so it's a field — the resting
+/// fill, the hairline, the ring on focus) with `RowTint` hover and press over
+/// it. The ring stays up while recording: it's taking keys, like a focused
+/// field.
 private struct ShortcutRecorderButtonStyle: ButtonStyle {
     let isRecording: Bool
     let isFocused: FocusState<Bool>.Binding
@@ -438,33 +462,29 @@ private struct ShortcutRecorderChrome: View {
     @Environment(\.isEnabled) private var isEnabled
 
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+        RoundedRectangle(cornerRadius: Sizing.fieldCornerRadius, style: .continuous)
     }
 
-    private var fill: Color {
-        if isRecording { return Color.controlBackground }
+    /// Hover and press over the box's own fill; nothing while recording.
+    private var hoverFill: Color {
+        if isRecording { return .clear }
         if configuration.isPressed { return RowTint.selected(colorScheme) }
         if isHovering { return RowTint.hover(colorScheme) }
-        return Color.primary.opacity(0.04)
+        return .clear
     }
 
     var body: some View {
         configuration.label
-            .padding(.horizontal, Spacing.sm)
+            .padding(.horizontal, Spacing.fieldPaddingH)
             .frame(minHeight: Sizing.controlDefault)
-            .background { shape.fill(fill) }
-            .overlay { shape.strokeBorder(Color.menuBorder, lineWidth: 1) }
-            .focusRing(
-                isFocused: isFocused.wrappedValue || isRecording,
-                cornerRadius: Sizing.radiusMedium,
-                showsOnPointerFocus: isRecording
-            )
+            .background { shape.fill(hoverFill) }
+            .inputBox(isFocused: isFocused.wrappedValue || isRecording)
             .contentShape(shape)
             .focusable()
             .focused(isFocused)
             .focusEffectDisabled()
             .onHover { isHovering = isEnabled && $0 }
-            .opacity(isEnabled ? 1 : 0.5)
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .animation(Animations.hover, value: isHovering)
             .animation(Animations.press, value: configuration.isPressed)
     }
@@ -572,12 +592,13 @@ private struct ShortcutRecorderPreviewHost: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             ShortcutRecorder(shortcut: $shortcut)
-            ShortcutRecorder(shortcut: $emptyShortcut)
+            ShortcutRecorder(shortcut: $emptyShortcut, placeholder: "None")
+            ShortcutRecorder(shortcut: $shortcut, isClearable: false)
         }
         .padding(Spacing.xl)
     }
 }
 
-#Preview(traits: .fixedLayout(width: 280, height: 140)) {
+#Preview(traits: .fixedLayout(width: 280, height: 180)) {
     ShortcutRecorderPreviewHost()
 }

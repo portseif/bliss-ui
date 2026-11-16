@@ -31,6 +31,10 @@ public class ToastService {
     /// running operation's toast only goes when every toast is one.
     public static let maxToasts = 5
 
+    /// How long a success or info toast stays up — the one home for the delay
+    /// `show`, `.toast(_:)` and `.globalToast()` share.
+    public nonisolated static let defaultAutoDismissDelay: TimeInterval = 3.0
+
     // Bookkeeping no view reads, so it isn't observed.
     @ObservationIgnored private var autoDismissTasks: [UUID: Task<Void, Never>] = [:]
     /// Actions that cancel the operation feeding a toast (e.g. an in-flight upload).
@@ -45,7 +49,7 @@ public class ToastService {
     /// Puts `toast` on top of the stack, or updates it in place when a toast with
     /// its id is already up. Success and info toasts leave after
     /// `autoDismissDelay`; pass `autoDismiss` to force that on or off.
-    public func show(_ toast: ToastData, autoDismissDelay: TimeInterval = 3.0, autoDismiss: Bool? = nil) {
+    public func show(_ toast: ToastData, autoDismissDelay: TimeInterval = ToastService.defaultAutoDismissDelay, autoDismiss: Bool? = nil) {
         if let index = toasts.firstIndex(where: { $0.id == toast.id }) {
             // A progress tick updates in place; announce only when it turns into a result.
             if toasts[index].style.isOngoing && !toast.style.isOngoing { announce(toast) }
@@ -98,6 +102,19 @@ public class ToastService {
 
     public func showInfo(title: String, message: String, icon: String? = nil, actions: [ToastAction] = []) {
         show(.info(title: title, message: message, icon: icon, actions: actions))
+    }
+
+    /// A completed-with-skips toast (amber); it stays up until dismissed.
+    public func showWarning(title: String, message: String, icon: String? = nil, fullMessage: String? = nil, failures: [ToastFailure] = [], totalItems: Int? = nil, actions: [ToastAction] = []) {
+        show(.warning(title: title, message: message, icon: icon, fullMessage: fullMessage, failures: failures, totalItems: totalItems, actions: actions))
+    }
+
+    /// An indeterminate in-progress toast; the caller takes it down with
+    /// `dismiss(id:)` (pass the toast's id through `ToastData.inProgress`).
+    public func showInProgress(title: String, message: String, icon: String? = nil, startedAt: Date? = nil) {
+        var toast = ToastData.inProgress(title: title, message: message, icon: icon)
+        toast.startedAt = startedAt
+        show(toast)
     }
 
     public func showProgress(title: String, message: String, progress: Double, icon: String? = nil) {

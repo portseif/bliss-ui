@@ -125,7 +125,10 @@ public struct TokenField<Token: Hashable>: View {
     private let placeholder: LocalizedStringKey
     private let suggestions: [Token]
     private let maxSuggestions: Int
+    private let maximumTokens: Int?
+    private let allowsCustomTokens: Bool
     private let title: (Token) -> String
+    private let tokenIcon: ((Token) -> String?)?
     private let makeToken: (String) -> Token?
     private let isValid: (Token) -> Bool
 
@@ -146,7 +149,12 @@ public struct TokenField<Token: Hashable>: View {
     ///   - suggestions: Offered under the field as you type (those already
     ///     added are left out). Empty for none.
     ///   - maxSuggestions: The most rows the list shows; the rest are counted.
+    ///   - maximumTokens: The most tokens the field takes (one recipient, up
+    ///     to five tags); past it an entry beeps. nil for no limit.
+    ///   - allowsCustomTokens: Off, typed text only becomes a token when it
+    ///     matches a suggestion's title (the way `ComboBox` restricts).
     ///   - title: How a token reads on its chip.
+    ///   - tokenIcon: An SF Symbol before a chip's title; nil for none.
     ///   - makeToken: Turns entered text into a token; nil rejects it.
     ///   - isValid: False tints a token `Danger` (it's still added).
     public init(
@@ -154,7 +162,10 @@ public struct TokenField<Token: Hashable>: View {
         tokens: Binding<[Token]>,
         suggestions: [Token] = [],
         maxSuggestions: Int = 8,
+        maximumTokens: Int? = nil,
+        allowsCustomTokens: Bool = true,
         title: @escaping (Token) -> String,
+        tokenIcon: ((Token) -> String?)? = nil,
         makeToken: @escaping (String) -> Token?,
         isValid: @escaping (Token) -> Bool = { _ in true }
     ) {
@@ -162,16 +173,20 @@ public struct TokenField<Token: Hashable>: View {
         self._tokens = tokens
         self.suggestions = suggestions
         self.maxSuggestions = maxSuggestions
+        self.maximumTokens = maximumTokens.flatMap { $0 > 0 ? $0 : nil }
+        self.allowsCustomTokens = allowsCustomTokens
         self.title = title
+        self.tokenIcon = tokenIcon
         self.makeToken = makeToken
         self.isValid = isValid
     }
 
     public var body: some View {
-        TokenFlowLayout(spacing: Spacing.xxs, minimumFieldWidth: 64) {
+        TokenFlowLayout(spacing: Spacing.xxs, minimumFieldWidth: TokenFieldMetrics.minimumFieldWidth) {
             ForEach(Array(chipIDs.enumerated()), id: \.element) { index, chipID in
                 TokenChip(
                     title: title(chipID.token),
+                    systemImage: tokenIcon?(chipID.token),
                     isInvalid: !isValid(chipID.token),
                     isSelected: selectedIndex == index,
                     isFlashing: flashedIndex == index,
@@ -181,7 +196,7 @@ public struct TokenField<Token: Hashable>: View {
                     },
                     onRemove: { removeToken(at: index) }
                 )
-                .transition(.motion(.scale(scale: 0.85).combined(with: .opacity)))
+                .transition(.motion(.scale(scale: TokenFieldMetrics.chipTransitionScale).combined(with: .opacity)))
             }
             field
         }
@@ -191,7 +206,7 @@ public struct TokenField<Token: Hashable>: View {
         .contentShape(Rectangle())
         // A click on the box between chips types into the field.
         .onTapGesture { isFieldFocused = true }
-        .inputBox(isFocused: isFieldFocused, cornerRadius: Sizing.radiusMedium)
+        .inputBox(isFocused: isFieldFocused, cornerRadius: Sizing.textBoxCornerRadius)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { boxWidth = $0 }
         .background(alignment: .bottom) { suggestionAnchor }
         .onChange(of: draft) { oldText, newText in handleDraftChange(from: oldText, to: newText) }
@@ -216,7 +231,7 @@ public struct TokenField<Token: Hashable>: View {
             Text(placeholder)
         }
         .textFieldStyle(.plain)
-        .font(Typography.bodySmall)
+        .font(Typography.labelMedium)
         .focused($isFieldFocused)
         .padding(.horizontal, Spacing.xxs)
         .onKeyPress { press in handleKey(press) }
@@ -239,7 +254,7 @@ public struct TokenField<Token: Hashable>: View {
         Color.clear
             .frame(height: 0)
             .floatingMenu(isPresented: $list.isPresented, xPosition: .leading, yPosition: .below, menuGap: Spacing.xxs) {
-                SuggestionListContent(model: list, width: max(boxWidth, 160), title: title) { token in
+                SuggestionListContent(model: list, width: max(boxWidth, Sizing.menuMinWidth), title: title) { token in
                     pick(token)
                 }
             }
@@ -271,14 +286,35 @@ public struct TokenField<Token: Hashable>: View {
     private func insert(_ candidates: [Token]) {
         guard !candidates.isEmpty else { return }
         let result = TokenParsing.appending(candidates, to: tokens, title: title)
-        if result.tokens.count != tokens.count {
-            withAnimation(tokenAnimation) { tokens = result.tokens }
+        var newTokens = result.tokens
+        // Past the limit the rest are refused with a beep, like a full field.
+        if let maximumTokens, newTokens.count > maximumTokens {
+            newTokens = Array(newTokens.prefix(max(maximumTokens, tokens.count)))
+            NSSound.beep()
+        }
+        if newTokens.count != tokens.count {
+            withAnimation(tokenAnimation) { tokens = newTokens }
         }
         if let duplicate = result.duplicates.last { flash(duplicate) }
     }
 
+    /// Typed titles become tokens — or, when custom tokens are off, only the
+    /// suggestions they name (case-insensitively); anything else beeps and
+    /// stays in the field.
     private func insertTitles(_ titles: [String]) {
-        insert(titles.compactMap(makeToken))
+        guard !allowsCustomTokens else {
+            insert(titles.compactMap(makeToken))
+            return
+        }
+        let suggestionTitles = suggestions.map(title)
+        let matched = titles.compactMap { typed in
+            TokenParsing.indexOfDuplicate(typed, in: suggestionTitles).map { suggestions[$0] }
+        }
+        if matched.count < titles.count {
+            NSSound.beep()
+            draft = titles.filter { TokenParsing.indexOfDuplicate($0, in: suggestionTitles) == nil }.joined(separator: ", ")
+        }
+        insert(matched)
     }
 
     private func removeToken(at index: Int) {
@@ -309,7 +345,7 @@ public struct TokenField<Token: Hashable>: View {
         let generation = flashGeneration
         withAnimation(Animations.hover) { flashedIndex = index }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(700))
+            try? await Task.sleep(for: TokenFieldMetrics.flashDuration)
             guard generation == flashGeneration else { return }
             withAnimation(Animations.hover) { flashedIndex = nil }
         }
@@ -452,12 +488,18 @@ extension TokenField where Token == String {
     ///   - tokens: The tokens, in order.
     ///   - suggestions: Offered under the field as you type. Empty for none.
     ///   - maxSuggestions: The most rows the list shows; the rest are counted.
+    ///   - maximumTokens: The most tokens the field takes; nil for no limit.
+    ///   - allowsCustomTokens: Off, only the suggestions can be entered.
+    ///   - tokenIcon: An SF Symbol before a chip's title; nil for none.
     ///   - isValid: False tints a token `Danger` (it's still added).
     public init(
         _ placeholder: LocalizedStringKey,
         tokens: Binding<[String]>,
         suggestions: [String] = [],
         maxSuggestions: Int = 8,
+        maximumTokens: Int? = nil,
+        allowsCustomTokens: Bool = true,
+        tokenIcon: ((String) -> String?)? = nil,
         isValid: @escaping (String) -> Bool = { _ in true }
     ) {
         self.init(
@@ -465,11 +507,24 @@ extension TokenField where Token == String {
             tokens: tokens,
             suggestions: suggestions,
             maxSuggestions: maxSuggestions,
+            maximumTokens: maximumTokens,
+            allowsCustomTokens: allowsCustomTokens,
             title: { $0 },
+            tokenIcon: tokenIcon,
             makeToken: { $0 },
             isValid: isValid
         )
     }
+}
+
+/// The field's measures.
+enum TokenFieldMetrics {
+    /// The field wraps onto a line of its own when less than this is left.
+    static let minimumFieldWidth: CGFloat = 64
+    /// How long a repeated chip lights up.
+    static let flashDuration: Duration = .milliseconds(700)
+    /// A chip's scale as it appears or leaves.
+    static let chipTransitionScale: CGFloat = 0.85
 }
 
 extension KeyEquivalent {
@@ -496,6 +551,8 @@ struct TokenChip: View {
     let title: String
     /// An SF Symbol before the title (a composer attachment's file icon).
     var systemImage: String? = nil
+    /// `.regular` in a token field; `.small` on a 28pt picker trigger.
+    var size: BadgeSize = .regular
     var isInvalid = false
     var isSelected = false
     var isFlashing = false
@@ -507,15 +564,19 @@ struct TokenChip: View {
 
     private var style: BadgeStyle {
         guard isInvalid else { return .secondary }
-        let isDark = colorScheme == .dark
         let mark = Danger.danger500.legibleOnDark(colorScheme)
         return .custom(
             text: mark,
             icon: mark,
-            background: Danger.tint.opacity(isDark ? 0.2 : 0.1),
-            border: Danger.tint.opacity(isDark ? 0.4 : 0.3)
+            background: StatusWash.fill(Danger.danger500, colorScheme),
+            border: StatusWash.border(Danger.danger500, colorScheme)
         )
     }
+
+    /// A step above the pill table's label: a chip reads as text, not a tag.
+    private var font: Font { size == .small ? Typography.captionSmall : Typography.caption }
+    private var iconFont: Font { size == .small ? Typography.labelXTiny : Typography.labelXSmall }
+    private var removeSize: CGFloat { size == .small ? Sizing.iconTiny : Sizing.iconSmall }
 
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
@@ -529,24 +590,24 @@ struct TokenChip: View {
         HStack(spacing: Spacing.hairline) {
             if isInvalid {
                 Image(systemName: "exclamationmark.circle")
-                    .font(Typography.labelXSmall)
+                    .font(iconFont)
                     .foregroundStyle(style.iconColor(for: colorScheme))
             } else if let systemImage {
                 Image(systemName: systemImage)
-                    .font(Typography.labelXSmall)
+                    .font(iconFont)
                     .foregroundStyle(style.iconColor(for: colorScheme))
                     .padding(.trailing, Spacing.hairline)
             }
             Text(verbatim: title)
-                .font(Typography.caption)
+                .font(font)
                 .foregroundStyle(style.textColor(for: colorScheme))
                 .lineLimit(1)
                 .truncationMode(.middle)
             removeButton
         }
-        .padding(.leading, Spacing.xs)
+        .padding(.leading, Spacing.tagPaddingH)
         .padding(.trailing, Spacing.hairline)
-        .padding(.vertical, Spacing.hairline)
+        .frame(minHeight: size.minHeight)
         .background {
             shape.fill(style.backgroundColor(for: colorScheme))
             shape.fill(RowTint.selected(colorScheme)).opacity(isFlashing ? 1 : 0)
@@ -571,9 +632,9 @@ struct TokenChip: View {
             Image(systemName: "xmark")
                 .font(Typography.labelXTinySemibold)
                 .foregroundStyle(style.iconColor(for: colorScheme))
-                .frame(width: Sizing.iconSmall, height: Sizing.iconSmall)
+                .frame(width: removeSize, height: removeSize)
                 .background {
-                    Circle().fill(isRemoveHovered ? RowTint.selected(colorScheme) : Color.clear)
+                    Circle().fill(isRemoveHovered ? RowTint.hover(colorScheme) : Color.clear)
                 }
                 .contentShape(Circle())
         }

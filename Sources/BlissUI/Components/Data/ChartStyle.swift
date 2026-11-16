@@ -25,35 +25,57 @@ public enum ChartPalette {
     }
 }
 
+/// The charts' drawing constants.
+enum ChartMetrics {
+    /// A bar's corners.
+    static let barCornerRadius: CGFloat = Sizing.radiusSmall
+    /// The hover point's area (Swift Charts sizes symbols by area, not diameter): about 7pt across.
+    static let hoverPointArea: CGFloat = 40
+    /// The area wash under a series' line: on the tint, never the lifted mark.
+    static let areaWashOpacity: Double = 0.15
+}
+
 // MARK: - Style
 
 extension View {
     /// The library's chart look for a `Chart` you build yourself: no legend
     /// (draw a `ChartLegend`), `menuBorder` grid lines on the value axis,
     /// caption labels on both axes, no plot background.
-    public func blissChartStyle() -> some View {
-        modifier(BlissChartStyle())
+    /// - Parameters:
+    ///   - showsAxes: The axis labels; off for a chart inside a card or a tile.
+    ///   - showsGrid: The value axis's grid lines.
+    public func blissChartStyle(showsAxes: Bool = true, showsGrid: Bool = true) -> some View {
+        modifier(BlissChartStyle(showsAxes: showsAxes, showsGrid: showsGrid))
     }
 }
 
 private struct BlissChartStyle: ViewModifier {
+    let showsAxes: Bool
+    let showsGrid: Bool
+
     func body(content: Content) -> some View {
         content
             .chartLegend(.hidden)
             .chartXAxis {
                 AxisMarks { _ in
-                    AxisValueLabel()
-                        .font(Typography.captionSmall)
-                        .foregroundStyle(Color.secondary)
+                    if showsAxes {
+                        AxisValueLabel()
+                            .font(Typography.captionSmall)
+                            .foregroundStyle(Color.secondary)
+                    }
                 }
             }
             .chartYAxis {
                 AxisMarks(position: .leading) { _ in
-                    AxisGridLine()
-                        .foregroundStyle(Color.menuBorder)
-                    AxisValueLabel()
-                        .font(Typography.captionSmall)
-                        .foregroundStyle(Color.secondary)
+                    if showsGrid {
+                        AxisGridLine()
+                            .foregroundStyle(Color.menuBorder)
+                    }
+                    if showsAxes {
+                        AxisValueLabel()
+                            .font(Typography.captionSmall)
+                            .foregroundStyle(Color.secondary)
+                    }
                 }
             }
             .chartPlotStyle { plot in
@@ -64,29 +86,42 @@ private struct BlissChartStyle: ViewModifier {
 
 // MARK: - Legend
 
-/// Dots in the series colors with the series names, in order.
+/// Dots in the series colors with the series names, in order. Wraps onto
+/// more lines when the names don't fit.
 public struct ChartLegend: View {
     private let series: [String]
+    private let colors: [Color]?
 
-    /// - Parameter series: The names, in the order the chart colors them.
-    public init(series: [String]) {
+    /// - Parameters:
+    ///   - series: The names, in the order the chart colors them.
+    ///   - colors: The series' colors, when a chart of your own assigns them;
+    ///     nil takes `ChartPalette.series` in order.
+    public init(series: [String], colors: [Color]? = nil) {
         self.series = series
+        self.colors = colors
     }
 
     public var body: some View {
-        HStack(spacing: Spacing.md) {
+        FlowLayout(spacing: Spacing.xs) {
             ForEach(Array(series.enumerated()), id: \.offset) { index, name in
                 HStack(spacing: Spacing.xs) {
                     Circle()
-                        .fill(ChartPalette.color(forSeriesAt: index))
-                        .frame(width: 8, height: 8)
+                        .fill(color(at: index))
+                        .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
                     Text(verbatim: name)
                         .font(Typography.captionSmall)
                         .foregroundStyle(.secondary)
                 }
+                // A wider gap between items than between lines.
+                .padding(.trailing, Spacing.xs)
                 .accessibilityElement(children: .combine)
             }
         }
+    }
+
+    private func color(at index: Int) -> Color {
+        if let colors, !colors.isEmpty { return colors[index % colors.count] }
+        return ChartPalette.color(forSeriesAt: index)
     }
 }
 
@@ -102,11 +137,14 @@ struct HoveredValue: Identifiable {
 // MARK: - Hover plumbing
 
 /// Tracks the pointer over the chart and places the callout beside the
-/// cursor, flipped to its left near the trailing edge so it stays inside.
+/// cursor, flipped to its left near the trailing edge so it stays inside. A
+/// horizontal chart passes `markY` instead: the callout sits beside the bar.
 struct ChartHoverLayer<Callout: View>: View {
     let plotFrame: CGRect
     /// The cursor's x within the plot, when there is one.
-    let markX: CGFloat?
+    var markX: CGFloat? = nil
+    /// The cursor's y within the plot (horizontal bars).
+    var markY: CGFloat? = nil
     let callout: Callout
     /// The pointer's location in this layer, or nil when it left.
     let onHover: (CGPoint?) -> Void
@@ -130,18 +168,27 @@ struct ChartHoverLayer<Callout: View>: View {
                         onHover(nil)
                     }
                 }
-            if let markX {
+            if markX != nil || markY != nil {
                 callout
                     .fixedSize()
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { calloutSize = $0 }
-                    .position(calloutPosition(markX: markX))
+                    .position(calloutPosition())
                     .allowsHitTesting(false)
             }
         }
     }
 
-    private func calloutPosition(markX: CGFloat) -> CGPoint {
-        let cursorX = plotFrame.minX + markX
+    private func calloutPosition() -> CGPoint {
+        if let markY {
+            // Beside the bar, inside the plot's trailing half if it fits there.
+            let cursorY = plotFrame.minY + markY
+            let x = plotFrame.midX + Spacing.sm + calloutSize.width / 2 <= plotFrame.maxX
+                ? plotFrame.midX + Spacing.sm + calloutSize.width / 2
+                : plotFrame.maxX - calloutSize.width / 2
+            let y = min(max(cursorY, plotFrame.minY + calloutSize.height / 2), plotFrame.maxY - calloutSize.height / 2)
+            return CGPoint(x: x, y: y)
+        }
+        let cursorX = plotFrame.minX + (markX ?? 0)
         let fitsOnRight = cursorX + Spacing.sm + calloutSize.width <= plotFrame.maxX
         let x = fitsOnRight
             ? cursorX + Spacing.sm + calloutSize.width / 2
@@ -166,7 +213,7 @@ struct ChartCallout: View {
                 HStack(spacing: Spacing.xs) {
                     Circle()
                         .fill(value.color)
-                        .frame(width: 6, height: 6)
+                        .frame(width: Sizing.statusCircle, height: Sizing.statusCircle)
                     if !value.name.isEmpty {
                         Text(verbatim: value.name)
                             .foregroundStyle(.secondary)
@@ -188,17 +235,19 @@ struct ChartCallout: View {
             RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
                 .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        .elevation(.lift)
         .accessibilityHidden(true)
     }
 }
 
 /// What an empty chart shows in place of its plot.
 struct ChartEmptyState: View {
+    var minHeight: CGFloat = Sizing.chartMinimumHeight
+
     var body: some View {
         Text("No data", bundle: .module)
             .font(Typography.captionSmall)
             .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, minHeight: 160)
+            .frame(maxWidth: .infinity, minHeight: minHeight)
     }
 }

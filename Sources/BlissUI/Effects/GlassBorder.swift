@@ -12,11 +12,21 @@ struct GlassBorder: ViewModifier {
     var cornerRadius: CGFloat
     var lineWidth: CGFloat
     var opacity: CGFloat
+    /// The stroke's color; nil picks white on a dark surface and black on a light one.
+    var tint: Color?
 
-    init(cornerRadius: CGFloat = 10, lineWidth: CGFloat = 1, opacity: CGFloat = 1.0) {
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(cornerRadius: CGFloat = Sizing.radiusLarge, lineWidth: CGFloat = 1, opacity: CGFloat = 1.0, tint: Color? = nil) {
         self.cornerRadius = cornerRadius
         self.lineWidth = lineWidth
         self.opacity = opacity
+        self.tint = tint
+    }
+
+    /// A white gradient vanishes on a light surface, so the default follows the scheme.
+    private var strokeColor: Color {
+        tint ?? (colorScheme == .dark ? .white : .black)
     }
 
     func body(content: Content) -> some View {
@@ -27,9 +37,9 @@ struct GlassBorder: ViewModifier {
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.5 * opacity),
-                                Color.white.opacity(0.25 * opacity),
-                                Color.white.opacity(0.1 * opacity)
+                                strokeColor.opacity(GlassBorderMetrics.topOpacity * opacity),
+                                strokeColor.opacity(GlassBorderMetrics.middleOpacity * opacity),
+                                strokeColor.opacity(GlassBorderMetrics.bottomOpacity * opacity)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -40,43 +50,46 @@ struct GlassBorder: ViewModifier {
     }
 }
 
+/// The gradient's stops: bright at the lit top-leading corner, fading away.
+enum GlassBorderMetrics {
+    static let topOpacity: CGFloat = 0.5
+    static let middleOpacity: CGFloat = 0.25
+    static let bottomOpacity: CGFloat = 0.1
+}
+
 extension View {
     /// Applies a glass-like border effect with a gradient stroke
     /// - Parameters:
-    ///   - cornerRadius: The corner radius of the border (default: 10)
+    ///   - cornerRadius: The corner radius of the border (default: `Sizing.radiusLarge`)
     ///   - lineWidth: The width of the stroke (default: 1)
     ///   - opacity: The overall opacity multiplier for the gradient (default: 1.0)
+    ///   - tint: The stroke's color; nil is white in dark mode and black in light.
     public func glassBorder(
-        cornerRadius: CGFloat = 10,
+        cornerRadius: CGFloat = Sizing.radiusLarge,
         lineWidth: CGFloat = 1,
-        opacity: CGFloat = 1.0
+        opacity: CGFloat = 1.0,
+        tint: Color? = nil
     ) -> some View {
-        modifier(GlassBorder(cornerRadius: cornerRadius, lineWidth: lineWidth, opacity: opacity))
+        modifier(GlassBorder(cornerRadius: cornerRadius, lineWidth: lineWidth, opacity: opacity, tint: tint))
     }
 }
 
-#Preview("Glass Border") {
-    VStack(spacing: 20) {
+#Preview("Glass Border", traits: .fixedLayout(width: 260, height: 300)) {
+    VStack(spacing: Spacing.lg) {
         Text("Default")
-            .frame(width: 200, height: 100)
+            .frame(width: 200, height: 56)
             .background(.ultraThinMaterial)
             .glassBorder()
 
-        Text("Custom Radius")
-            .frame(width: 200, height: 100)
+        Text("Larger radius")
+            .frame(width: 200, height: 56)
             .background(.ultraThinMaterial)
-            .glassBorder(cornerRadius: 20)
+            .glassBorder(cornerRadius: Sizing.radiusXXLarge)
 
-        Text("Thicker Line")
-            .frame(width: 200, height: 100)
+        Text("Lower opacity, accent")
+            .frame(width: 200, height: 56)
             .background(.ultraThinMaterial)
-            .glassBorder(lineWidth: 2)
-
-        Text("Lower Opacity")
-            .frame(width: 200, height: 100)
-            .background(.ultraThinMaterial)
-            .glassBorder(opacity: 0.5)
+            .glassBorder(opacity: 0.5, tint: Color.accent)
     }
-    .padding()
-    .background(Color.black)
+    .padding(Spacing.lg)
 }

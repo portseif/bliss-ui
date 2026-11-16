@@ -4,7 +4,7 @@
 //
 //  A person's picture, or their initials on a color picked from their name.
 //  The same name always gets the same color — on every launch and every Mac,
-//  so it can't come from `hashValue`, which Swift seeds per process. Three
+//  so it can't come from `hashValue`, which Swift seeds per process. Four
 //  sizes, a circle or a rounded square, and an optional status dot cut into
 //  the corner. `AvatarStack` overlaps several with a `+N` for the rest.
 //
@@ -27,13 +27,16 @@ public enum AvatarSize: Hashable, Sendable, CaseIterable {
     case medium
     /// 40pt — a profile header, a sheet.
     case large
+    /// 56pt — an account page, a profile card.
+    case xlarge
 
     /// The avatar's width and height.
     public var diameter: CGFloat {
         switch self {
-        case .small: 20
-        case .medium: 28
-        case .large: 40
+        case .small: Sizing.iconMedium
+        case .medium: Sizing.controlDefault
+        case .large: Sizing.controlXLarge
+        case .xlarge: Sizing.controlXLarge + Sizing.iconDefault
         }
     }
 
@@ -42,6 +45,7 @@ public enum AvatarSize: Hashable, Sendable, CaseIterable {
         case .small: Typography.labelXTinySemibold
         case .medium: Typography.captionSmallSemibold
         case .large: Typography.bodyMediumSemibold
+        case .xlarge: Typography.headingLargeBold
         }
     }
 
@@ -51,6 +55,7 @@ public enum AvatarSize: Hashable, Sendable, CaseIterable {
         case .small: Typography.labelXSmall
         case .medium: Typography.bodySmall
         case .large: Typography.headingMedium
+        case .xlarge: Typography.displaySmall
         }
     }
 
@@ -59,28 +64,33 @@ public enum AvatarSize: Hashable, Sendable, CaseIterable {
         case .small: Sizing.radiusSmall
         case .medium: Sizing.radiusDefault
         case .large: Sizing.radiusLarge
+        case .xlarge: Sizing.radiusXLarge
         }
     }
 
+    /// The status dot: `Sizing.statusCircle`, growing with the avatar.
     var statusDiameter: CGFloat {
         switch self {
-        case .small: 6
-        case .medium: 8
-        case .large: 10
+        case .small: Sizing.statusCircle
+        case .medium: Sizing.statusCircle + Spacing.hairline
+        case .large: Sizing.statusCircle + Spacing.xxs
+        case .xlarge: Sizing.statusCircle + Spacing.sm
         }
     }
 
-    /// The gap cut around a status dot, and between stacked avatars.
+    /// The gap cut around a status dot, and between stacked avatars: a
+    /// hairline, a hair less on the small one (drawing geometry).
     var gap: CGFloat {
-        self == .small ? 1.5 : 2
+        self == .small ? 1.5 : Spacing.hairline
     }
 
     /// How far each stacked avatar tucks under the one before it.
     var stackOverlap: CGFloat {
         switch self {
-        case .small: 6
-        case .medium: 8
-        case .large: 12
+        case .small: Spacing.xs
+        case .medium: Spacing.sm
+        case .large: Spacing.md
+        case .xlarge: Spacing.lg
         }
     }
 
@@ -142,6 +152,9 @@ public struct Avatar: View {
     let size: AvatarSize
     let shape: AvatarShape
     let status: AvatarStatus?
+    let tint: Color?
+    let symbol: String?
+    let showsBorder: Bool
     /// Set by `AvatarStack`: the distance to the avatar before this one, which
     /// overlaps this one's leading side and gets a gap cut around it.
     var leadingNeighborDistance: CGFloat?
@@ -151,21 +164,33 @@ public struct Avatar: View {
     ///   - name: The person's name — the initials and the color come from it,
     ///     and VoiceOver reads it. Shown as-is, never looked up as a string key.
     ///   - image: Their picture, filling the shape; nil shows the initials.
-    ///   - size: Small (20pt), medium (28pt) or large (40pt).
+    ///   - size: Small (20pt), medium (28pt), large (40pt) or extra large (56pt).
     ///   - shape: A circle, or a rounded square.
     ///   - status: A presence dot in the corner.
+    ///   - tint: A fill of your own (a workspace's brand color) instead of the
+    ///     name's hue; the initials stay white on it.
+    ///   - symbol: An SF Symbol in place of the initials — a bot, a team, a
+    ///     workspace.
+    ///   - showsBorder: A hairline around the avatar, so a light photo
+    ///     doesn't vanish on the content surface.
     public init(
         name: String,
         image: Image? = nil,
         size: AvatarSize = .medium,
         shape: AvatarShape = .circle,
-        status: AvatarStatus? = nil
+        status: AvatarStatus? = nil,
+        tint: Color? = nil,
+        symbol: String? = nil,
+        showsBorder: Bool = false
     ) {
         self.name = name
         self.image = image
         self.size = size
         self.shape = shape
         self.status = status
+        self.tint = tint
+        self.symbol = symbol
+        self.showsBorder = showsBorder
     }
 
     public var body: some View {
@@ -173,6 +198,12 @@ public struct Avatar: View {
         face
             .frame(width: diameter, height: diameter)
             .clipShape(AvatarCutoutShape(shape: shape, cornerRadius: size.cornerRadius, holes: holes))
+            .overlay {
+                if showsBorder {
+                    AvatarCutoutShape(shape: shape, cornerRadius: size.cornerRadius, holes: holes)
+                        .stroke(Color.menuBorder, lineWidth: 1)
+                }
+            }
             .overlay {
                 if let status {
                     AvatarStatusGlyph(status: status)
@@ -197,15 +228,22 @@ public struct Avatar: View {
         } else {
             let initials = AvatarInitials.initials(for: name)
             ZStack {
-                AvatarPalette.fill(for: name).color
-                if initials.isEmpty {
+                if let tint {
+                    tint
+                } else {
+                    AvatarPalette.fill(for: name).color
+                }
+                if let symbol {
+                    Image(systemName: symbol)
+                        .font(size.glyphFont)
+                } else if initials.isEmpty {
                     Image(systemName: "person.fill")
                         .font(size.glyphFont)
                 } else {
                     Text(verbatim: initials)
                         .font(size.initialsFont)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(DataMetrics.minimumScaleFactor)
                         .offset(x: visibleCenterShift)
                 }
             }
@@ -232,6 +270,7 @@ public struct Avatar: View {
     private var statusCenter: CGPoint {
         let diameter = size.diameter
         let radius = diameter / 2
+        // cos 45°: the circle's edge toward the corner.
         let inset: CGFloat = shape == .circle
             ? radius - radius * 0.7071
             : size.statusDiameter / 2 - size.gap
@@ -411,6 +450,8 @@ enum AvatarPalette {
             Avatar(name: "محمد علي")
             Avatar(name: "Élodie Durand")
             Avatar(name: "🦊")
+            Avatar(name: "Release bot", tint: Grey.grey500, symbol: "gearshape.fill")
+            Avatar(name: "Ada Lovelace", size: .xlarge, showsBorder: true)
         }
     }
     .padding(Spacing.xl)

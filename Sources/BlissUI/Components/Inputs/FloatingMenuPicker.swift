@@ -3,8 +3,10 @@
 //  BlissUI
 //
 //  iOS-inspired picker component:
-//  - Opacity-based backgrounds for light/dark modes
-//  - Hover eases, a press scales to 0.97, the open state follows the menu's timing
+//  - The trigger is a compact button: the control height, the neutral row
+//    wash on hover, a step up while open
+//  - Hover eases, a press scales like every button, the open state follows
+//    the menu's timing
 //  - Keyboard focus and navigation never animate
 //
 
@@ -63,6 +65,16 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
     /// Draws the title beside the trigger. Pass false where a row already shows
     /// it (a `SettingsRow`); the title still labels the trigger for VoiceOver.
     let showsTitle: Bool
+    /// The dense trigger (`Sizing.controlSmall`, the small label) for a toolbar.
+    let compact: Bool
+    /// The trigger's hairline; off for a borderless trigger in a title bar or
+    /// a table header.
+    let showsBorder: Bool
+    /// Shown in the secondary tone while `selection` matches no option.
+    let placeholder: String?
+    /// The selected option's icon and the chevron, no text — a toolbar sort or
+    /// view picker. The title still labels the trigger for VoiceOver.
+    let iconOnly: Bool
 
     @State private var showingMenu = false
     @State private var focusedIndex: Int? = nil
@@ -70,6 +82,21 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
     /// menu's keyboard monitor; reset whenever the menu closes).
     @State private var typedQuery = ""
 
+    /// - Parameters:
+    ///   - title: The row's title, and the trigger's accessibility label.
+    ///   - selection: The chosen option's `optionTitle`.
+    ///   - options: What the menu lists.
+    ///   - optionTitle: How an option reads.
+    ///   - optionIcon: An SF Symbol before each option, and on the trigger.
+    ///   - optionColor: A color dot instead of the icon, when it returns one.
+    ///   - optionDetail: A hover pane beside the focused row.
+    ///   - compactLabel: Secondary text before the trigger.
+    ///   - horizontalPadding: The trigger's side inset.
+    ///   - showsTitle: Draws the title beside the trigger.
+    ///   - compact: The dense `Sizing.controlSmall` trigger for a toolbar.
+    ///   - showsBorder: The trigger's hairline.
+    ///   - placeholder: Shown while `selection` matches no option ("Choose…").
+    ///   - iconOnly: The selected icon and the chevron only.
     public init(
         _ title: String,
         selection: Binding<String>,
@@ -80,7 +107,11 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
         optionDetail: ((T) -> PickerOptionDetail)? = nil,
         compactLabel: String? = nil,
         horizontalPadding: CGFloat = Spacing.buttonPaddingH,
-        showsTitle: Bool = true
+        showsTitle: Bool = true,
+        compact: Bool = false,
+        showsBorder: Bool = true,
+        placeholder: String? = nil,
+        iconOnly: Bool = false
     ) where IconContent == EmptyView {
         self.title = title
         self.showsTitle = showsTitle
@@ -93,8 +124,13 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
         self.optionIconView = nil
         self.optionDetail = optionDetail
         self.horizontalPadding = horizontalPadding
+        self.compact = compact
+        self.showsBorder = showsBorder
+        self.placeholder = placeholder
+        self.iconOnly = iconOnly
     }
 
+    /// A picker whose options draw their own icon view.
     public init(
         _ title: String,
         selection: Binding<String>,
@@ -103,7 +139,11 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
         optionIconView: @escaping (T, CGFloat) -> IconContent,
         compactLabel: String? = nil,
         horizontalPadding: CGFloat = Spacing.buttonPaddingH,
-        showsTitle: Bool = true
+        showsTitle: Bool = true,
+        compact: Bool = false,
+        showsBorder: Bool = true,
+        placeholder: String? = nil,
+        iconOnly: Bool = false
     ) {
         self.title = title
         self.showsTitle = showsTitle
@@ -116,6 +156,10 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
         self.optionIconView = optionIconView
         self.optionDetail = nil
         self.horizontalPadding = horizontalPadding
+        self.compact = compact
+        self.showsBorder = showsBorder
+        self.placeholder = placeholder
+        self.iconOnly = iconOnly
     }
 
     private var selectedOption: T? {
@@ -132,9 +176,10 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
     private var visibleOptions: [T] { filteredOptions(for: typedQuery) }
 
     public var body: some View {
-        HStack {
+        HStack(spacing: Spacing.md) {
             if showsTitle && !title.isEmpty {
                 Text(title)
+                    .font(Typography.bodySmall)
                 Spacer()
             }
             if let label = compactLabel {
@@ -156,17 +201,24 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
                                     .frame(width: Sizing.iconTiny, height: Sizing.iconTiny)
                             } else {
                                 Image(systemName: iconProvider(option))
-                                    .font(Typography.labelMedium)
+                                    .font(compact ? Typography.labelSmall : Typography.labelMedium)
                             }
                         }
                     }
-                    Text(selection)
+                    if !iconOnly {
+                        if selectedOption == nil, let placeholder {
+                            Text(placeholder)
+                                .foregroundStyle(Color.textTertiary)
+                        } else {
+                            Text(selection)
+                        }
+                    }
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(Typography.bodySmallSemibold)
+                        .font(Typography.labelXSmall)
                         .foregroundStyle(.tertiary)
                 }
             }
-            .buttonStyle(FloatingMenuPickerButtonStyle(isActive: showingMenu, horizontalPadding: horizontalPadding))
+            .buttonStyle(FloatingMenuPickerButtonStyle(isActive: showingMenu, horizontalPadding: horizontalPadding, compact: compact, showsBorder: showsBorder))
             .accessibilityLabel(Text(verbatim: title.isEmpty ? selection : title))
             .accessibilityValue(Text(verbatim: title.isEmpty ? "" : selection))
             .floatingMenu(
@@ -218,6 +270,8 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
 struct FloatingMenuPickerButtonStyle: ButtonStyle {
     let isActive: Bool
     var horizontalPadding: CGFloat = Spacing.buttonPaddingH
+    var compact: Bool = false
+    var showsBorder: Bool = true
     @Environment(\.colorScheme) private var colorScheme
 
     func makeBody(configuration: Configuration) -> some View {
@@ -226,6 +280,8 @@ struct FloatingMenuPickerButtonStyle: ButtonStyle {
                 configuration: configuration,
                 isActive: isActive,
                 horizontalPadding: horizontalPadding,
+                compact: compact,
+                showsBorder: showsBorder,
                 colorScheme: colorScheme
             )
         }
@@ -238,6 +294,8 @@ private struct FloatingMenuPickerButton: View {
     let configuration: ButtonStyleConfiguration
     let isActive: Bool
     let horizontalPadding: CGFloat
+    let compact: Bool
+    let showsBorder: Bool
     let colorScheme: ColorScheme
 
     @Environment(\.isEnabled) private var isEnabled
@@ -246,20 +304,15 @@ private struct FloatingMenuPickerButton: View {
 
     private var isHighlighted: Bool { configuration.isPressed || isActive }
 
-    /// A faint hairline, fainter while disabled.
+    /// The one neutral hairline, when the trigger shows one.
     private var borderColor: Color {
-        Color.primary.opacity(isEnabled ? 0.1 : 0.06)
+        showsBorder ? Color.menuBorder : .clear
     }
 
-    /// iOS-style text color. Disabled keeps the value readable, a step dimmer.
+    /// The secondary tone at rest, full strength under the pointer or while
+    /// open — the secondary button's text.
     private var textColor: Color {
-        if !isEnabled {
-            return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.35)
-        }
-        if isHighlighted || isHovering {
-            return colorScheme == .dark ? .white : .primary
-        }
-        return colorScheme == .dark ? Color.white.opacity(0.6) : Color.black.opacity(0.5)
+        isHighlighted || isHovering ? Color.primary : Color.secondary
     }
 
     /// The neutral row wash: hover, then a step up while pressed or open.
@@ -271,11 +324,11 @@ private struct FloatingMenuPickerButton: View {
 
     var body: some View {
         configuration.label
-            .font(Typography.bodySmall)
+            .font(compact ? Typography.labelSmall : Typography.labelMedium)
             .foregroundStyle(textColor)
-            .padding(.horizontal, horizontalPadding)
-            .padding(.vertical, Spacing.buttonPaddingV)
-            .frame(maxHeight: Sizing.controlDefault + 2)
+            .padding(.horizontal, compact ? min(horizontalPadding, Spacing.sm) : horizontalPadding)
+            .padding(.vertical, compact ? Spacing.xxs : Spacing.buttonPaddingV)
+            .frame(minHeight: compact ? Sizing.controlSmall : Sizing.controlDefault)
             .background(
                 RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
                     .fill(backgroundColor)
@@ -285,8 +338,9 @@ private struct FloatingMenuPickerButton: View {
                     .strokeBorder(borderColor, lineWidth: 1)
             )
             .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusMedium)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .scaleEffect(configuration.isPressed ? Animations.pressScale : 1)
             .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous))
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .focusable()
             .focused($isFocused)
             .focusEffectDisabled()
@@ -330,26 +384,8 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
         return options.filter { optionTitle($0).localizedCaseInsensitiveContains(filterQuery) }
     }
 
-    /// iOS-style text color
-    private func textColor(isSelected: Bool) -> Color {
-        if isSelected {
-            return colorScheme == .dark ? .white : .primary
-        }
-        return colorScheme == .dark ? Color.white.opacity(0.7) : Color.black.opacity(0.6)
-    }
-
-    /// iOS-style checkmark
-    private var checkmarkColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.5) : Color.black.opacity(0.45)
-    }
-
-    /// Icon color
-    private var iconColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.35)
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             if !filterQuery.isEmpty {
                 filterHeader
             }
@@ -357,15 +393,15 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
         }
         .padding(Spacing.menuPadding)
         // Fit-content by default. Pickers WITH a hover stat flyout keep the
-        // fixed floor — the flyout's xOffset (206) assumes this panel width.
-        .frame(minWidth: optionDetail != nil ? 180 : nil)
+        // fixed floor — the flyout's offset assumes this panel width.
+        .frame(minWidth: optionDetail != nil ? Sizing.menuMinWidth : nil)
         .fixedSize(horizontal: true, vertical: false)
     }
 
     /// The active typeahead query (typing is otherwise invisible), plus a
     /// "No matches" row when the filter empties the list.
     private var filterHeader: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: "magnifyingglass")
                     .font(Typography.captionSmall)
@@ -375,15 +411,15 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            .padding(.horizontal, Spacing.sm + 2)
-            .padding(.vertical, Spacing.xs - 1)
+            .padding(.horizontal, Spacing.menuRowPaddingH)
+            .padding(.vertical, Spacing.menuRowPaddingV)
 
             if visibleOptions.isEmpty {
                 Text("No matches", bundle: .module)
                     .font(Typography.captionSmall)
                     .foregroundStyle(.tertiary)
-                    .padding(.horizontal, Spacing.sm + 2)
-                    .padding(.vertical, Spacing.xs - 1)
+                    .padding(.horizontal, Spacing.menuRowPaddingH)
+                    .padding(.vertical, Spacing.menuRowPaddingV)
             }
         }
     }
@@ -416,7 +452,7 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
     }
 
     private var optionRowStack: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Spacing.hairline) {
             ForEach(Array(visibleOptions.enumerated()), id: \.offset) { index, option in
                 let title = optionTitle(option)
                 let isSelected = title == selectedValue
@@ -429,7 +465,6 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                         if let iconViewProvider = optionIconView {
                             iconViewProvider(option, Sizing.iconTiny)
                                 .frame(width: Sizing.iconDefault)
-                                .opacity(0.7)
                         } else if let iconProvider = optionIcon {
                             if let colorProvider = optionColor, let color = colorProvider(option) {
                                 Circle()
@@ -439,26 +474,25 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                                 Image(systemName: iconProvider(option))
                                     .font(Typography.caption)
                                     .frame(width: Sizing.iconDefault)
-                                    .foregroundStyle(iconColor)
+                                    .foregroundStyle(MenuRowTone.icon)
                             }
                         }
 
                         Text(title)
                             .font(Typography.bodySmall)
-                            .foregroundStyle(textColor(isSelected: isSelected))
+                            .foregroundStyle(MenuRowTone.title)
 
                         Spacer()
 
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(Typography.labelSmall)
-                                .foregroundStyle(checkmarkColor)
+                                .foregroundStyle(MenuRowTone.checkmark)
                         }
                     }
-                    // Tighter than the button padding tokens — menu rows read better
-                    // compact (≈ standard macOS menu row height).
-                    .padding(.horizontal, Spacing.sm + 2)
-                    .padding(.vertical, Spacing.xs - 1)
+                    // The menu rows' inset: a step tighter than a list row.
+                    .padding(.horizontal, Spacing.menuRowPaddingH)
+                    .padding(.vertical, Spacing.menuRowPaddingV)
                     .background(
                         RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
                             .fill(isFocused ? RowTint.hover(colorScheme) : Color.clear)
@@ -485,8 +519,8 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                     xPosition: .trailing,
                     yPosition: .below,
                     menuGap: 0,
-                    xOffset: 206,
-                    yOffset: 30
+                    xOffset: FloatingMenuPickerMetrics.flyoutXOffset,
+                    yOffset: FloatingMenuPickerMetrics.flyoutYOffset
                 ) {
                     if let optionDetail {
                         StatGraphFlyout(detail: optionDetail(option))
@@ -495,6 +529,18 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
             }
         }
     }
+}
+
+// MARK: - Metrics
+
+private enum FloatingMenuPickerMetrics {
+    /// Where the flyout lands: past the panel's `Sizing.menuMinWidth` floor
+    /// plus its padding, so it sits beside the row rather than over it.
+    static let flyoutXOffset: CGFloat = Sizing.menuMinWidth + Spacing.xl + Spacing.hairline
+    /// One menu row down, so the flyout's top lines up with the row's.
+    static let flyoutYOffset: CGFloat = Sizing.controlDefault + Spacing.hairline
+    /// The flyout's width.
+    static let flyoutWidth: CGFloat = 200
 }
 
 // MARK: - Stat Graph Flyout
@@ -507,7 +553,7 @@ private struct StatGraphFlyout: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
                 Text(detail.title)
                     .font(Typography.labelMedium)
                 if let subtitle = detail.subtitle {
@@ -519,25 +565,17 @@ private struct StatGraphFlyout: View {
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 ForEach(detail.bars) { bar in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Spacing.hairline) {
                         Text(bar.label)
                             .font(Typography.labelTiny)
                             .foregroundStyle(.secondary)
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color.primary.opacity(0.08))
-                                Capsule()
-                                    .fill(bar.color)
-                                    .frame(width: max(4, geometry.size.width * (revealed ? bar.value : 0)))
-                            }
-                        }
-                        .frame(height: 5)
+                        ProgressBar(value: revealed ? bar.value : 0, tint: bar.color)
                     }
                 }
             }
         }
         .padding(Spacing.md)
-        .frame(width: 200)
+        .frame(width: FloatingMenuPickerMetrics.flyoutWidth)
         .onAppear {
             // Each row has its own popup, so sweeping down the list opens a new
             // one per row. Those open straight after the last one closed and
@@ -554,8 +592,8 @@ private struct StatGraphFlyout: View {
 
 // MARK: - Preview
 
-#Preview {
-    VStack(spacing: 20) {
+#Preview("Floating menu picker", traits: .fixedLayout(width: 400, height: 200)) {
+    VStack(spacing: Spacing.lg) {
         FloatingMenuPicker(
             "Color Scheme",
             selection: .constant("System"),
@@ -570,7 +608,8 @@ private struct StatGraphFlyout: View {
                 }
             }
         )
+        FloatingMenuPicker("Sort", selection: .constant(""), options: ["Name", "Date"], optionTitle: { $0 }, showsTitle: false, compact: true, placeholder: "Sort by…")
+        FloatingMenuPicker("View", selection: .constant("Grid"), options: ["List", "Grid"], optionTitle: { $0 }, optionIcon: { $0 == "List" ? "list.bullet" : "square.grid.2x2" }, showsTitle: false, showsBorder: false, iconOnly: true)
     }
-    .padding()
-    .frame(width: 400)
+    .padding(Spacing.lg)
 }
