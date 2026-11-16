@@ -4,12 +4,15 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-11-16
+
+Nine components that close most of the gap to a web kit's component list: the inputs an app needs in its first week, plus charts.
+
 ### Added
 
 - `MultiSelectPicker` — the pick-many picker: chips on the trigger and a check-row menu that stays open.
 - `MessageComposer` and `ComposerAttachment` — a chat composer with attachment chips, a toolbar slot and a send button; Return sends, ⇧Return adds a line.
 - `TimeSeriesChart`, `BarChart`, `ChartLegend`, `ChartPalette` and `.blissChartStyle()` — themed charts on Swift Charts with a hover cursor and value card.
-
 - `InputField` — the boxed text field with a leading icon, a clear button, a keyboard hint, a loading spinner and a trailing slot.
 - `OneTimeCodeField` — a verification code typed into a row of boxes over one hidden field.
 - `Pagination` — page controls for a table or list, 1-based, with an ellipsis for skipped runs.
@@ -105,6 +108,7 @@ The first tagged release — the StackMe component set, extracted into a package
 - The library's own strings in 10 languages (de, en, es, fr, it, ja, ko, pt-BR, ru, zh-Hans).
 - `BlissCatalog`, a demo app of every component built on the public API, and `scripts/screenshots.sh`, which regenerates the README images from it.
 
-[Unreleased]: https://github.com/portseif/bliss-ui/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/portseif/bliss-ui/compare/2.1.0...HEAD
+[2.1.0]: https://github.com/portseif/bliss-ui/releases/tag/2.1.0
 [2.0.0]: https://github.com/portseif/bliss-ui/releases/tag/2.0.0
 [1.0.0]: https://github.com/portseif/bliss-ui/releases/tag/1.0.0
