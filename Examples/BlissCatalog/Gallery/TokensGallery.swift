@@ -21,6 +21,9 @@ extension Gallery {
                 )
             }
         },
+        GalleryEntry("multi-select-picker", width: 460, height: 80) {
+            MultiSelectPicker("Teams", selection: .constant(["Design", "Engineering", "Docs", "Research"]), options: ["Design", "Engineering", "Marketing", "Docs", "Research"], optionTitle: { $0 }, maximumChips: 3)
+        },
         GalleryEntry("combo-box", width: 400, height: 168) {
             GalleryComboBoxCard()
         },

@@ -43,6 +43,10 @@ public struct TextArea: View {
     private let characterLimit: Int?
     private let showsCharacterCount: Bool
     private let fontStyle: TextAreaFontStyle
+    /// Off when a container draws the box itself (`MessageComposer`); see `embedded`.
+    private var showsBox = true
+    private var embeddedFocusChange: ((Bool) -> Void)?
+    private var onReturn: ((NSEvent.ModifierFlags) -> Bool)?
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.colorScheme) private var colorScheme
@@ -94,7 +98,11 @@ public struct TextArea: View {
                 characterLimit: characterLimit,
                 isEnabled: isEnabled,
                 focusRequest: focusRequest,
-                onFocusChange: { focused in isFocused = focused },
+                onFocusChange: { focused in
+                    isFocused = focused
+                    embeddedFocusChange?(focused)
+                },
+                onReturn: onReturn,
                 onScroll: handleScroll
             )
             .overlay(alignment: .topLeading) { placeholder }
@@ -108,9 +116,25 @@ public struct TextArea: View {
         // A click on the box around the text (the count row) still edits.
         .contentShape(Rectangle())
         .onTapGesture { focusRequest += 1 }
-        .inputBox(isFocused: isFocused, cornerRadius: Sizing.radiusDefault)
+        .modifier(TextAreaBox(isOn: showsBox, isFocused: isFocused))
         .onHover { hovering in isHovering = hovering }
         .onDisappear { scrollEndTask?.cancel() }
+    }
+
+    /// For a container that draws the input box around more than the text
+    /// (`MessageComposer`: chips above, buttons below): no box of its own, the
+    /// text view's focus reported so the container can ring its box, and Return
+    /// handed to the container first. `onReturn` gets the key's modifiers and
+    /// returns true when it took the key (send); false inserts a plain newline.
+    func embedded(
+        onFocusChange: @escaping (Bool) -> Void,
+        onReturn: @escaping (NSEvent.ModifierFlags) -> Bool
+    ) -> TextArea {
+        var copy = self
+        copy.showsBox = false
+        copy.embeddedFocusChange = onFocusChange
+        copy.onReturn = onReturn
+        return copy
     }
 
     // MARK: Placeholder
@@ -191,6 +215,22 @@ public struct TextArea: View {
     }
 }
 
+/// The shared input box, or nothing when a container draws its own. The
+/// choice is fixed for a given text area, so the branch never changes identity.
+private struct TextAreaBox: ViewModifier {
+    let isOn: Bool
+    let isFocused: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isOn {
+            content.inputBox(isFocused: isFocused, cornerRadius: Sizing.radiusDefault)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Metrics
 
 /// The thin indicator's proportions, matching `ScrollViewWithThinIndicator`.
@@ -246,6 +286,8 @@ struct TextAreaEditor: NSViewRepresentable {
     var isEnabled: Bool
     var focusRequest: Int
     var onFocusChange: (Bool) -> Void
+    /// A container's claim on Return (see `TextArea.embedded`); nil types a newline.
+    var onReturn: ((NSEvent.ModifierFlags) -> Bool)?
     var onScroll: (TextAreaScrollMetrics, _ didScroll: Bool) -> Void
 
     /// Padding between the box and the text, inside the scroll view so the
@@ -451,6 +493,26 @@ struct TextAreaEditor: NSViewRepresentable {
             }
             textView.insertText(String(replacement.prefix(room)), replacementRange: affectedCharRange)
             return false
+        }
+
+        /// Return, ⌥Return and ⌃Return all ask for a new line in some form
+        /// (`insertNewline:`, `insertNewlineIgnoringFieldEditor:`,
+        /// `insertLineBreak:`). A container with a claim on Return
+        /// (`MessageComposer` sends) sees the key first, with its modifiers;
+        /// when it passes, a plain "\n" goes in whatever the selector was, so
+        /// ⇧Return never types a line separator.
+        private static let newlineSelectors: [Selector] = [
+            #selector(NSResponder.insertNewline(_:)),
+            #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)),
+            #selector(NSResponder.insertLineBreak(_:)),
+        ]
+
+        func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            guard let onReturn = parent.onReturn, Self.newlineSelectors.contains(commandSelector) else { return false }
+            let modifiers = NSApp.currentEvent?.modifierFlags.intersection(.deviceIndependentFlagsMask) ?? []
+            if onReturn(modifiers) { return true }
+            textView.insertText("\n", replacementRange: textView.selectedRange())
+            return true
         }
 
         // MARK: Scrolling

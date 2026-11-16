@@ -492,12 +492,14 @@ private struct TokenChipID<Token: Hashable>: Hashable {
 /// ramp tone in light mode, which the red label doesn't read on). The ✕ isn't
 /// a Tab stop — the field's Backspace and ← / → reach every token — and
 /// VoiceOver removes a token with the chip's own action.
-private struct TokenChip: View {
+struct TokenChip: View {
     let title: String
-    let isInvalid: Bool
-    let isSelected: Bool
-    let isFlashing: Bool
-    let onSelect: () -> Void
+    /// An SF Symbol before the title (a composer attachment's file icon).
+    var systemImage: String? = nil
+    var isInvalid = false
+    var isSelected = false
+    var isFlashing = false
+    var onSelect: () -> Void = {}
     let onRemove: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -529,6 +531,11 @@ private struct TokenChip: View {
                 Image(systemName: "exclamationmark.circle")
                     .font(Typography.labelXSmall)
                     .foregroundStyle(style.iconColor(for: colorScheme))
+            } else if let systemImage {
+                Image(systemName: systemImage)
+                    .font(Typography.labelXSmall)
+                    .foregroundStyle(style.iconColor(for: colorScheme))
+                    .padding(.trailing, Spacing.hairline)
             }
             Text(verbatim: title)
                 .font(Typography.caption)

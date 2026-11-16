@@ -24,6 +24,9 @@ struct FieldsPage: View {
     @State private var isCheckingDomain = false
     @State private var code = ""
     @State private var pairingCode = ""
+    @State private var draft = ""
+    @State private var draftAttachments = [ComposerAttachment(name: "Onboarding.png", systemImage: "photo")]
+    @State private var isSendingDraft = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -93,6 +96,27 @@ struct FieldsPage: View {
                     }
                 }
                 .frame(maxWidth: 420)
+            }
+
+            DemoBlock(title: "Message composer") {
+                FieldsCaption("Return sends, ⇧Return adds a line. The paperclip adds a sample attachment; a chip's ✕ removes it.")
+                MessageComposer("Message", text: $draft, prompt: Text("Message the team…"), attachments: $draftAttachments, isSending: isSendingDraft, onSend: {
+                    isSendingDraft = true
+                    Task {
+                        try? await Task.sleep(for: .seconds(1))
+                        ToastService.shared.showSuccess(title: "Sent", message: draft)
+                        draft = ""
+                        draftAttachments.removeAll()
+                        isSendingDraft = false
+                    }
+                }, onAttach: {
+                    draftAttachments.append(ComposerAttachment(name: "Notes \(draftAttachments.count + 1).md"))
+                }) {
+                    Button {} label: { Image(systemName: "face.smiling") }
+                        .buttonStyle(ToolbarIconButtonStyle(compact: true))
+                        .accessibilityLabel(Text("Emoji"))
+                }
+                .frame(maxWidth: 520)
             }
 
             DemoBlock(title: "One-time code") {

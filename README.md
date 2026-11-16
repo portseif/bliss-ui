@@ -135,7 +135,7 @@ Give a palette `status:` colors and BlissUI derives the rest: a mark that clears
 
 ## Component index
 
-All 91 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
+All 96 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.
 
 Not pictured, because they're separate panels rather than part of the window: `.tooltip`, the floating menu panel itself, and `InfoHint`'s popover.
 
@@ -197,6 +197,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
   </tr>
   <tr>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/one-time-code-dark.webp"><img src="docs/images/components/one-time-code-light.webp" alt="One-time code" width="270"></picture><br><b>One-time code</b><br><code>OneTimeCodeField</code><br><sub>A verification code in boxes over one real field: typing, Backspace and paste work as usual, and the next box carries the ring.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/multi-select-picker-dark.webp"><img src="docs/images/components/multi-select-picker-light.webp" alt="Multi-select picker" width="345"></picture><br><b>Multi-select picker</b><br><code>MultiSelectPicker</code><br><sub>Pick many: chips on the trigger, a menu of check rows that stays open, typing filters it and Clear empties it.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/message-composer-dark.webp"><img src="docs/images/components/message-composer-light.webp" alt="Message composer" width="360"></picture><br><b>Message composer</b><br><code>MessageComposer</code> · <code>ComposerAttachment</code><br><sub>A growing message field with attachment chips, an attach button, room for your own actions and a send button; Return sends, ⇧Return adds a line.</sub></td>
     <td width="50%"></td>
   </tr>
 </table>
@@ -284,7 +288,11 @@ Not pictured, because they're separate panels rather than part of the window: `.
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/sparkline-dark.webp"><img src="docs/images/components/sparkline-light.webp" alt="Sparkline" width="300"></picture><br><b>Sparkline</b><br><code>Sparkline</code><br><sub>A tiny trend line with an optional area wash; gaps draw dashed.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/commit-graph-dark.webp"><img src="docs/images/components/commit-graph-light.webp" alt="Commit graph" width="280"></picture><br><b>Commit graph</b><br><code>CommitGraph</code><br><sub>Git history as colored lanes with merge rings, rounded branch elbows and ref pills.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/commit-graph-dark.webp"><img src="docs/images/components/commit-graph-light.webp" alt="Commit graph" width="420"></picture><br><b>Commit graph</b><br><code>CommitGraph</code> · <code>CommitGraphRef</code><br><sub>Git history as colored lanes: merge rings, rounded elbows where a branch leaves or rejoins, and pills for branches, remotes, tags and your own labels.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/time-series-chart-dark.webp"><img src="docs/images/components/time-series-chart-light.webp" alt="Time series chart" width="390"></picture><br><b>Time series chart</b><br><code>TimeSeriesChart</code> · <code>ChartSample</code><br><sub>Line or area on Swift Charts, one per series in the theme's marks, with a hover cursor and a card of the values under it.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/bar-chart-dark.webp"><img src="docs/images/components/bar-chart-light.webp" alt="Bar chart" width="390"></picture><br><b>Bar chart</b><br><code>BarChart</code> · <code>ChartBar</code> · <code>ChartLegend</code> · <code>.blissChartStyle()</code><br><sub>Rounded bars side by side or stacked, with the library's axes, grid and legend; the style modifier dresses any chart you build.</sub></td>
   </tr>
 </table>
 

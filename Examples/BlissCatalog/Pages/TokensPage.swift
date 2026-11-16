@@ -16,6 +16,9 @@ struct TokensPage: View {
             DemoBlock(title: "Token field") {
                 TokenFieldDemo()
             }
+            DemoBlock(title: "Multi-select") {
+                MultiSelectDemo()
+            }
             DemoBlock(title: "Combo box") {
                 ComboBoxDemo()
             }
@@ -90,6 +93,24 @@ private struct TokenFieldDemo: View {
                 makeToken: TokensDemoPerson.named
             )
             DemoCaption(text: "Over a model type: only teammates are taken. Assigned: \(assignees.map(\.name).joined(separator: ", "))")
+        }
+        .frame(maxWidth: 480, alignment: .leading)
+    }
+}
+
+// MARK: - Multi-select
+
+private struct MultiSelectDemo: View {
+    @State private var teams: Set<String> = ["Design", "Engineering"]
+    @State private var assignees: Set<TokensDemoPerson> = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            MultiSelectPicker("Teams", selection: $teams, options: labelSuggestions, optionTitle: { $0 }, optionIcon: { _ in "person.2" })
+            DemoCaption(text: "Space or Return opens the menu, which stays open while you pick; typing filters it, Clear empties it. Each chip's ✕ removes one, Backspace on the trigger removes the last.")
+
+            MultiSelectPicker("Assignees", selection: $assignees, options: TokensDemoPerson.team, optionTitle: \.name, placeholder: "Anyone")
+            DemoCaption(text: "Over a model type. Picked: \(assignees.map(\.name).sorted().joined(separator: ", "))")
         }
         .frame(maxWidth: 480, alignment: .leading)
     }

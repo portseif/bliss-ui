@@ -21,6 +21,23 @@ extension Gallery {
                 }
             }
         },
+        GalleryEntry("message-composer", width: 480, height: 190) {
+            MessageComposer(
+                "Message",
+                text: .constant("Here are the mockups from this morning."),
+                prompt: Text("Message the team…"),
+                attachments: .constant([
+                    ComposerAttachment(name: "Onboarding.png", systemImage: "photo"),
+                    ComposerAttachment(name: "Notes.md"),
+                ]),
+                onSend: {},
+                onAttach: {}
+            ) {
+                Button {} label: { Image(systemName: "face.smiling") }
+                    .buttonStyle(ToolbarIconButtonStyle(compact: true))
+                    .accessibilityLabel(Text("Emoji"))
+            }
+        },
         GalleryEntry("bliss-slider", width: 420, height: 134) {
             VStack(spacing: Spacing.lg) {
                 GalleryFieldRow("Volume") {

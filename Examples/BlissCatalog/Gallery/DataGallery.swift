@@ -71,8 +71,14 @@ extension Gallery {
                     .frame(width: 100, height: 28)
             }
         },
-        GalleryEntry("commit-graph", width: 560, height: 860) {
-            CommitGraph(DataSamples.commits)
+        GalleryEntry("time-series-chart", width: 520, height: 260) {
+            TimeSeriesChart(.area, samples: GalleryChartData.visits)
+        },
+        GalleryEntry("bar-chart", width: 520, height: 260) {
+            BarChart(bars: GalleryChartData.downloads)
+        },
+        GalleryEntry("commit-graph", width: 600, height: 440) {
+            CommitGraph(DataSamples.compactCommits)
         },
         GalleryEntry("status-pill", width: 340, height: 68) {
             HStack(spacing: Spacing.sm) {
@@ -85,4 +91,24 @@ extension Gallery {
             DataSamples.keyboardHints
         },
     ]
+}
+
+/// Two series of sample data for the chart pictures.
+private enum GalleryChartData {
+    static let start = Calendar.current.date(from: DateComponents(year: 2026, month: 3, day: 1)) ?? Date()
+
+    static let visits: [ChartSample] = (0..<12).flatMap { day -> [ChartSample] in
+        let date = Calendar.current.date(byAdding: .day, value: day, to: start) ?? start
+        return [
+            ChartSample(date: date, value: 120 + Double((day * 37) % 80), series: "Web"),
+            ChartSample(date: date, value: 60 + Double((day * 53) % 70), series: "App"),
+        ]
+    }
+
+    static let downloads: [ChartBar] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"].enumerated().flatMap { index, month in
+        [
+            ChartBar(category: month, value: Double(40 + (index * 23) % 50), series: "Mac"),
+            ChartBar(category: month, value: Double(20 + (index * 31) % 40), series: "iPad"),
+        ]
+    }
 }

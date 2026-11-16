@@ -6,6 +6,10 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- `MultiSelectPicker` — the pick-many picker: chips on the trigger and a check-row menu that stays open.
+- `MessageComposer` and `ComposerAttachment` — a chat composer with attachment chips, a toolbar slot and a send button; Return sends, ⇧Return adds a line.
+- `TimeSeriesChart`, `BarChart`, `ChartLegend`, `ChartPalette` and `.blissChartStyle()` — themed charts on Swift Charts with a hover cursor and value card.
+
 - `InputField` — the boxed text field with a leading icon, a clear button, a keyboard hint, a loading spinner and a trailing slot.
 - `OneTimeCodeField` — a verification code typed into a row of boxes over one hidden field.
 - `Pagination` — page controls for a table or list, 1-based, with an ellipsis for skipped runs.

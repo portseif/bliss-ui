@@ -20,6 +20,8 @@ struct DataPage: View {
     @State private var deletions = 12
     @State private var latency = DataSamples.latency(seed: 0)
     @State private var isRunning = true
+    @State private var chartKind: TimeSeriesChartKind = .line
+    @State private var stacksBars = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -29,8 +31,32 @@ struct DataPage: View {
             tickStripBlock
             changeBlocksBlock
             sparklineBlock
+            chartsBlock
             commitGraphBlock
             pillsBlock
+        }
+    }
+
+    // MARK: - Charts
+
+    private var chartsBlock: some View {
+        DemoBlock(title: "Charts") {
+            Text("Hover for the values at a date or in a category. Series take the theme's accent and status marks; the legend appears with two or more named series.")
+                .font(Typography.bodySmall)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Spacing.sm) {
+                Button(chartKind == .line ? "Area" : "Line") { chartKind = chartKind == .line ? .area : .line }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+                Button(stacksBars ? "Side by side" : "Stacked") { stacksBars.toggle() }
+                    .buttonStyle(SecondaryButtonStyle(compact: true))
+            }
+            TimeSeriesChart(chartKind, samples: CatalogChartData.visits)
+                .frame(maxWidth: 640)
+                .frame(height: 220)
+            BarChart(bars: CatalogChartData.downloads, stacked: stacksBars)
+                .frame(maxWidth: 640)
+                .frame(height: 220)
         }
     }
 
@@ -237,6 +263,23 @@ enum DataSamples {
         ]
     }
 
+    /// Everything the graph draws in seven rows: plain dots, a merge ring, a
+    /// branch leaving and rejoining, one still open, a lane passing by, and a
+    /// ref of every kind.
+    static var compactCommits: [CommitGraphCommit] {
+        let day: TimeInterval = 86_400
+        let now = Date()
+        return [
+            CommitGraphCommit(id: "b7e1c04", parentIDs: ["3f9a2d1"], title: "Show sunrise and sunset", authorName: "Mara Lindqvist", date: now - 2 * day, refs: [CommitGraphRef("HEAD", kind: .highlight), CommitGraphRef("main", kind: .branch), CommitGraphRef("origin/main", kind: .remoteBranch)]),
+            CommitGraphCommit(id: "3f9a2d1", parentIDs: ["c0d4e8f", "7a1b9c3"], title: "Merge branch 'feature/widgets'", authorName: "Mara Lindqvist", date: now - 3 * day, refs: [CommitGraphRef("v1.1.0", kind: .tag)]),
+            CommitGraphCommit(id: "7a1b9c3", parentIDs: ["c0d4e8f"], title: "Add a small Today widget", authorName: "Priya Raman", date: now - 4 * day),
+            CommitGraphCommit(id: "e52f6a7", parentIDs: ["d18c4b2"], title: "Start the settings screen", authorName: "Theo Brandt", date: now - 5 * day, refs: [CommitGraphRef("feature/settings", kind: .branch)]),
+            CommitGraphCommit(id: "c0d4e8f", parentIDs: ["d18c4b2"], title: "Fix a crash on launch", authorName: "Jonas Weber", date: now - 6 * day, refs: [CommitGraphRef("Installed", kind: .neutral)]),
+            CommitGraphCommit(id: "d18c4b2", parentIDs: ["9e0a5f6"], title: "Cache the forecast on disk", authorName: "Theo Brandt", date: now - 8 * day),
+            CommitGraphCommit(id: "9e0a5f6", parentIDs: [], title: "Fetch the forecast", authorName: "Mara Lindqvist", date: now - 12 * day, refs: [CommitGraphRef("v1.0.0", kind: .tag)]),
+        ]
+    }
+
     static func gigabytes(_ value: Double) -> String {
         "\(value.formatted(.number.precision(.fractionLength(0)))) GB"
     }
@@ -301,5 +344,25 @@ enum DataSamples {
                 .font(Typography.captionTiny)
                 .foregroundStyle(.tertiary)
         }
+    }
+}
+
+/// Two series of sample data for the chart demo.
+private enum CatalogChartData {
+    static let start = Calendar.current.date(from: DateComponents(year: 2026, month: 3, day: 1)) ?? Date()
+
+    static let visits: [ChartSample] = (0..<12).flatMap { day -> [ChartSample] in
+        let date = Calendar.current.date(byAdding: .day, value: day, to: start) ?? start
+        return [
+            ChartSample(date: date, value: 120 + Double((day * 37) % 80), series: "Web"),
+            ChartSample(date: date, value: 60 + Double((day * 53) % 70), series: "App"),
+        ]
+    }
+
+    static let downloads: [ChartBar] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"].enumerated().flatMap { index, month in
+        [
+            ChartBar(category: month, value: Double(40 + (index * 23) % 50), series: "Mac"),
+            ChartBar(category: month, value: Double(20 + (index * 31) % 40), series: "iPad"),
+        ]
     }
 }
