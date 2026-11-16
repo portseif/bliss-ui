@@ -4,6 +4,10 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+
+- `BlissTable(isLazy: true)` builds rows as they scroll into view. Its rows sat inside `DividedForEach`'s one `VStack`, which a lazy stack builds whole, so the flag built every row at once. Each row is now its own child of the lazy stack, with the divider above it.
+
 ## [2.4.0] — 2026-11-16
 
 A consistency pass over every component, and a variant axis on each control.

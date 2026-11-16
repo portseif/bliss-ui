@@ -307,30 +307,53 @@ public struct BlissTable<Row: Identifiable, Cells: View>: View {
                 .padding(.horizontal, contentInset)
                 .padding(.vertical, Spacing.md)
         }
-        DividedForEach(Array(sortedRows.enumerated()), id: \.element.id) { entry in
-            let row = entry.element
-            BlissTableRow(
-                columns: columns,
-                isSelected: selection?.wrappedValue.contains(row.id) ?? false,
-                isStriped: striped && !entry.offset.isMultiple(of: 2),
-                showsCheckbox: selection != nil,
-                verticalPadding: compact ? Spacing.xs : Spacing.listRowPadding,
-                contentWidths: autoSizeColumns ? columnSizer.contentWidths : nil,
-                measureColumn: autoSizeColumns ? { [columnSizer] column, width in
-                    columnSizer.record(width, column: column, from: AnyHashable(row.id))
-                } : nil,
-                onToggleSelection: { toggleSelection(row, in: sortedRows) },
-                onOpen: onOpen.map { handler in { handler(row) } },
-                onSecondaryClick: onSecondaryClick.map { handler in { point in handler(row, point) } }
-            ) {
-                cells(row)
+        if isLazy {
+            // Each row is its own child of the lazy stack, carrying the divider
+            // above it. `DividedForEach` wraps its rows in one VStack, and a lazy
+            // stack builds a child whole: every row, at once.
+            ForEach(Array(sortedRows.enumerated()), id: \.element.id) { entry in
+                VStack(alignment: .leading, spacing: 0) {
+                    if entry.offset > 0 {
+                        rowSeparator
+                    }
+                    tableRow(entry, in: sortedRows)
+                }
             }
-            .padding(.horizontal, contentInset)
-        } separator: {
-            // Dividers span the row's content, not its hover fill.
-            if divided {
-                Divider().padding(.horizontal, contentInset + Spacing.sm)
+        } else {
+            DividedForEach(Array(sortedRows.enumerated()), id: \.element.id) { entry in
+                tableRow(entry, in: sortedRows)
+            } separator: {
+                rowSeparator
             }
+        }
+    }
+
+    private func tableRow(_ entry: (offset: Int, element: Row), in sortedRows: [Row]) -> some View {
+        let row = entry.element
+        return BlissTableRow(
+            columns: columns,
+            isSelected: selection?.wrappedValue.contains(row.id) ?? false,
+            isStriped: striped && !entry.offset.isMultiple(of: 2),
+            showsCheckbox: selection != nil,
+            verticalPadding: compact ? Spacing.xs : Spacing.listRowPadding,
+            contentWidths: autoSizeColumns ? columnSizer.contentWidths : nil,
+            measureColumn: autoSizeColumns ? { [columnSizer] column, width in
+                columnSizer.record(width, column: column, from: AnyHashable(row.id))
+            } : nil,
+            onToggleSelection: { toggleSelection(row, in: sortedRows) },
+            onOpen: onOpen.map { handler in { handler(row) } },
+            onSecondaryClick: onSecondaryClick.map { handler in { point in handler(row, point) } }
+        ) {
+            cells(row)
+        }
+        .padding(.horizontal, contentInset)
+    }
+
+    /// Dividers span the row's content, not its hover fill.
+    @ViewBuilder
+    private var rowSeparator: some View {
+        if divided {
+            Divider().padding(.horizontal, contentInset + Spacing.sm)
         }
     }
 
