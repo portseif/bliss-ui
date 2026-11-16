@@ -4,6 +4,10 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-11-16
+
+The five from the web-kit comparison: a split, a markdown view, a code block, a stat card and a rating.
+
 ### Added
 
 - `ResizableSplit` — two panes with a divider you drag, nudge from the keyboard or double-click to reset; the width is clamped and can persist.
@@ -126,7 +130,8 @@ The first tagged release — the StackMe component set, extracted into a package
 - The library's own strings in 10 languages (de, en, es, fr, it, ja, ko, pt-BR, ru, zh-Hans).
 - `BlissCatalog`, a demo app of every component built on the public API, and `scripts/screenshots.sh`, which regenerates the README images from it.
 
-[Unreleased]: https://github.com/portseif/bliss-ui/compare/2.2.0...HEAD
+[Unreleased]: https://github.com/portseif/bliss-ui/compare/2.3.0...HEAD
+[2.3.0]: https://github.com/portseif/bliss-ui/releases/tag/2.3.0
 [2.2.0]: https://github.com/portseif/bliss-ui/releases/tag/2.2.0
 [2.1.0]: https://github.com/portseif/bliss-ui/releases/tag/2.1.0
 [2.0.0]: https://github.com/portseif/bliss-ui/releases/tag/2.0.0
