@@ -1,6 +1,11 @@
-# BlissUI
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg">
+    <img src="docs/images/logo-light.svg" alt="BlissUI" width="360">
+  </picture>
+</p>
 
-**Beautiful by default.**
+<p align="center"><strong>Beautiful by default.</strong></p>
 
 <p align="center">
   <picture>
