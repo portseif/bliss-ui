@@ -34,7 +34,7 @@ shot() {
   local name=$1 scheme=$2 theme=$3
   shift 3
   "$CATALOG" -capture "$RAW/pages/$name.png" -bliss.colorScheme "$scheme" -bliss.theme "$theme" \
-    -blissCatalog.windowFrame "$FRAME" "$@"
+    -blissCatalog.windowFrame "$FRAME" -blissCatalog.controlShape rounded "$@"
 }
 
 shot hero-dark Dark system -page table -demo selection
