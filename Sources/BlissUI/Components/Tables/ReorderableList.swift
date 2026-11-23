@@ -11,7 +11,9 @@
 //
 //  Row frames are measured only while nothing is being dragged — a row's
 //  geometry includes its own offset, so measuring mid-drag would chase the
-//  slide and never settle.
+//  slide and never settle. The pointer's travel lives in a small observable
+//  that only the dragged row reads, so a drag redraws that row alone rather
+//  than the whole list on every pointer move.
 //
 
 import SwiftUI
@@ -50,7 +52,7 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
     @State private var dragSourceIndex: Int?
     /// Where the dragged row would land if released now.
     @State private var dragTargetIndex: Int?
-    @State private var dragTranslation: CGFloat = 0
+    @State private var drag = ReorderDragTravel()
     @State private var coordinateSpaceID = UUID()
     @FocusState private var focusedGrip: Item.ID?
 
@@ -94,6 +96,7 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
                     isDragging: draggingID == item.id,
                     isListDragging: draggingID != nil,
                     offset: offset(forRowAt: index, id: item.id),
+                    drag: drag,
                     showsDivider: divided && index < items.count - 1,
                     gripPlacement: gripPlacement,
                     verticalPadding: compact ? Spacing.xs : Spacing.listRowPadding,
@@ -167,11 +170,11 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
         draggingID = id
         dragSourceIndex = index
         dragTargetIndex = index
-        dragTranslation = 0
+        drag.translation = 0
     }
 
     private func updateDrag(translation: CGFloat) {
-        dragTranslation = translation
+        drag.translation = translation
         guard let draggingID, let frame = frames[draggingID] else { return }
         let draggedCenter = frame.midY + translation
         // The dragged row lands after every other row whose center it has passed.
@@ -192,7 +195,7 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
             draggingID = nil
             dragSourceIndex = nil
             dragTargetIndex = nil
-            dragTranslation = 0
+            drag.translation = 0
         }
     }
 
@@ -201,11 +204,11 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
         onMove?(offsets, destination)
     }
 
-    /// The dragged row follows the pointer; rows between its old and new slot
-    /// slide by its height to make room.
+    /// Rows between the dragged row's old and new slot slide by its height to
+    /// make room. The dragged row itself follows the pointer through `drag`.
     private func offset(forRowAt index: Int, id: Item.ID) -> CGFloat {
         guard let draggingID, let source = dragSourceIndex, let target = dragTargetIndex else { return 0 }
-        if id == draggingID { return dragTranslation }
+        if id == draggingID { return 0 }
         let draggedHeight = frames[draggingID]?.height ?? 0
         if source < index && index <= target { return -draggedHeight }
         if target <= index && index < source { return draggedHeight }
@@ -231,6 +234,13 @@ enum ReorderableListMetrics {
     static let liftScale: CGFloat = 1.01
 }
 
+/// How far the pointer has carried the dragged row. Observed, and read only by
+/// that row, so each pointer move redraws one row.
+@Observable
+final class ReorderDragTravel {
+    var translation: CGFloat = 0
+}
+
 // MARK: - Row cell
 
 /// One row: the caller's content and the grip in a flat list row with the
@@ -240,6 +250,7 @@ private struct ReorderableRowCell<Grip: View, Content: View>: View {
     let isDragging: Bool
     let isListDragging: Bool
     let offset: CGFloat
+    let drag: ReorderDragTravel
     let showsDivider: Bool
     let gripPlacement: ReorderGripPlacement
     let verticalPadding: CGFloat
@@ -266,7 +277,9 @@ private struct ReorderableRowCell<Grip: View, Content: View>: View {
             // The list-row geometry: the fill bleeds past the content, so the
             // divider below spans the content, not the fill.
             .listRowFill(fill, verticalPadding: verticalPadding)
-            .lifted(isDragging)
+            // Faded rather than added, so the row (and the drag in its grip)
+            // keeps its identity as it lifts.
+            .elevation(.lift, isVisible: isDragging)
             .scaleEffect(isDragging ? ReorderableListMetrics.liftScale : 1)
             .onHover { isHovering = $0 }
             .animation(Animations.hover, value: isHovering)
@@ -277,21 +290,9 @@ private struct ReorderableRowCell<Grip: View, Content: View>: View {
                     .opacity(isDragging ? 0 : 1)
             }
         }
-        .offset(y: offset)
+        // Only the dragged row reads the pointer's travel.
+        .offset(y: offset + (isDragging ? drag.translation : 0))
         .zIndex(isDragging ? 1 : 0)
-    }
-}
-
-private extension View {
-    /// The lift shadow only while dragged: a shadow under a clear or washed
-    /// resting row would show faintly through the wash.
-    @ViewBuilder
-    func lifted(_ isLifted: Bool) -> some View {
-        if isLifted {
-            elevation(.lift)
-        } else {
-            self
-        }
     }
 }
 

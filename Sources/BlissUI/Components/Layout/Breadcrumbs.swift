@@ -3,11 +3,12 @@
 //  BlissUI
 //
 //  A path — Projects › BlissUI › Sources › Layout — where every segment but the
-//  last goes back to that level. The links hover like a title bar's back link
-//  (`GhostButtonStyle(hugsLabel:)`: the text stays put and the fill bleeds
-//  past it); the last segment, where you are, is plain primary text. When the
-//  path doesn't fit, the middle folds into a "…" menu, from the oldest level
-//  forward, and the first segment and the current one always stay.
+//  last goes back to that level. Each link carries a small hover fill of its
+//  own, inside its layout, so a fill never spreads over the chevrons; the
+//  last segment, where you are, is plain primary text. When the path doesn't
+//  fit, the middle folds into a "…" menu, from the oldest level forward, and
+//  the first segment and the current one always stay. The "…" stays lit while
+//  its menu is open.
 //
 
 import SwiftUI
@@ -75,9 +76,8 @@ public struct Breadcrumbs<Item>: View {
         self.onSelect = onSelect
     }
 
-    /// The gap on each side of a chevron. Wide enough that neighboring links'
-    /// hover fills (which bleed `Spacing.md` past their text) barely touch.
-    private static var separatorSpacing: CGFloat { Spacing.sm }
+    /// The gap on each side of a chevron, outside the links' own padding.
+    private static var separatorSpacing: CGFloat { Spacing.xxs }
 
     private var collapsed: Range<Int> {
         let forced = BreadcrumbCollapse.forcedRange(count: items.count, maximumSegments: maximumSegments)
@@ -164,13 +164,13 @@ public struct Breadcrumbs<Item>: View {
             label(at: index)
                 .foregroundStyle(.primary)
                 .truncationMode(.middle)
+                .padding(.horizontal, BreadcrumbMetrics.segmentPaddingH)
         } else {
             let item = items[index]
             Button { onSelect(item) } label: {
-                label(at: index)
-                    .foregroundStyle(.secondary)
+                BreadcrumbLinkLabel(isActive: false) { label(at: index) }
             }
-            .buttonStyle(GhostButtonStyle(hugsLabel: true))
+            .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault))
             .fixedSize()
         }
     }
@@ -179,9 +179,9 @@ public struct Breadcrumbs<Item>: View {
         Button {
             isOverflowMenuPresented.toggle()
         } label: {
-            overflowLabel
+            BreadcrumbLinkLabel(isActive: isOverflowMenuPresented) { overflowLabel }
         }
-        .buttonStyle(GhostButtonStyle(hugsLabel: true))
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault))
         .fixedSize()
         .tooltip(configuration: .iconHint, position: .below) {
             Text("Show full path", bundle: .module).font(Typography.labelSmall)
@@ -215,7 +215,6 @@ public struct Breadcrumbs<Item>: View {
     private var overflowLabel: some View {
         Image(systemName: "ellipsis")
             .font(font)
-            .foregroundStyle(.secondary)
             // The glyph sits low; a line's height keeps it on the text's center.
             .frame(minHeight: Sizing.iconDefault)
     }
@@ -226,6 +225,7 @@ public struct Breadcrumbs<Item>: View {
         HStack(spacing: 0) {
             ForEach(items.indices, id: \.self) { index in
                 label(at: index)
+                    .padding(.horizontal, BreadcrumbMetrics.segmentPaddingH)
                     .fixedSize()
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { segmentWidths[index] = $0 }
             }
@@ -233,11 +233,46 @@ public struct Breadcrumbs<Item>: View {
                 .fixedSize()
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { chevronWidth = $0 }
             overflowLabel
+                .padding(.horizontal, BreadcrumbMetrics.segmentPaddingH)
                 .fixedSize()
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { overflowWidth = $0 }
         }
         .hidden()
         .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Link
+
+enum BreadcrumbMetrics {
+    /// A segment's inset on each side, inside its hover fill.
+    static let segmentPaddingH: CGFloat = Spacing.xs
+}
+
+/// A link segment, or the "…": secondary text that turns primary on a hover
+/// wash, the wash held while `isActive` (the "…" menu is open).
+private struct BreadcrumbLinkLabel<Content: View>: View {
+    let isActive: Bool
+    @ViewBuilder let content: () -> Content
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
+
+    private var fill: Color {
+        if isActive { return RowTint.selected(colorScheme) }
+        return isHovering ? RowTint.hover(colorScheme) : .clear
+    }
+
+    var body: some View {
+        content()
+            .foregroundStyle(isHovering || isActive ? Color.primary : Color.secondary)
+            .padding(.horizontal, BreadcrumbMetrics.segmentPaddingH)
+            .padding(.vertical, Spacing.hairline)
+            .background(fill, in: RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous))
+            .onHover { isHovering = $0 }
+            .animation(Animations.hover, value: isHovering)
+            .animation(Animations.hover, value: isActive)
     }
 }
 

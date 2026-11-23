@@ -46,8 +46,6 @@ public struct ThinkingSpinner: View {
     var color: Color = Grey.grey400
     var label: Text? = Text("Loading", bundle: .blissUI)
 
-    @State private var isAnimating = false
-
     /// The arc at any diameter and stroke.
     public init(size: CGFloat = Sizing.iconDefault, lineWidth: CGFloat = 2, color: Color = Grey.grey400, label: Text? = Text("Loading", bundle: .blissUI)) {
         self.size = size
@@ -63,25 +61,34 @@ public struct ThinkingSpinner: View {
 
     /// 70% of the circle, so the gradient's clear end meets its solid end.
     private static let arcFraction: Double = 0.7
+    /// One turn takes this long.
+    private static let period: TimeInterval = 0.8
 
+    // It turns by the clock rather than by a repeating animation started on
+    // appear: that animation took along whatever else changed as the spinner
+    // arrived, so a spinner that appeared while its row was laid out again
+    // slid back and forth between the two places forever.
     public var body: some View {
-        Circle()
-            .trim(from: 0, to: Self.arcFraction)
-            .stroke(
-                AngularGradient(
-                    gradient: Gradient(colors: [color.opacity(0), color]),
-                    center: .center,
-                    startAngle: .degrees(0),
-                    endAngle: .degrees(360 * Self.arcFraction)
-                ),
-                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-            )
+        TimelineView(.animation(paused: prefersReducedMotion)) { timeline in
+            let turn = prefersReducedMotion
+                ? 0
+                : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: Self.period) / Self.period
+            Circle()
+                .trim(from: 0, to: Self.arcFraction)
+                .stroke(
+                    AngularGradient(
+                        gradient: Gradient(colors: [color.opacity(0), color]),
+                        center: .center,
+                        startAngle: .degrees(0),
+                        endAngle: .degrees(360 * Self.arcFraction)
+                    ),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                // Keeps the stroke's outer half inside the frame.
+                .padding(lineWidth / 2)
+                .rotationEffect(.degrees(turn * 360))
+        }
             .frame(width: size, height: size)
-            // Turning is the one place linear timing belongs; under Reduce
-            // Motion the arc holds still.
-            .rotationEffect(.degrees(isAnimating && !prefersReducedMotion ? 360 : 0))
-            .animation(prefersReducedMotion ? nil : Animations.spinner, value: isAnimating)
-            .onAppear { isAnimating = true }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(label ?? Text(verbatim: ""))
             .accessibilityHidden(label == nil)

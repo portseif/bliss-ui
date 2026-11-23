@@ -23,24 +23,33 @@ public enum Elevation {
 extension View {
     /// Draws the tier's shadow(s). Never combine with `hasShadow` on a panel.
     public func elevation(_ level: Elevation) -> some View {
-        modifier(ElevationModifier(level: level))
+        modifier(ElevationModifier(level: level, strength: 1))
+    }
+
+    /// The tier's shadow, faded out while `isVisible` is false — for a surface
+    /// that lifts and settles (a dragged row) without an `if` that would swap
+    /// its identity, and with it any gesture in flight.
+    func elevation(_ level: Elevation, isVisible: Bool) -> some View {
+        modifier(ElevationModifier(level: level, strength: isVisible ? 1 : 0))
     }
 }
 
 private struct ElevationModifier: ViewModifier {
     let level: Elevation
+    /// Scales every shadow's opacity: 1 drawn, 0 hidden.
+    let strength: Double
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         switch level {
         case .lift:
-            content.shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+            content.shadow(color: .black.opacity(0.12 * strength), radius: 8, y: 2)
         case .panel:
             content
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.4 : 0.14), radius: 16, y: 6)
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.25 : 0.08), radius: 3, y: 1)
+                .shadow(color: .black.opacity((colorScheme == .dark ? 0.4 : 0.14) * strength), radius: 16, y: 6)
+                .shadow(color: .black.opacity((colorScheme == .dark ? 0.25 : 0.08) * strength), radius: 3, y: 1)
         case .sheet:
-            content.shadow(color: .black.opacity(0.28), radius: 28, y: 14)
+            content.shadow(color: .black.opacity(0.28 * strength), radius: 28, y: 14)
         }
     }
 }

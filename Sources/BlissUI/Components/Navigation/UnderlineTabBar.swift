@@ -207,7 +207,8 @@ public struct UnderlineTabBar<Value: Hashable>: View {
         .opacity(item.isEnabled ? 1 : Animations.disabledOpacity)
         .onHover { hovering in
             withAnimation(Animations.hover) {
-                if hovering {
+                // A disabled tab doesn't answer the pointer.
+                if hovering, item.isEnabled {
                     hoveredTab = item.value
                 } else if hoveredTab == item.value {
                     hoveredTab = nil

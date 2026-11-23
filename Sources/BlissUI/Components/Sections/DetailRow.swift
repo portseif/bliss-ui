@@ -105,9 +105,10 @@ public struct DetailRow: View {
 
 // MARK: - Copy Button
 
-/// Small hover-highlight copy affordance: a `HoverIconButton` that shows a
-/// green check for a moment after copying. Its own type (not private to
-/// `DetailRow`) so other surfaces can reuse it — a stat row, a key field.
+/// The copy affordance: a bare glyph, quiet at rest and full-strength under
+/// the pointer, that turns into a green check for a moment after copying. Its
+/// own type (not private to `DetailRow`) so other surfaces can reuse it — a
+/// stat row, a key field.
 public struct CopyButton: View {
     let value: String
     @Binding var showCopied: Bool
@@ -124,23 +125,44 @@ public struct CopyButton: View {
         self.isSecret = isSecret
     }
 
+    @State private var isHovering = false
+
+    private var help: String {
+        showCopied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy", bundle: .module)
+    }
+
+    private var glyphColor: Color {
+        if showCopied { return Success.success500 }
+        return isHovering ? Color.textPrimary : Color.textTertiary
+    }
+
     public var body: some View {
-        HoverIconButton(
-            systemImage: showCopied ? "checkmark" : "doc.on.doc",
-            tint: showCopied ? Success.success500 : nil,
-            help: showCopied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy", bundle: .module)
-        ) {
-            Task {
-                if isSecret {
-                    guard await SecretClipboard.copy(value, reason: String(localized: "copy a secret", bundle: .module)) else { return }
-                } else {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(value, forType: .string)
-                }
-                withAnimation(Animations.hover) { showCopied = true }
-                try? await Task.sleep(for: .seconds(Self.confirmationDuration))
-                withAnimation(Animations.hover) { showCopied = false }
+        Button(action: copy) {
+            Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                .font(Typography.labelXSmall)
+                .foregroundStyle(glyphColor)
+                .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall))
+        .onHover { hovering in
+            withAnimation(Animations.hover) { isHovering = hovering }
+        }
+        .tooltip(.verbatim(help))
+        .accessibilityLabel(Text(verbatim: help))
+    }
+
+    private func copy() {
+        Task {
+            if isSecret {
+                guard await SecretClipboard.copy(value, reason: String(localized: "copy a secret", bundle: .module)) else { return }
+            } else {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(value, forType: .string)
             }
+            withAnimation(Animations.hover) { showCopied = true }
+            try? await Task.sleep(for: .seconds(Self.confirmationDuration))
+            withAnimation(Animations.hover) { showCopied = false }
         }
     }
 }

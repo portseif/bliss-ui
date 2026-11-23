@@ -3,9 +3,9 @@
 //  BlissUI
 //
 //  BlissUI's link style for clickable URLs (`example.com/docs`,
-//  `http://127.0.0.1:8080`), the way a table's domain column shows them: dimmed
-//  text over an offset dotted underline, both turning accent on hover, with the
-//  pointing-hand cursor. URLs only — actions stay buttons.
+//  `http://127.0.0.1:8080`), the way a table's domain column shows them: text
+//  over a faint offset underline that turns solid, with the text, on hover,
+//  and the pointing-hand cursor. URLs only — actions stay buttons.
 //
 
 import SwiftUI
@@ -18,13 +18,11 @@ public enum TextLinkTone {
     case primary
 }
 
-/// The link's own numbers: the dotted rule and the dimmed tone.
+/// The link's own numbers: the underline and the dimmed tone.
 private enum TextLinkMetrics {
     static let dimmedTextOpacity: Double = 0.55
-    static let ruleRestOpacity: Double = 0.18
-    static let ruleHoverOpacity: Double = 0.7
+    static let ruleRestOpacity: Double = 0.3
     static let ruleWidth: CGFloat = 1
-    static let ruleDash: [CGFloat] = [1, 2]
     /// The rule sits this far under the baseline, so it doesn't touch descenders.
     static let ruleOffset: CGFloat = 2.5
     /// The ring clears the rule by this much.
@@ -52,7 +50,7 @@ public struct TextLink: View {
     ///   - truncationMode: Where a long link is cut to fit one line.
     ///   - hoverSymbol: An SF Symbol shown after the text on hover.
     ///   - tone: Dimmed (a URL column) or the full text color (body copy).
-    ///   - showsUnderline: Draw the dotted rule at rest; off, it shows on hover only.
+    ///   - showsUnderline: Draw the underline at rest; off, it shows on hover only.
     ///   - action: Opens the link.
     public init(
         _ title: String,
@@ -73,12 +71,12 @@ public struct TextLink: View {
     }
 
     private var textColor: Color {
-        if hovering { return Color.accent }
+        if hovering { return Color.primary }
         return tone == .primary ? Color.primary : Color.primary.opacity(TextLinkMetrics.dimmedTextOpacity)
     }
 
     private var ruleColor: Color {
-        if hovering { return Color.accent.opacity(TextLinkMetrics.ruleHoverOpacity) }
+        if hovering { return Color.primary }
         return showsUnderline ? Color.primary.opacity(TextLinkMetrics.ruleRestOpacity) : .clear
     }
 
@@ -92,11 +90,8 @@ public struct TextLink: View {
                     // BELOW the text with breathing room. An overlay, so it adds no
                     // height to the line it's in.
                     .overlay(alignment: .bottom) {
-                        DottedRule()
-                            .stroke(
-                                ruleColor,
-                                style: StrokeStyle(lineWidth: TextLinkMetrics.ruleWidth, dash: TextLinkMetrics.ruleDash)
-                            )
+                        Rectangle()
+                            .fill(ruleColor)
                             .frame(height: TextLinkMetrics.ruleWidth)
                             .offset(y: TextLinkMetrics.ruleOffset)
                     }
@@ -110,7 +105,7 @@ public struct TextLink: View {
             .foregroundStyle(textColor)
             .contentShape(Rectangle())
         }
-        // Out past the dotted underline, so the ring doesn't sit on it.
+        // Out past the underline, so the ring doesn't sit on it.
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: TextLinkMetrics.ringOutset))
         .opacity(isEnabled ? 1 : Animations.disabledOpacity)
         .onHover { isHovering in
@@ -122,17 +117,6 @@ public struct TextLink: View {
     private var text: Text {
         let text = Text(verbatim: title)
         return font.map { text.font($0) } ?? text
-    }
-}
-
-/// A horizontal 1pt rule, stroked dashed by its caller — the link's offset dotted
-/// underline (`.underline` can't add space below the text).
-private struct DottedRule: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.width, y: rect.midY))
-        return path
     }
 }
 

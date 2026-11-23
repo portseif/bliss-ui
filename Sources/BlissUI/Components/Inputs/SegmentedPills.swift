@@ -48,6 +48,13 @@ enum SegmentedPillsMetrics {
     }
 
     static let segmentSpacing: CGFloat = Spacing.hairline
+
+    /// The regular control's selected pill: a wash of the text color, lifted
+    /// off the track by a soft shadow, so it reads as raised on any surface.
+    static let regularSelectedOpacity: Double = 0.1
+    static let regularSelectedShadowOpacity: Double = 0.3
+    static let regularSelectedShadowRadius: CGFloat = 3
+    static let regularSelectedShadowOffset: CGFloat = 1
 }
 
 /// A segmented control over `options`. `title` (and optionally `icon`, an SF
@@ -124,7 +131,11 @@ public struct SegmentedPills<Option: Hashable>: View {
                     .fill(Color.restingFill)
             case .compact:
                 RoundedRectangle(cornerRadius: SegmentedPillsMetrics.trackRadius(style), style: .continuous)
-                    .strokeBorder(Color.menuBorder, lineWidth: 1)
+                    .fill(Color.restingFill)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: SegmentedPillsMetrics.trackRadius(style), style: .continuous)
+                            .strokeBorder(Color.menuBorder, lineWidth: 1)
+                    }
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: SegmentedPillsMetrics.trackRadius(style), style: .continuous))
@@ -154,7 +165,7 @@ private struct SegmentedPillsSegment: View {
     /// The label at the control's size: the button label for the regular
     /// control, a step down for the compact one.
     private var font: Font {
-        isRegular ? Typography.labelMedium : Typography.labelSmall
+        isRegular ? Typography.labelSmall : Typography.labelXSmall
     }
 
     private var foreground: Color {
@@ -194,15 +205,16 @@ private struct SegmentedPillsSegment: View {
     private var background: some View {
         if isSelected {
             // One pill that slides between the options (only the selected one
-            // draws it): the control surface on a hairline for the regular
-            // track, the selection fill inside the compact hairline.
+            // draws it): a raised wash of the text color on the regular track,
+            // the selection fill inside the compact hairline.
             if isRegular {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.controlBackground)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.menuBorder, lineWidth: 1)
-                    }
+                    .fill(Color.primary.opacity(SegmentedPillsMetrics.regularSelectedOpacity))
+                    .shadow(
+                        color: .black.opacity(SegmentedPillsMetrics.regularSelectedShadowOpacity),
+                        radius: SegmentedPillsMetrics.regularSelectedShadowRadius,
+                        y: SegmentedPillsMetrics.regularSelectedShadowOffset
+                    )
                     .matchedGeometryEffect(id: "selectedSegment", in: namespace)
             } else {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

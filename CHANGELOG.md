@@ -4,6 +4,43 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+
+- **Text buttons take a tighter look.** Labels are `labelSmall` (12pt) on 12pt side padding at both tiers (regular buttons were 18pt). `PrimaryButtonStyle` and `SecondaryButtonStyle(accent: true)` are the accent fill with `AccentHue.contrastForeground` text, no longer the neutral gray surface; Secondary's label is full-strength at rest. Solid fills (Primary, prominent Destructive) thin to 92% on hover instead of lifting, and a disabled text button dims as a whole to `Animations.disabledOpacity` instead of swapping in gray fills and text. Heights, corners, hairlines, focus rings and press scale are unchanged.
+- **Sheet headers and confirmations.** `SheetHeader`'s title is `bodyLarge` (16pt, was `headingLarge`) over a `caption` subtitle, 8pt apart. `SheetCloseButton` is a 32pt rounded square, clear at rest with the row hover and a glyph that turns full-strength (was a 24pt circle on the resting fill); a regular header tucks it toward the card's corner. `ConfirmationSheet` puts the question and its detail beside a ✕, over Cancel and the action at the regular size; the ✕ takes Esc, which Cancel used to own.
+- **Toasts.** A status pill leads with its words: an error or warning shows a plain filled glyph in its status color (a `customIcon` shows the same way) instead of the white-on-color disc, and a success or info toast shows none. The title is `captionSemibold` and the detail `caption` (12pt, were 13pt) on a 40pt capsule. A plain `ToastAction` (Undo) is a small capsule on `RowTint.selected` instead of accent text, and a success or info toast with an action drops its ✕. Prominent actions, the stack, the expanding error card and the progress pill are unchanged.
+- **Segmented control.** `SegmentedPills`' regular selected pill is a 10% wash of the text color on a soft contact shadow (was the control surface on a hairline), and its labels are `labelSmall` (`labelXSmall` compact, a step down from before). The compact track rests on `Color.restingFill` inside its hairline.
+- **Switch.** `.flatSwitch` is smaller and flat: 26 × 16 regular (22 × 14 small, 20 × 12 mini; was the native 38 × 22), no thumb shadow, a thumb in `AccentHue.contrastForeground` on the accent track and a gray one on `RowTint.selected` when off. A drawn label is `labelSmall`, `Spacing.xs` from the switch, and dims while off.
+- **Text fields.** `.largePadded` is a 32pt box, no longer an underline, and `.compact` the same box at 28pt: `Color.restingFill` with a hairline at rest, an accent hairline at 60% while focused, red inside a `FormField` with an error. `Sizing.fieldCornerRadius` is `radiusMedium` on every macOS (it was a capsule on macOS 26), so `.inputBox`, `NumberField`, `SecretField`, `ShortcutRecorder` and `TimeField` take the same corners. `.search` (32pt, `radiusLarge`) and `.toolbarSearch` (28pt) rest in the same well and hairline, take an accent hairline while focused, and keep a quiet glyph instead of turning it accent.
+- **Key caps, spinner, links and copy.** `ShortcutKey` is a 6% wash of the text color inside a 12% hairline of it (it had no hairline unless outlined or floating) and is never narrower than it is tall. `ThinkingSpinner` turns on the clock (a `TimelineView`) instead of a repeating animation, so a spinner that appears during a layout change no longer drags that change into its loop, and its stroke stays inside its frame. `TextLink`'s underline is solid, 30% at rest and full on hover, and the link turns full-strength rather than accent on hover. `CopyButton` is a bare glyph, tertiary at rest and primary on hover, instead of a `HoverIconButton` chip.
+- **Menus.** Every detached panel (menus, popups, tooltips, the command palette) is solid `Color.controlBackground`; under System it was the vibrant material. Menu rows are 7pt tall at the top and bottom (`Spacing.menuRowPaddingV`, was 5) with 8pt between icon and title; a `QuickActionMenuItem`'s `detail` follows the title on its line in the tertiary tone (it was a caption under it) and its `isChecked` check trails the row (it led it). `MenuSectionHeader` is tiny tracked capitals in the tertiary tone; `MenuDivider` is a `Color.menuBorder` hairline inset `Spacing.xxs`.
+- **Banner.** The title is `captionSemibold` and the message `caption` (12pt; were 13pt and 11pt).
+- **Drop zone.** `DropZone` carries a real Browse button (`SecondaryButtonStyle(compact: true)`) in place of the drawn Browse link, and the card itself is no longer a button.
+- **Small pill button.** `SmallPillButtonStyle` is 28pt with 12pt side padding (was 24pt with 8pt).
+- **Banner and toast actions.** A `Banner`'s `actionTitle` button is `GhostButtonStyle(compact: true)` (was accent text); a toast's prominent action is a pill.
+- **One pill size.** `StatusPill`, `StatusDotPill` and `Badge.status` default to `.regular` (were `.small`, `.small` and `.large`), the size every badge defaults to, and `Badge(count:)` is now as tall as the other pills at its size, in their bold face.
+- **Markdown.** Inline code takes the size of the text around it (it was pinned to 12pt).
+- **Labeled divider.** A label at the leading or trailing end has no line past it.
+- **Rounded section.** The header and footer sit flush with the card's edge by default (`insetsHeader` now defaults to `false`).
+- **Tabs.** A disabled `UnderlineTabBar` tab doesn't brighten under the pointer.
+- **Sidebar.** Collapsed to icons, a row is a 28pt square centered in the rail; a row's hover control no longer makes the row taller.
+- **Breadcrumbs.** Each link has a small hover fill inside its own layout (it bled over the chevrons), and the "…" stays lit while its menu is open.
+- **Sheets.** `.appSheetHost()` centers sheets in the whole window; `appSheetHost(leadingInset:)` is deprecated and ignores the inset.
+- **Split grip.** The divider stays a 1pt hairline; hovering or dragging shows a 3pt rounded thumb in its middle (accent while dragging) instead of thickening the line.
+- **Sparkline.** Smooth by default (`smooths: true`).
+- **Bar chart.** The category order is pinned to the data's, so hovering no longer reorders the bars.
+- **Carousel.** Every page fills the carousel at the tallest page's height, and swipes snap to each page's edge, so `pageSpacing` no longer leaves a sliver of the next page in view.
+- **Avatar stack.** `+N` is bare text centered in an avatar-wide slot, with no chip behind it.
+- **Reorderable list.** A drag redraws only the dragged row, and lifting a row no longer swaps its identity mid-drag.
+
+### Added
+
+- `.toggleStyle(.flatCheckbox)` / `.flatCheckbox(tint:)`: a checkbox whose label toggles it too, one Tab stop. A `.flatSwitch`'s drawn label now flips the switch as well.
+- `StepIndicator(grows: true)`: the current dot stretches into a short line.
+- `.calendarDayShape(.circle)`: circle days (and capsule range bands) for `MonthCalendar`, `DateRangeCalendar` and the date pickers.
+- `MenuSection(title) { rows }`: a group of menu rows under a heading, held in an inset panel a step darker than the menu (a project switcher's recent projects, a model picker's providers).
+- `StatusDotPill(isPulsing:)`: the dot breathes for a state that's under way or waiting. It holds still under Reduce Motion.
+
 ## [2.4.1] — 2026-11-17
 
 Memory fixes found while profiling Skills Buddy.

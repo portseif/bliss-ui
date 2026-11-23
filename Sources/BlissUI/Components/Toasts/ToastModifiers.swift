@@ -128,6 +128,10 @@ enum ToastMetrics {
     static let pillHeight: CGFloat = Sizing.iconMedium + verticalPadding * 2
     /// Above and below the pill's content.
     static let verticalPadding: CGFloat = 10
+    /// Above and below a status pill's words, which `pillHeight` then centers.
+    static let statusVerticalPadding: CGFloat = Spacing.xs
+    /// The sides of a plain action's capsule (Undo).
+    static let actionPillPaddingH: CGFloat = Spacing.sm + Spacing.hairline
     /// After the pill's last control (the ✕ carries its own chip padding).
     static let trailingPadding: CGFloat = Spacing.sm + Spacing.hairline
     /// The collapsed pill's corner, finite so it can morph into the card's.

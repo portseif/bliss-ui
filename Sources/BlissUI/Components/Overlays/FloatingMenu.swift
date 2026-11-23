@@ -18,14 +18,11 @@ import SwiftUI
 
 // MARK: - Panel surface
 
-/// The surface every detached panel draws: the theme's control color under a
-/// color theme (so menus match the theme), the vibrant material under System.
+/// The surface every detached panel draws: the control color, solid, so a
+/// menu reads the same over any content and matches the active theme.
 enum PanelSurface {
     static var fill: AnyShapeStyle {
-        if ThemeColors.activePalette != nil {
-            return AnyShapeStyle(Color.controlBackground)
-        }
-        return AnyShapeStyle(.ultraThinMaterial)
+        AnyShapeStyle(Color.controlBackground)
     }
 }
 

@@ -30,7 +30,9 @@ struct BlissCatalogApp: App {
             } else {
                 CatalogView()
                     .frame(minWidth: 960, minHeight: 640)
-                    .appSheetHost(leadingInset: CatalogView.sidebarWidth)
+                    // The "Presto vs Bliss" page's Presto dialog and toast.
+                    .overlay { PrestoOverlayHost() }
+                    .appSheetHost()
                     .globalToast()
                     .blissTheme()
                     .blissWindowChrome()

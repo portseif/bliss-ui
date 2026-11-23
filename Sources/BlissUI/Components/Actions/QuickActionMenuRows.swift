@@ -18,7 +18,7 @@ enum MenuRowMetrics {
     static let horizontalPadding: CGFloat = Spacing.menuRowPaddingH
     static let verticalPadding: CGFloat = Spacing.menuRowPaddingV
     /// Between the icon slot and the title.
-    static let iconSpacing: CGFloat = Spacing.menuRowPaddingH
+    static let iconSpacing: CGFloat = Spacing.sm
     /// The leading icon slot.
     static let iconSlot: CGFloat = Sizing.iconDefault
     /// A custom (asset) icon's size.
@@ -211,8 +211,8 @@ public struct QuickActionMenuItem: View {
     ///   - isFocused: The menu's arrow-key highlight.
     ///   - shortcut: A trailing key cap ("⌘D").
     ///   - isEnabled: A greyed row that ignores clicks and the keys.
-    ///   - isChecked: A checkmark before the title for a toggle item; nil for an action.
-    ///   - detail: A caption under the title ("Opens in Safari").
+    ///   - isChecked: A checkmark at the row's end for a toggle item; nil for an action.
+    ///   - detail: A quieter note after the title ("Opens in Safari").
     ///   - action: What the row does.
     public init(
         title: LocalizedStringKey,
@@ -295,7 +295,7 @@ public struct QuickActionMenuItem: View {
                     .foregroundStyle(iconColor)
             } else {
                 Image(systemName: iconName)
-                    .font(Typography.caption)
+                    .font(Typography.labelXSmall)
                     .foregroundStyle(iconColor)
             }
         } else if let customIconView {
@@ -315,30 +315,22 @@ public struct QuickActionMenuItem: View {
     public var body: some View {
         Button(action: activate) {
             HStack(spacing: MenuRowMetrics.iconSpacing) {
-                if let isChecked {
-                    Image(systemName: "checkmark")
-                        .font(Typography.labelSmallBold)
-                        .foregroundStyle(iconColor)
-                        .opacity(isChecked ? 1 : 0)
-                        .frame(width: MenuRowMetrics.iconSlot)
-                        .accessibilityHidden(true)
-                }
-
                 iconContent
                     .frame(width: MenuRowMetrics.iconSlot)
 
-                VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
-                    Text(title)
-                        .font(Typography.bodySmall)
-                        .foregroundStyle(textColor)
-                    if let detail {
-                        Text(detail)
-                            .font(Typography.captionSmall)
-                            .foregroundStyle(Color.textSecondary)
-                    }
+                // The detail follows the title on its line, quieter, and gives
+                // way first when the row is short of room.
+                Text(title)
+                    .font(Typography.bodySmall)
+                    .foregroundStyle(textColor)
+                    .layoutPriority(1)
+                if let detail {
+                    Text(detail)
+                        .font(Typography.caption)
+                        .foregroundStyle(Color.textTertiary)
                 }
 
-                Spacer()
+                Spacer(minLength: Spacing.lg)
 
                 if showProBadge {
                     Badge.pro(size: .small)
@@ -347,7 +339,20 @@ public struct QuickActionMenuItem: View {
                 if let shortcut {
                     ShortcutKey(shortcut, compact: true)
                 }
+
+                // A toggle item's check trails the row, with a slot kept
+                // while it's off so the shortcuts above and below line up.
+                if let isChecked {
+                    Image(systemName: "checkmark")
+                        .font(Typography.labelXSmall)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(iconColor)
+                        .opacity(isChecked ? 1 : 0)
+                        .frame(width: MenuRowMetrics.iconSlot)
+                        .accessibilityHidden(true)
+                }
             }
+            .lineLimit(1)
             .padding(.horizontal, MenuRowMetrics.horizontalPadding)
             .padding(.vertical, MenuRowMetrics.verticalPadding)
             // Full-width so trailing content right-aligns whether the parent menu

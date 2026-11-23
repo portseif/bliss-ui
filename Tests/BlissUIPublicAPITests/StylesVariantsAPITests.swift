@@ -54,6 +54,12 @@ import BlissUI
         #expect(placements.count == 2)
     }
 
+    @Test func checkboxStyleIsReachable() {
+        _ = Toggle("I agree", isOn: .constant(false)).toggleStyle(.flatCheckbox)
+        _ = Toggle("Tinted", isOn: .constant(true)).toggleStyle(.flatCheckbox(tint: Success.success500))
+        _ = Toggle("Styled", isOn: .constant(true)).toggleStyle(FlatCheckboxToggleStyle(tint: nil))
+    }
+
     @Test func textLinkVariantsAreReachable() {
         _ = TextLink("Read the notes", tone: .primary, showsUnderline: false) {}
         _ = TextLink("example.com", font: Typography.codeSmall, truncationMode: .middle, hoverSymbol: "arrow.up.right", tone: .dimmed, showsUnderline: true) {}

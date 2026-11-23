@@ -118,9 +118,9 @@ public struct SheetHeader: View {
             }
 
             // Title + subtitle, left-aligned
-            VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
                 Text(title)
-                    .font(compact ? Typography.headingSmall : Typography.headingLarge)
+                    .font(compact ? Typography.headingSmall : Typography.bodyLarge)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -128,7 +128,7 @@ public struct SheetHeader: View {
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(Typography.bodySmall)
+                        .font(Typography.caption)
                         .foregroundStyle(Color.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -140,11 +140,13 @@ public struct SheetHeader: View {
                 actions
             }
 
-            // Dismiss button (trailing), nudged up into the header's padding.
-            // Not while the sheet forbids interactive dismissal (saving).
+            // Dismiss button (trailing), tucked out into the header's padding so
+            // it sits `Spacing.md` from the card's top and trailing edges without
+            // moving the title. Not while the sheet forbids interactive
+            // dismissal (saving).
             if let onDismiss, !dismissDisabled {
                 SheetCloseButton(action: onDismiss)
-                    .offset(y: compact ? 0 : -Spacing.md)
+                    .offset(x: compact ? 0 : SheetCloseButton.cornerTuck, y: compact ? 0 : -SheetCloseButton.cornerTuck)
                     .keyboardShortcut(.escape, modifiers: [])
             }
         }
@@ -169,10 +171,11 @@ public struct SheetHeader: View {
 
 // MARK: - Sheet Close Button
 
-/// The standard circular "✕" dismiss button shared by every sheet and panel
-/// header. Single source of truth so all close buttons look identical to the
-/// one `SheetHeader` renders: a `Sizing.controlSmall` circle on the resting
-/// fill with the row hover. Use it instead of hand-rolling an `xmark` button.
+/// The standard "✕" dismiss button shared by every sheet and panel header.
+/// Single source of truth so all close buttons look identical to the one
+/// `SheetHeader` renders: a `Sizing.controlMedium` rounded square, clear at
+/// rest, the row hover under the pointer, its glyph turning full-strength.
+/// Use it instead of hand-rolling an `xmark` button.
 ///
 /// The caller positions it and adds a keyboard shortcut if desired, e.g.:
 /// ```swift
@@ -188,6 +191,10 @@ public struct SheetCloseButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
+    /// How far a header tucks the button out past its padding, toward the
+    /// card's corner: `Spacing.lg` padding less this leaves it `Spacing.md` in.
+    public static let cornerTuck: CGFloat = Spacing.xxs
+
     public init(action: @escaping () -> Void, verticalOffset: CGFloat = 0) {
         self.action = action
         self.verticalOffset = verticalOffset
@@ -196,16 +203,17 @@ public struct SheetCloseButton: View {
     public var body: some View {
         Button(action: action) {
             Image(systemName: "xmark")
-                .font(Typography.labelTinySemibold)
-                .foregroundStyle(.secondary)
-                .frame(width: Sizing.controlSmall, height: Sizing.controlSmall)
+                .font(Typography.captionSemibold)
+                .foregroundStyle(isHovered ? Color.primary : Color.secondary)
+                .frame(width: Sizing.controlMedium, height: Sizing.controlMedium)
                 .background {
-                    Circle()
-                        .fill(isHovered ? RowTint.hover(colorScheme) : Color.restingFill)
+                    RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                        .fill(isHovered ? RowTint.hover(colorScheme) : Color.clear)
                 }
+                .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous))
         }
         .offset(y: verticalOffset)
-        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusMedium))
         .onHover { isHovered = $0 }
         .animation(Animations.hover, value: isHovered)
         .accessibilityLabel(Text("Close", bundle: .module))

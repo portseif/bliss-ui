@@ -34,7 +34,7 @@ public struct RoundedSection<Content: View, Header: View, Footer: View>: View {
     let divided: Bool
     /// Whether the header lines up with the content inside the card (inset by
     /// `padding`) or with the card's own edge.
-    var insetsHeader: Bool = true
+    var insetsHeader: Bool = false
     /// The card's inset; 0 lets a table or a code block run edge to edge.
     var padding: CGFloat = Spacing.cardPadding
     /// Overrides the hairline color — the "this section is confirmed" signal
@@ -67,7 +67,7 @@ public struct RoundedSection<Content: View, Header: View, Footer: View>: View {
     ///   - divided: A divider between each child view.
     ///   - borderTint: Overrides the hairline color.
     ///   - insetsHeader: Lines the header up with the content inside the card;
-    ///     false puts it flush with the card's edge, like a heading above it.
+    ///     off (the default) it's flush with the card's edge, like a heading.
     ///   - padding: The card's inset; 0 for content that runs edge to edge.
     ///   - content: The section's rows.
     ///   - header: The title above the card.
@@ -75,7 +75,7 @@ public struct RoundedSection<Content: View, Header: View, Footer: View>: View {
     public init(
         divided: Bool = false,
         borderTint: Color? = nil,
-        insetsHeader: Bool = true,
+        insetsHeader: Bool = false,
         padding: CGFloat = Spacing.cardPadding,
         @ViewBuilder content: () -> Content,
         @ViewBuilder header: () -> Header,
@@ -170,7 +170,7 @@ extension RoundedSection where Footer == EmptyView {
     public init(
         divided: Bool = false,
         borderTint: Color? = nil,
-        insetsHeader: Bool = true,
+        insetsHeader: Bool = false,
         padding: CGFloat = Spacing.cardPadding,
         @ViewBuilder content: () -> Content,
         @ViewBuilder header: () -> Header
@@ -192,7 +192,7 @@ extension RoundedSection where Header == Text {
         _ title: LocalizedStringKey,
         divided: Bool = false,
         borderTint: Color? = nil,
-        insetsHeader: Bool = true,
+        insetsHeader: Bool = false,
         padding: CGFloat = Spacing.cardPadding,
         @ViewBuilder content: () -> Content,
         @ViewBuilder footer: () -> Footer
@@ -209,13 +209,13 @@ extension RoundedSection where Header == Text {
 }
 
 extension RoundedSection where Header == Text, Footer == EmptyView {
-    /// Initialize with a simple string title. `insetsHeader: false` puts the
-    /// title flush with the card's edge instead of in line with its content.
+    /// Initialize with a simple string title, flush with the card's edge;
+    /// `insetsHeader: true` lines it up with the content inside instead.
     public init(
         _ title: LocalizedStringKey,
         divided: Bool = false,
         borderTint: Color? = nil,
-        insetsHeader: Bool = true,
+        insetsHeader: Bool = false,
         padding: CGFloat = Spacing.cardPadding,
         @ViewBuilder content: () -> Content
     ) {

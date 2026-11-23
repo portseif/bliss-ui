@@ -149,7 +149,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
 
 <table>
   <tr>
-    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/buttons-dark.webp"><img src="docs/images/components/buttons-light.webp" alt="Buttons" width="420"></picture><br><b>Buttons</b><br><code>PrimaryButtonStyle</code> · <code>SecondaryButtonStyle</code> · <code>OutlineButtonStyle</code> · <code>GhostButtonStyle</code> · <code>DestructiveButtonStyle</code><br><sub>Linear-style text buttons: hairline borders, neutral hover and press, no accent hue.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/buttons-dark.webp"><img src="docs/images/components/buttons-light.webp" alt="Buttons" width="420"></picture><br><b>Buttons</b><br><code>PrimaryButtonStyle</code> · <code>SecondaryButtonStyle</code> · <code>OutlineButtonStyle</code> · <code>GhostButtonStyle</code> · <code>DestructiveButtonStyle</code><br><sub>Tight text buttons: an accent-filled primary, hairline borders, neutral hover and press.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/compact-buttons-dark.webp"><img src="docs/images/components/compact-buttons-light.webp" alt="Compact buttons" width="420"></picture><br><b>Compact buttons</b><br><code>compact: true</code> on any button style<br><sub>The 28pt sizes every sheet footer uses.</sub></td>
   </tr>
   <tr>
@@ -157,7 +157,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/icon-buttons-dark.webp"><img src="docs/images/components/icon-buttons-light.webp" alt="Icon buttons" width="420"></picture><br><b>Icon buttons</b><br><code>ToolbarIconButtonStyle</code> · <code>HoverIconButton</code> · <code>InlineIconButtonStyle</code><br><sub>Title-bar icons, hover chips and small inline glyphs.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/text-link-dark.webp"><img src="docs/images/components/text-link-light.webp" alt="Text link" width="420"></picture><br><b>Text link</b><br><code>TextLink</code><br><sub>A dotted-underline URL that turns accent on hover.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/text-link-dark.webp"><img src="docs/images/components/text-link-light.webp" alt="Text link" width="420"></picture><br><b>Text link</b><br><code>TextLink</code><br><sub>A URL over a faint underline that turns solid on hover.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/loading-buttons-dark.webp"><img src="docs/images/components/loading-buttons-light.webp" alt="Loading buttons" width="420"></picture><br><b>Loading buttons</b><br><code>.buttonLoading(_:)</code> on any text button style<br><sub>A spinner takes the label's place at the same size; the button can't be pressed but keeps its enabled look.</sub></td>
   </tr>
 </table>
@@ -169,7 +169,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
 
 <table>
   <tr>
-    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/text-fields-dark.webp"><img src="docs/images/components/text-fields-light.webp" alt="Text fields" width="420"></picture><br><b>Text fields</b><br><code>.largePadded</code> · <code>.search</code> · <code>.inputBox(isFocused:)</code><br><sub>An underline that turns accent on focus; the search field gets the shared ring.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/text-fields-dark.webp"><img src="docs/images/components/text-fields-light.webp" alt="Text fields" width="420"></picture><br><b>Text fields</b><br><code>.largePadded</code> · <code>.search</code> · <code>.inputBox(isFocused:)</code><br><sub>A boxed field that takes an accent hairline on focus; the search field stays bare until you reach it.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/flat-switch-dark.webp"><img src="docs/images/components/flat-switch-light.webp" alt="Switch" width="420"></picture><br><b>Switch</b><br><code>.toggleStyle(.flatSwitch)</code><br><sub>A Tab stop that Space flips, with real switch semantics for VoiceOver.</sub></td>
   </tr>
   <tr>
@@ -356,7 +356,7 @@ Not pictured, because they're separate panels rather than part of the window: `.
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/disclosure-section-dark.webp"><img src="docs/images/components/disclosure-section-light.webp" alt="Disclosure section" width="420"></picture><br><b>Disclosure section</b><br><code>DisclosureSection</code><br><sub>An accordion header; Space, Return, → and ← work on it.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/confirmation-sheet-dark.webp"><img src="docs/images/components/confirmation-sheet-light.webp" alt="Confirmation sheet" width="336"></picture><br><b>Confirmation sheet</b><br><code>.confirmationSheet(isPresented:…)</code><br><sub>An App Sheet for "are you sure": Return confirms, Esc cancels.</sub></td>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/confirmation-sheet-dark.webp"><img src="docs/images/components/confirmation-sheet-light.webp" alt="Confirmation sheet" width="336"></picture><br><b>Confirmation sheet</b><br><code>.confirmationSheet(isPresented:…)</code><br><sub>An App Sheet for "are you sure": the question beside the ✕, Return confirms, Esc cancels.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/skeleton-dark.webp"><img src="docs/images/components/skeleton-light.webp" alt="Skeleton loading" width="420"></picture><br><b>Skeleton loading</b><br><code>.skeleton(isLoading:)</code> · <code>SkeletonBlock</code><br><sub>Placeholder shapes under one shimmer band; still under Reduce Motion.</sub></td>
   </tr>
 </table>

@@ -115,12 +115,12 @@ public struct Banner<Actions: View>: View {
                 }
                 VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
                     Text(title)
-                        .font(compact ? Typography.captionSmallSemibold : Typography.bodySmallSemibold)
+                        .font(compact ? Typography.captionSmallSemibold : Typography.captionSemibold)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let message, !compact {
                         Text(message)
-                            .font(Typography.captionSmall)
+                            .font(Typography.caption)
                             .foregroundStyle(Color.textSecondary)
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
@@ -160,9 +160,7 @@ public struct Banner<Actions: View>: View {
         HStack(spacing: Spacing.sm) {
             if let actionTitle, let action {
                 Button(action: action) { Text(actionTitle) }
-                    .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: Spacing.ringOutset))
-                    .font(compact ? Typography.labelSmall : Typography.labelMedium)
-                    .foregroundStyle(Color.accent)
+                    .buttonStyle(GhostButtonStyle(compact: true))
             }
             actions
         }

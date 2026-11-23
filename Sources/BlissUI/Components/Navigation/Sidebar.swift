@@ -521,7 +521,11 @@ public struct SidebarRow: View {
                             .transition(.opacity)
                             .accessibilityHidden(true)
                     } else if let trailing, showsTrailing {
+                        // Held to the line's height (the chip overhangs into
+                        // the row's padding), so revealing it never makes the
+                        // row taller.
                         trailing
+                            .frame(height: Sizing.iconDefault)
                             .transition(.opacity)
                     } else if count > 0 {
                         countBadge
@@ -709,7 +713,8 @@ private struct SidebarRowIcon: View {
 
 /// The button every sidebar row is: the neutral `RowTint` fill (selected a step
 /// above hover), no press state, a Tab stop with the shared ring, and the
-/// selection said for VoiceOver.
+/// selection said for VoiceOver. Collapsed to its icon, the row is a square
+/// the row's height, centered in the rail.
 private struct SidebarRowButton<Label: View>: View {
     let isSelected: Bool
     let action: () -> Void
@@ -722,9 +727,10 @@ private struct SidebarRowButton<Label: View>: View {
     var body: some View {
         Button(action: action) {
             label
-                .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, Spacing.navRowPaddingV)
-                .frame(maxWidth: .infinity, alignment: isCollapsed ? .center : .leading)
+                .padding(.horizontal, isCollapsed ? 0 : Spacing.sm)
+                .padding(.vertical, isCollapsed ? 0 : Spacing.navRowPaddingV)
+                .frame(width: isCollapsed ? Sizing.controlDefault : nil, height: isCollapsed ? Sizing.controlDefault : nil)
+                .frame(maxWidth: isCollapsed ? nil : .infinity, alignment: .leading)
                 .background {
                     // Neutral RowTint over the themed shell (not a fixed system
                     // material), so selection and hover read as a tint of the
@@ -738,6 +744,7 @@ private struct SidebarRowButton<Label: View>: View {
         }
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault))
         .onHover { isHovering = $0 }
+        .frame(maxWidth: .infinity)
         // Selection is only a fill; say it for VoiceOver.
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }

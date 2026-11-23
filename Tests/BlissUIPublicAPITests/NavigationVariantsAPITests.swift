@@ -108,6 +108,8 @@ import BlissUI
 
     @Test func stepIndicatorVariantsAreReachable() {
         _ = StepIndicator(stepCount: 4, currentIndex: 1, axis: .vertical, style: .segments)
+        _ = StepIndicator(stepCount: 5, currentIndex: 2, grows: true)
+        _ = StepIndicator(stepCount: 5, currentIndex: 2, axis: .vertical, grows: true)
         _ = StepIndicator(stepCount: 3, currentIndex: 2, labels: ["Account", "Plan", "Done"], onSelect: { _ in })
         let style: StepIndicatorStyle = .dots
         #expect(style == .dots)

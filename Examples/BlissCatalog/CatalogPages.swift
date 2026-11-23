@@ -182,6 +182,7 @@ struct InputsPage: View {
     @State private var green = 0.52
     @State private var blue = 1.0
     @State private var agreed = false
+    @State private var tintedChecked = true
     @State private var apiKey = "sk-live-4f8a2c9e1b7d6a3f"
     @State private var droppedFiles: [String] = []
     @State private var stars = 3
@@ -225,18 +226,11 @@ struct InputsPage: View {
             DemoBlock(title: "Switch and checkbox") {
                 Toggle("Notifications", isOn: $notificationsOn).toggleStyle(.flatSwitch(showsLabel: true))
                 Toggle("Wi-Fi", isOn: $wifiOn).toggleStyle(.flatSwitch(showsLabel: true, tint: Success.success500, labelPlacement: .trailing))
-                Button { agreed.toggle() } label: {
-                    HStack(spacing: Spacing.sm) {
-                        CheckboxGlyph(isOn: agreed)
-                        Text("I agree")
-                    }
-                }
-                .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusSmall, outset: Spacing.ringOutset))
+                Toggle("I agree", isOn: $agreed).toggleStyle(.flatCheckbox)
+                Toggle("Tinted", isOn: $tintedChecked).toggleStyle(.flatCheckbox(tint: Success.success500))
                 HStack(spacing: Spacing.sm) {
                     CheckboxGlyph(isOn: true, isMixed: true)
-                    Text("Some selected")
-                    CheckboxGlyph(isOn: true, color: Success.success500)
-                    Text("Tinted")
+                    Text("Some selected (the mixed glyph, for a select-all box)")
                 }
             }
             DemoBlock(title: "Rating") {
@@ -364,7 +358,7 @@ struct DisplayPage: View {
                 FlowLayout(spacing: Spacing.sm) {
                     Badge("Default")
                     Badge("Primary").badgeStyle(.primary)
-                    Badge("Beta", icon: "flask").badgeStyle(.info).badgeSize(.small)
+                    Badge("Beta", icon: "flask").badgeStyle(.info)
                     Badge(count: 12)
                     Badge.status("Healthy", color: Success.success500)
                     Badge.pro()
@@ -373,8 +367,8 @@ struct DisplayPage: View {
                 FlowLayout(spacing: Spacing.sm, alignment: .center) {
                     Badge("v6.2").badgeStyle(.outline)
                     Badge(count: 1_200, maximum: 999)
-                    Badge.status("Paused", color: Warning.warning500, size: .small)
-                    Badge("Large", icon: "star").badgeStyle(.primary).badgeSize(.large)
+                    Badge.status("Paused", color: Warning.warning500)
+                    Badge("Starred", icon: "star").badgeStyle(.primary)
                 }
                 .frame(maxWidth: 320)
             }
@@ -386,9 +380,9 @@ struct DisplayPage: View {
                     ShimmerTextOverlay(text: "Thinking…")
                 }
                 HStack(spacing: Spacing.lg) {
-                    StatusDotPill(label: "Synced", color: Info.info500, size: .regular, icon: "arrow.triangle.2.circlepath")
+                    StatusDotPill(label: "Synced", color: Info.info500, icon: "arrow.triangle.2.circlepath")
                     StatusDotPill(label: "Offline", color: Grey.grey500, isActive: false)
-                    StatusPill("Connected", isActive: true, color: Info.info500, size: .regular, icon: "bolt.fill")
+                    StatusPill("Connected", isActive: true, color: Info.info500, icon: "bolt.fill")
                     ThinkingSpinner(size: .small)
                     ThinkingSpinner(size: .large, color: Color.accent)
                 }
@@ -570,7 +564,8 @@ struct SectionsPage: View {
             SectionHeader("Pinned", count: 2, size: .small, hugsContent: true, topPadding: 0)
             DemoBlock(title: "Step indicator") {
                 StepIndicator(stepCount: 5, currentIndex: 2)
-                Text("Segments, labels with clickable completed steps, and a vertical rail.")
+                StepIndicator(stepCount: 5, currentIndex: step, grows: true)
+                Text("A dot that grows into a line, segments, labels with clickable completed steps, and a vertical rail.")
                     .font(Typography.caption)
                     .foregroundStyle(.secondary)
                 StepIndicator(stepCount: 4, currentIndex: step, style: .segments, onSelect: { step = $0 })
@@ -735,6 +730,7 @@ struct TablePage: View {
 
 struct OverlaysPage: View {
     @State private var showingMenu = false
+    @State private var showingGroupedMenu = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -760,6 +756,17 @@ struct OverlaysPage: View {
                 .buttonStyle(SecondaryButtonStyle())
                 .floatingMenu(isPresented: $showingMenu, xPosition: .leading, yPosition: .below) {
                     CatalogMenu(isPresented: $showingMenu)
+                }
+            }
+            DemoBlock(title: "Grouped menu") {
+                Button {
+                    showingGroupedMenu.toggle()
+                } label: {
+                    Label("Switch project", systemImage: "square.stack")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .floatingMenu(isPresented: $showingGroupedMenu, xPosition: .leading, yPosition: .below) {
+                    CatalogGroupedMenu(isPresented: $showingGroupedMenu)
                 }
             }
             DemoBlock(title: "Right-click") {
@@ -798,6 +805,28 @@ private struct CatalogMenu: View {
         }
         .padding(Spacing.menuPadding)
         .frame(width: 200)
+    }
+}
+
+/// Rows held in `MenuSection`s, with a loose row after them.
+private struct CatalogGroupedMenu: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            MenuSection("Recent") {
+                QuickActionMenuItem(title: "Neighborhood Bakery", icon: "storefront", isChecked: true) { isPresented = false }
+                QuickActionMenuItem(title: "Northlight Observatory", icon: "sparkles", isChecked: false) { isPresented = false }
+                QuickActionMenuItem(title: "Harbor Coffee", icon: "cup.and.saucer", isChecked: false) { isPresented = false }
+            }
+            MenuSection("Project") {
+                QuickActionMenuItem(title: "Rename", icon: "pencil", shortcut: "⌘R") { isPresented = false }
+                QuickActionMenuItem(title: "Show in Finder", icon: "folder", detail: "No files yet") { isPresented = false }
+            }
+            QuickActionMenuItem(title: "New Project", icon: "plus", shortcut: "⌘N") { isPresented = false }
+        }
+        .padding(Spacing.menuPadding)
+        .frame(width: 280)
     }
 }
 

@@ -426,7 +426,16 @@ public struct BarChart: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var chart: some View {
+    /// The categories in the order the bars give them. Charts builds a
+    /// category axis in the order marks first name them, so without this the
+    /// hover rule (drawn first, behind the bars) moved the hovered category to
+    /// the front and the bars shuffled under the pointer.
+    private var categories: [String] {
+        var seen = Set<String>()
+        return bars.map(\.category).filter { seen.insert($0).inserted }
+    }
+
+    private var plot: some View {
         Chart {
             hoverRule
             ForEach(groups) { group in
@@ -436,6 +445,19 @@ public struct BarChart: View {
             }
         }
         .blissChartStyle(showsAxes: !compact)
+    }
+
+    @ViewBuilder
+    private var orderedPlot: some View {
+        if isHorizontal {
+            plot.chartYScale(domain: categories)
+        } else {
+            plot.chartXScale(domain: categories)
+        }
+    }
+
+    private var chart: some View {
+        orderedPlot
         .chartOverlay { proxy in
             if isInteractive {
                 BarHoverOverlay(

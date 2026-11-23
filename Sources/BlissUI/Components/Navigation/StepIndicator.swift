@@ -4,7 +4,8 @@
 //
 //  A row of dots for a wizard: the current step full-strength and a touch
 //  larger, completed steps at 0.55, the ones ahead at 0.25. Or a bar of equal
-//  segments (`.segments`), the onboarding / stories idiom. Either runs along
+//  segments (`.segments`), the onboarding / stories idiom. With `grows`, the
+//  current dot stretches into a short line instead. Either runs along
 //  an `axis`, can carry a label per step, and can let a completed step be
 //  clicked to go back.
 //
@@ -28,12 +29,16 @@ public struct StepIndicator: View {
     var color: Color = .primary
     let axis: Axis
     let style: StepIndicatorStyle
+    /// The current dot stretches into a short line along the axis.
+    let grows: Bool
     let labels: [LocalizedStringKey]?
     let onSelect: ((Int) -> Void)?
 
     /// A completed step's and a pending step's tone.
     private static let completedOpacity: Double = 0.55
     private static let pendingOpacity: Double = 0.25
+    /// How long the current dot grows with `grows`.
+    private static let grownLength: CGFloat = Sizing.iconMedium
 
     /// - Parameters:
     ///   - stepCount: How many steps.
@@ -41,6 +46,8 @@ public struct StepIndicator: View {
     ///   - color: The marks' color.
     ///   - axis: Across (the default) or down, beside a vertical list of steps.
     ///   - style: Dots, or equal segments that fill the width.
+    ///   - grows: With dots, the current one stretches into a short line,
+    ///     sliding as the step changes.
     ///   - labels: One caption per step, drawn beside its mark.
     ///   - onSelect: Makes completed steps clickable (go back); the current and
     ///     pending ones stay inert.
@@ -50,6 +57,7 @@ public struct StepIndicator: View {
         color: Color = .primary,
         axis: Axis = .horizontal,
         style: StepIndicatorStyle = .dots,
+        grows: Bool = false,
         labels: [LocalizedStringKey]? = nil,
         onSelect: ((Int) -> Void)? = nil
     ) {
@@ -58,6 +66,7 @@ public struct StepIndicator: View {
         self.color = color
         self.axis = axis
         self.style = style
+        self.grows = grows
         self.labels = labels
         self.onSelect = onSelect
     }
@@ -129,6 +138,17 @@ public struct StepIndicator: View {
     private func mark(at index: Int) -> some View {
         let isCurrent = index == currentIndex
         switch style {
+        case .dots where grows:
+            // The current dot stretches along the axis into a short line; the
+            // others stay dots, so the line seems to travel between them.
+            let length = isCurrent ? Self.grownLength : Sizing.statusCircle
+            Capsule()
+                .fill(color.opacity(opacity(at: index)))
+                .frame(
+                    width: axis == .horizontal ? length : Sizing.statusCircle,
+                    height: axis == .horizontal ? Sizing.statusCircle : length
+                )
+                .animation(Animations.selection, value: currentIndex)
         case .dots:
             // The current dot a step larger, in a box the larger size so the
             // row never shifts.
@@ -161,6 +181,7 @@ private extension Array {
 #Preview(traits: .fixedLayout(width: 260, height: 160)) {
     VStack(alignment: .leading, spacing: Spacing.lg) {
         StepIndicator(stepCount: 5, currentIndex: 2)
+        StepIndicator(stepCount: 5, currentIndex: 2, grows: true)
         StepIndicator(stepCount: 5, currentIndex: 2, style: .segments)
             .frame(width: 200)
         StepIndicator(stepCount: 3, currentIndex: 1, labels: ["Account", "Plan", "Done"], onSelect: { _ in })

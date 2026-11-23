@@ -195,5 +195,10 @@ import BlissUI
             QuickActionMenuItem(title: "Delete", icon: "trash", isDestructive: true) {}
         }
         _ = MenuDivider()
+        _ = MenuSectionHeader("Card")
+        _ = MenuSection("Recent") {
+            QuickActionMenuItem(title: "Bakery", icon: "storefront", isChecked: true) {}
+            QuickActionMenuItem(title: "Observatory", icon: "sparkles") {}
+        }
     }
 }

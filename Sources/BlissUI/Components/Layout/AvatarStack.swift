@@ -12,10 +12,11 @@ import SwiftUI
 
 /// How `AvatarStack` shows the avatars past its limit.
 public enum AvatarStackOverflowStyle: Hashable, Sendable {
-    /// `+N` in a pill on the selection fill, tucked under the last avatar.
+    /// `+N` centered in a slot one avatar wide after the last avatar, so it
+    /// lines up like another member.
     case chip
-    /// `+N` as plain secondary text after the last avatar, for dense rows
-    /// where a filled chip is one shape too many.
+    /// `+N` right after the last avatar, for dense rows where an avatar-wide
+    /// slot is too much room.
     case plain
 }
 
@@ -108,12 +109,12 @@ public struct AvatarStack<Item>: View {
                 case .chip:
                     if let onOverflowSelect {
                         Button(action: onOverflowSelect) {
-                            AvatarOverflowChip(count: overflow, size: size, shape: shape, neighborDistance: step)
+                            AvatarOverflowChip(count: overflow, size: size)
                         }
                         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: shape == .circle ? Sizing.radiusFull : size.cornerRadius))
                         .accessibilityLabel(Text("\(overflow) more", bundle: .module))
                     } else {
-                        AvatarOverflowChip(count: overflow, size: size, shape: shape, neighborDistance: step)
+                        AvatarOverflowChip(count: overflow, size: size)
                     }
                 case .plain:
                     AvatarOverflowLabel(count: overflow, size: size)
@@ -131,45 +132,31 @@ public struct AvatarStack<Item>: View {
 
 // MARK: - Overflow chip
 
-/// `+N` in a pill on the neutral selection fill, cut by the avatar before it
-/// like the others. Every chip is sized for the widest label (`+99`) at one
-/// fixed font, so a column of stacks lines up whatever the counts; past 99 it
-/// reads `99+`.
+/// `+N` as bare text, centered in a slot one avatar wide after the last
+/// avatar: no fill, so it reads as a count rather than another face. Every
+/// slot fits the widest label (`+99`) at one fixed font, so a column of stacks
+/// lines up whatever the counts; past 99 it reads `99+`.
 private struct AvatarOverflowChip: View {
     let count: Int
     let size: AvatarSize
-    let shape: AvatarShape
-    let neighborDistance: CGFloat
-
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let diameter = size.diameter
-        // Left to right; SwiftUI mirrors it in a right-to-left layout (see `Avatar`).
-        let neighbor = AvatarCutoutShape.Hole(
-            rect: CGRect(x: -neighborDistance, y: 0, width: diameter, height: diameter)
-                .insetBy(dx: -size.gap, dy: -size.gap),
-            cornerRadius: shape == .circle ? nil : size.cornerRadius + size.gap
-        )
         AvatarOverflowCount(count: count, size: size, alignment: .center)
             .foregroundStyle(Color.textSecondary)
-        // The leading part sits under the avatar before it.
-        .padding(.leading, size.stackHiddenWidth + size.overflowPadding)
-        .padding(.trailing, size.overflowPadding)
-        .frame(minWidth: diameter, minHeight: diameter, maxHeight: diameter)
-        .background(RowTint.selected(colorScheme))
-        // A circle stack gets a capsule: a wider-than-tall ellipse would read as a blob.
-        .clipShape(AvatarCutoutShape(shape: .rounded, cornerRadius: shape == .circle ? diameter / 2 : size.cornerRadius, holes: [neighbor]))
+            .frame(minWidth: size.diameter, minHeight: size.diameter, maxHeight: size.diameter)
+            // Undo the stack's overlap, then the usual gap between neighbors.
+            .padding(.leading, size.stackOverlap + size.gap)
+            .contentShape(Rectangle())
     }
 }
 
-/// `+N` as plain text after the last avatar, at the chip's fixed width.
+/// `+N` as plain text after the last avatar, centered in the `+99` width.
 private struct AvatarOverflowLabel: View {
     let count: Int
     let size: AvatarSize
 
     var body: some View {
-        AvatarOverflowCount(count: count, size: size, alignment: .leading)
+        AvatarOverflowCount(count: count, size: size, alignment: .center)
             .foregroundStyle(Color.textSecondary)
             // Undo the stack's overlap, then the usual gap between neighbors.
             .padding(.leading, size.stackOverlap + size.gap + size.gap)
@@ -181,8 +168,7 @@ private struct AvatarOverflowLabel: View {
 private struct AvatarOverflowCount: View {
     let count: Int
     let size: AvatarSize
-    /// Where a shorter label sits in the `+99` width: centered in a chip,
-    /// leading after the avatars when plain.
+    /// Where a shorter label sits in the `+99` width.
     let alignment: Alignment
 
     var body: some View {
@@ -212,10 +198,6 @@ extension AvatarSize {
         }
     }
 
-    /// Space on each side of the `+N` label inside its pill.
-    var overflowPadding: CGFloat {
-        pillSize.horizontalPadding
-    }
 }
 
 extension Avatar {

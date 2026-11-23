@@ -67,15 +67,18 @@ import Testing
         #expect(height(Badge("Default").badgeSize(.small)) == BadgeSize.small.minHeight)
         #expect(height(Badge("Default")) == BadgeSize.regular.minHeight)
         #expect(height(Badge("Default").badgeSize(.large)) == BadgeSize.large.minHeight)
-        #expect(height(StatusPill("Running", isActive: true)) == BadgeSize.small.minHeight)
-        #expect(height(StatusDotPill(label: "Running", color: .green)) == BadgeSize.small.minHeight)
+        // Every pill defaults to the regular badge.
+        #expect(height(StatusPill("Running", isActive: true)) == BadgeSize.regular.minHeight)
+        #expect(height(StatusDotPill(label: "Running", color: .green)) == BadgeSize.regular.minHeight)
+        #expect(height(Badge.status("Healthy", color: .green)) == BadgeSize.regular.minHeight)
         #expect(height(ShortcutKey("⌘K")) == BadgeSize.regular.minHeight)
         #expect(height(ShortcutKey("⌘K", compact: true)) == BadgeSize.small.minHeight)
         #expect(height(KeyHintPill("esc")) == BadgeSize.regular.minHeight)
     }
 
     @Test func smallControlsAreTheSmallTier() {
-        #expect(height(Button("Tag") {}.buttonStyle(SmallPillButtonStyle(color: .blue))) == Sizing.controlSmall)
+        // The small pill button is the compact tier, for room around its label.
+        #expect(height(Button("Tag") {}.buttonStyle(SmallPillButtonStyle(color: .blue))) == Sizing.controlDefault)
         #expect(height(Button { } label: { Image(systemName: "gear") }.buttonStyle(ToolbarIconButtonStyle(compact: true))) == Sizing.controlSmall)
     }
 }

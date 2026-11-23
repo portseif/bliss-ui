@@ -181,7 +181,7 @@ import BlissUI
     @Test func sheetsAreReachable() {
         _ = Color.clear
             .appSheetHost()
-            .appSheetHost(leadingInset: 220)
+            .appSheetHost()
             .appSheet(isPresented: .constant(false)) { Text("Sheet") }
             .appSheet(isPresented: .constant(false), contentSized: true, scrollsItsOwnContent: true) { Text("Wizard") }
             .appSheet(item: .constant(SheetItem?.none)) { _ in Text("Item") }

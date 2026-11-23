@@ -154,11 +154,11 @@ struct MarkdownBlock: Identifiable {
     /// The wash under inline code.
     static let inlineCodeWashOpacity: Double = 0.08
 
-    /// Inline code in the code font on a faint wash; links in the accent.
-    /// Bold, italic and strikethrough stay as intents, which `Text` draws.
+    /// Inline code on a faint wash; links in the accent. Code, bold, italic
+    /// and strikethrough stay as intents, which `Text` draws in the size of
+    /// the text around them — code in a heading is a heading's size.
     private static func styleInline(_ piece: inout AttributedString, intent: InlinePresentationIntent?) {
         if intent?.contains(.code) == true {
-            piece.font = Typography.codeSmall
             piece.backgroundColor = Color.primary.opacity(inlineCodeWashOpacity)
         }
         if piece.link != nil {

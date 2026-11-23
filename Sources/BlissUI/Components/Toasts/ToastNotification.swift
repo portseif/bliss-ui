@@ -8,24 +8,60 @@
 
 import SwiftUI
 
-// MARK: - Status Icon
+// MARK: - Status Glyph
 
-/// Filled status circle with a white glyph (the leading badge on success/error/info pills).
-private struct ToastStatusIcon: View {
-    let glyph: String
-    let color: Color
-    var size: CGFloat = Sizing.iconMedium
+/// The pill's status mark: a plain filled glyph in the status color, for a
+/// toast that asks for attention (an error, a warning) or brings its own icon.
+/// A success or info toast leads with its words alone.
+private struct ToastStatusGlyph: View {
+    let toast: ToastData
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// The glyph the pill shows, or nil for one that leads with its words.
+    static func symbol(for toast: ToastData) -> String? {
+        if let customIcon = toast.customIcon { return customIcon }
+        switch toast.style {
+        case .error: return "exclamationmark.circle.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        default: return nil
+        }
+    }
 
     var body: some View {
-        ZStack {
-            // The deep tone: a white glyph on a status color's lifted dark mark
-            // (light mint, amber, cyan) wouldn't read.
-            Circle().fill(color.statusTint)
-            Image(systemName: glyph)
-                .font(Typography.labelTinyBold)
-                .foregroundStyle(.white)
+        if let symbol = Self.symbol(for: toast) {
+            Image(systemName: symbol)
+                .font(Typography.labelMedium)
+                .foregroundStyle(toast.style.iconColor.legibleOnDark(colorScheme))
+                .accessibilityHidden(true)
         }
-        .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Action Pill
+
+/// A toast's plain action (Undo, Show): a small capsule on the selected row
+/// tint, its label turning full-strength under the pointer.
+private struct ToastActionPill<Label: View>: View {
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            label()
+                .font(Typography.labelSmall)
+                .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
+                .padding(.horizontal, ToastMetrics.actionPillPaddingH)
+                .frame(height: Sizing.controlSmall)
+                .background(RowTint.selected(colorScheme), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusFull))
+        .onHover { hovering in
+            withAnimation(Animations.hover) { isHovering = hovering }
+        }
     }
 }
 
@@ -397,7 +433,7 @@ public struct ToastNotification: View {
     /// Single-line success / info pill (a two-line card when `layout` is stacked).
     private var standardPill: some View {
         HStack(spacing: Spacing.sm) {
-            ToastStatusIcon(glyph: toast.customIcon ?? toast.style.glyph, color: toast.style.iconColor)
+            ToastStatusGlyph(toast: toast)
 
             titleAndSegments(showsSegments: true)
 
@@ -407,15 +443,18 @@ public struct ToastNotification: View {
                 inlineActions
             }
 
-            if let onDismiss = onDismiss {
+            // An action (Undo) is the way out of a toast that leaves by
+            // itself; the × is for one with nothing to act on.
+            if let onDismiss = onDismiss, toast.actions.isEmpty {
                 ToastDismissButton(action: onDismiss)
             }
         }
         .opacity(isTucked ? 0 : 1)
         .disabled(isTucked)   // hidden buttons stay out of the Tab loop
-        .padding(.leading, Spacing.md)
+        .padding(.leading, leadingPadding)
         .padding(.trailing, ToastMetrics.trailingPadding)
-        .padding(.vertical, ToastMetrics.verticalPadding)
+        .padding(.vertical, ToastMetrics.statusVerticalPadding)
+        .frame(minHeight: ToastMetrics.pillHeight)
         .cardWidth(uniformWidth)
         .background {
             standardShape.fill(backgroundColor)
@@ -438,7 +477,7 @@ public struct ToastNotification: View {
     @ViewBuilder
     private func titleAndSegments(showsSegments: Bool) -> some View {
         let title = Text(toast.title)
-            .font(Typography.bodySmallSemibold)
+            .font(Typography.captionSemibold)
             .foregroundStyle(.primary)
             .lineLimit(1)
         switch toast.layout {
@@ -449,7 +488,7 @@ public struct ToastNotification: View {
                     ForEach(displaySegments) { segment in
                         pillSeparator
                         Text(segment.text)
-                            .font(Typography.labelMedium)
+                            .font(Typography.caption)
                             .foregroundStyle(segment.isProminent ? Color.textPrimary : Color.textSecondary)
                             .lineLimit(1)
                     }
@@ -479,7 +518,7 @@ public struct ToastNotification: View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Spacing.sm) {
-                ToastStatusIcon(glyph: toast.customIcon ?? toast.style.glyph, color: toast.style.iconColor)
+                ToastStatusGlyph(toast: toast)
 
                 titleAndSegments(showsSegments: !expanded)
 
@@ -492,6 +531,7 @@ public struct ToastNotification: View {
                     ToastDismissButton(action: onDismiss)
                 }
             }
+            .frame(minHeight: ToastMetrics.pillHeight - ToastMetrics.statusVerticalPadding * 2)
             .contentShape(Rectangle())
             // Accordion-style expand/collapse: morph the pill into a card. Size +
             // corner radius animate together under one spring; the revealed content
@@ -559,9 +599,9 @@ public struct ToastNotification: View {
         }
         .opacity(isTucked ? 0 : 1)
         .disabled(isTucked)   // hidden buttons stay out of the Tab loop
-        .padding(.leading, Spacing.md)
+        .padding(.leading, leadingPadding)
         .padding(.trailing, ToastMetrics.trailingPadding)
-        .padding(.vertical, ToastMetrics.verticalPadding)
+        .padding(.vertical, ToastMetrics.statusVerticalPadding)
         .cardWidth(uniformWidth)
         .background {
             shape.fill(backgroundColor)
@@ -619,16 +659,12 @@ public struct ToastNotification: View {
                     } label: {
                         actionLabel(action)
                     }
-                    .buttonStyle(SecondaryButtonStyle(compact: true, accent: true))
+                    // A pill, like the capsule it sits in.
+                    .buttonStyle(SecondaryButtonStyle(compact: true, accent: true, cornerRadiusOverride: Sizing.radiusFull))
                 } else {
-                    Button {
-                        run(action)
-                    } label: {
+                    ToastActionPill(action: { run(action) }) {
                         actionLabel(action)
-                            .font(Typography.labelMedium)
-                            .foregroundStyle(Color.accent)
                     }
-                    .buttonStyle(FocusablePlainButtonStyle(cornerRadius: Sizing.radiusDefault, outset: Spacing.ringOutset))
                 }
             }
         }
@@ -656,8 +692,14 @@ public struct ToastNotification: View {
     /// Middot separator between the pill's label / percent / time segments.
     private var pillSeparator: some View {
         Text("·")
-            .font(Typography.labelMedium)
+            .font(Typography.caption)
             .foregroundStyle(.secondary)
+    }
+
+    /// A pill that leads with its glyph sits a step closer to its edge than
+    /// one that leads with its words.
+    private var leadingPadding: CGFloat {
+        ToastStatusGlyph.symbol(for: toast) == nil ? Spacing.lg : Spacing.md
     }
 
     /// The hairline around the toast: neutral, or the status wash's border on

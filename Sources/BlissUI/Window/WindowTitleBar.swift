@@ -61,8 +61,7 @@ public struct WindowTitleBar<Leading: View, Center: View, Trailing: View>: View 
     ///     leading controls (not in full screen, where there are none).
     ///   - showsDivider: A hairline along the bottom edge.
     ///   - centerInset: Shifts the title's centering right by this much — pass
-    ///     the sidebar's width to center it over the content pane, the way
-    ///     `.appSheetHost(leadingInset:)` centers sheets.
+    ///     the sidebar's width to center it over the content pane.
     ///   - leading: Controls after the traffic lights (a sidebar toggle, Back).
     ///   - center: The title, centered in the window whatever the sides hold.
     ///   - trailing: Controls on the trailing edge (New, Search, a bell).

@@ -2,69 +2,71 @@
 //  TextFieldStyles.swift
 //  BlissUI
 //
-//  Linear-inspired text field styles:
-//  - Clean, minimal borders
-//  - Subtle focus states
-//  - No heavy shadows or gradients
-//  - Muted placeholder colors
+//  Boxed text fields: a field rests in a faint well with a hairline, and while
+//  focused keeps the well and takes an accent hairline (red inside a
+//  `FormField` with an error). `.largePadded` is the regular 32pt box,
+//  `.compact` the 28pt one. The search styles are the same well and hairline
+//  around a quiet glyph.
 
 import SwiftUI
 
-// MARK: - Filled field colors
+// MARK: - Boxed field
 
-/// The compact, search and toolbar search fields' fill and border: the active
-/// color theme's raised surface and border, or the built-in greys under System
-/// (fixed greys read as a grey box on a tinted theme).
-private enum FilledFieldColors {
-    static func background(_ scheme: ColorScheme) -> Color {
-        if let palette = ThemeColors.activePalette { return palette.elevatedBackground.color }
-        return scheme == .dark ? Grey.grey800 : Grey.grey50
+/// The box every text field style draws, at a control tier's height.
+private struct BoxedFieldChrome<Content: View>: View {
+    let content: Content
+    let isFocused: Bool
+    let minHeight: CGFloat
+    let verticalPadding: CGFloat
+
+    @Environment(\.formFieldIsInvalid) private var isInvalid
+
+    private var hairline: Color {
+        if isInvalid { return Danger.danger500 }
+        if isFocused { return Color.accent.opacity(TextFieldMetrics.focusedHairlineOpacity) }
+        return Color.menuBorder
     }
 
-    /// The one neutral hairline every box draws.
-    static func border(_ scheme: ColorScheme) -> Color {
-        Color.menuBorder
+    var body: some View {
+        content
+            .font(Typography.labelMedium)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, Spacing.fieldPaddingH)
+            .padding(.vertical, verticalPadding)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: Sizing.fieldCornerRadius, style: .continuous)
+                    .fill(Color.restingFill)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: Sizing.fieldCornerRadius, style: .continuous)
+                    .strokeBorder(hairline, lineWidth: 1)
+            }
+            .focusEffectDisabled()
+            .animation(Animations.hover, value: isFocused)
     }
+}
+
+enum TextFieldMetrics {
+    /// A focused field's accent hairline: present, not loud.
+    static let focusedHairlineOpacity: Double = 0.6
 }
 
 // MARK: - Large Padded Text Field Style
 
-/// Linear-style form text field — minimal underline that turns accent on focus.
+/// The regular boxed field: 32pt, the form field's default.
 public struct LargePaddedTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.formFieldIsInvalid) private var isInvalid
 
     public init() {}
 
-    /// Underline color — red inside a `FormField` with an error, accent on
-    /// focus, muted grey otherwise.
-    private var lineColor: Color {
-        if isInvalid {
-            return Danger.danger500
-        }
-        if isFocused {
-            return Color.accent
-        }
-        if let palette = ThemeColors.activePalette { return palette.border.color }
-        return colorScheme == .dark ? Grey.grey600 : Grey.grey300
-    }
-
     public func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .focused($isFocused)
-            .textFieldStyle(.plain)
-            .font(Typography.labelMedium)
-            .multilineTextAlignment(.leading)
-            .padding(.vertical, Spacing.sm)
-            .frame(maxWidth: .infinity, minHeight: Sizing.controlMedium, alignment: .leading)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(lineColor)
-                    .frame(height: 1)
-            }
-            .focusEffectDisabled()
-            .animation(Animations.hover, value: isFocused)
+        BoxedFieldChrome(
+            content: configuration.focused($isFocused).textFieldStyle(.plain),
+            isFocused: isFocused,
+            minHeight: Sizing.controlMedium,
+            verticalPadding: Spacing.sm
+        )
     }
 }
 
@@ -76,51 +78,19 @@ extension TextFieldStyle where Self == LargePaddedTextFieldStyle {
 
 // MARK: - Compact Text Field Style
 
-/// Linear-style compact text field
+/// The compact boxed field: 28pt, for a toolbar or a dense form.
 public struct CompactTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.formFieldIsInvalid) private var isInvalid
 
     public init() {}
 
-    private var cornerRadius: CGFloat {
-        isTahoeOrLater ? Sizing.radiusFull : Sizing.radiusDefault
-    }
-
-    private var borderColor: Color {
-        if isInvalid {
-            return Danger.danger500
-        }
-        if isFocused {
-            return Color.accent
-        }
-        return FilledFieldColors.border(colorScheme)
-    }
-
-    private var backgroundColor: Color {
-        FilledFieldColors.background(colorScheme)
-    }
-
     public func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .focused($isFocused)
-            .textFieldStyle(.plain)
-            .font(Typography.labelMedium)
-            .multilineTextAlignment(.leading)
-            .padding(.horizontal, Spacing.fieldPaddingH)
-            .padding(.vertical, Spacing.fieldPaddingV)
-            .frame(maxWidth: .infinity, minHeight: Sizing.controlDefault, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(backgroundColor)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: 1)
-            }
-            .focusEffectDisabled()
-            .animation(Animations.hover, value: isFocused)
+        BoxedFieldChrome(
+            content: configuration.focused($isFocused).textFieldStyle(.plain),
+            isFocused: isFocused,
+            minHeight: Sizing.controlDefault,
+            verticalPadding: Spacing.fieldPaddingV
+        )
     }
 }
 
@@ -130,55 +100,56 @@ extension TextFieldStyle where Self == CompactTextFieldStyle {
     }
 }
 
+// MARK: - Search fields
+
+/// A search field: the field's well and hairline at rest, an accent hairline
+/// while focused (red never: a search can't be invalid). The glyph stays quiet.
+private struct SearchFieldChrome<Content: View>: View {
+    let content: Content
+    let isFocused: Bool
+    let minHeight: CGFloat
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .font(Typography.labelSmall)
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityHidden(true)
+            content
+                .font(Typography.labelMedium)
+        }
+        .padding(.horizontal, Spacing.fieldPaddingH)
+        .frame(minHeight: minHeight)
+        .background {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.restingFill)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(isFocused ? Color.accent.opacity(TextFieldMetrics.focusedHairlineOpacity) : Color.menuBorder, lineWidth: 1)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .focusEffectDisabled()
+        .animation(Animations.hover, value: isFocused)
+    }
+}
+
 // MARK: - Search Text Field Style
 
-/// Linear-style search field with pill shape
+/// The search field: regular height, `Sizing.radiusLarge` corners.
 public struct SearchTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
-    @Environment(\.colorScheme) private var colorScheme
 
     public init() {}
 
-    private var borderColor: Color {
-        if isFocused {
-            return Color.accent
-        }
-        return FilledFieldColors.border(colorScheme)
-    }
-
-    private var backgroundColor: Color {
-        FilledFieldColors.background(colorScheme)
-    }
-
-    private var iconColor: Color {
-        isFocused
-            ? .accent
-            : Color.textTertiary
-    }
-
     public func _body(configuration: TextField<Self._Label>) -> some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "magnifyingglass")
-                .font(Typography.labelMedium)
-                .foregroundStyle(iconColor)
-
-            configuration
-                .focused($isFocused)
-                .textFieldStyle(.plain)
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .frame(minHeight: Sizing.controlMedium)
-        .background {
-            Capsule()
-                .fill(backgroundColor)
-        }
-        .overlay {
-            Capsule()
-                .strokeBorder(borderColor, lineWidth: 1)
-        }
-        .focusEffectDisabled()
-        .animation(Animations.hover, value: isFocused)
+        SearchFieldChrome(
+            content: configuration.focused($isFocused).textFieldStyle(.plain),
+            isFocused: isFocused,
+            minHeight: Sizing.controlMedium,
+            cornerRadius: Sizing.radiusLarge
+        )
     }
 }
 
@@ -190,58 +161,20 @@ extension TextFieldStyle where Self == SearchTextFieldStyle {
 
 // MARK: - Toolbar Search Text Field Style
 
-/// Linear-style toolbar search field with icon inside the style for proper focus tracking
-/// Uses rounded corners (not capsule) for toolbar aesthetic
+/// The toolbar's search field: the search field at the compact height, with
+/// the field's corners.
 public struct ToolbarSearchTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
-    @Environment(\.colorScheme) private var colorScheme
 
     public init() {}
 
-    private var cornerRadius: CGFloat {
-        isTahoeOrLater ? Sizing.radiusFull : Sizing.radiusDefault
-    }
-
-    private var borderColor: Color {
-        if isFocused {
-            return Color.accent
-        }
-        return FilledFieldColors.border(colorScheme)
-    }
-
-    private var backgroundColor: Color {
-        FilledFieldColors.background(colorScheme)
-    }
-
-    private var iconColor: Color {
-        isFocused
-            ? .accent
-            : Color.textTertiary
-    }
-
     public func _body(configuration: TextField<Self._Label>) -> some View {
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: "magnifyingglass")
-                .font(Typography.labelMedium)
-                .foregroundStyle(iconColor)
-
-            configuration
-                .focused($isFocused)
-                .textFieldStyle(.plain)
-        }
-        .padding(.horizontal, Spacing.fieldPaddingH)
-        .padding(.vertical, Spacing.fieldPaddingV)
-        .frame(minHeight: Sizing.controlDefault)
-        .background {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(backgroundColor)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(borderColor, lineWidth: 1)
-        }
-        .focusEffectDisabled()
-        .animation(Animations.hover, value: isFocused)
+        SearchFieldChrome(
+            content: configuration.focused($isFocused).textFieldStyle(.plain),
+            isFocused: isFocused,
+            minHeight: Sizing.controlDefault,
+            cornerRadius: Sizing.fieldCornerRadius
+        )
     }
 }
 

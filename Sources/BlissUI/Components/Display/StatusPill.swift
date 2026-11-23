@@ -38,14 +38,15 @@ public struct StatusPill: View {
     ///   - label: The state's name, looked up in your app's strings.
     ///   - isActive: Colored when true; neutral, with a hollow dot, when false.
     ///   - color: The active state's color — a status mark.
-    ///   - size: The pill size; `.small` sits in a row, `.regular` heads a pane.
+    ///   - size: The pill size: `.regular`, every badge's default, unless the
+    ///     pill must fit a tight spot.
     ///   - icon: An SF Symbol in the dot's place (a bolt for Running, a plug for Connected).
     ///   - bordered: A hairline of the status color (neutral while inactive).
     public init(
         _ label: LocalizedStringKey,
         isActive: Bool,
         color: Color = Success.success500,
-        size: BadgeSize = .small,
+        size: BadgeSize = .regular,
         icon: String? = nil,
         bordered: Bool = true
     ) {

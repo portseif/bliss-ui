@@ -42,7 +42,7 @@ struct CalendarPage: View {
             }
 
             DemoBlock(title: "Compact calendar") {
-                Text("The second keeps weekends and the past off; the third has no header and hides the neighbouring months' days.")
+                Text("The second keeps weekends and the past off; the third has no header, hides the neighbouring months' days and draws its days as circles.")
                     .font(Typography.captionSmall)
                     .foregroundStyle(.secondary)
                 HStack(alignment: .top, spacing: Spacing.xl) {
@@ -55,6 +55,7 @@ struct CalendarPage: View {
                         style: .compact
                     )
                     MonthCalendar(selection: $pickedDay, style: .compact, showsHeader: false, showsOutOfMonthDays: false)
+                        .calendarDayShape(.circle)
                 }
             }
 

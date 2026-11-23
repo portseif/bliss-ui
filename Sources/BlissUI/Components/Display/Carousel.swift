@@ -21,7 +21,7 @@ import SwiftUI
 /// }
 /// ```
 ///
-/// Trackpad swipes page (`.scrollTargetBehavior(.paging)`), the arrows show
+/// Trackpad swipes snap from page to page, the arrows show
 /// while the pointer is over the carousel, and with the carousel focused ←/→
 /// page and Home/End jump. The dots are a `PageControl`.
 public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: View where Data.Element: Identifiable, ID == Data.Element.ID {
@@ -134,20 +134,30 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
         }
     }
 
+    /// Every page laid out at once (a carousel holds a handful), each the
+    /// carousel's width and the tallest page's height, so a short page still
+    /// fills the frame. A lazy stack measured only the pages near the view, so
+    /// the strip's height changed as it scrolled and a short page left a gap.
     private var pages: some View {
         ScrollView(.horizontal) {
-            LazyHStack(spacing: pageSpacing) {
+            HStack(spacing: pageSpacing) {
                 ForEach(data) { element in
                     page(element)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .containerRelativeFrame(.horizontal)
                 }
             }
+            // At its ideal height: the tallest page's, which the others then
+            // stretch to.
+            .fixedSize(horizontal: false, vertical: true)
             .scrollTargetLayout()
             // Under "Show scroll bars: Always" the legacy scroller ignores
             // `.scrollIndicators(.hidden)` and draws over the page.
             .background(NativeScrollerSuppressor())
         }
-        .scrollTargetBehavior(.paging)
+        // Snaps to each page's own edge: paging by the container's width drifted
+        // by `pageSpacing` a page and left a sliver of the next one in view.
+        .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
         .scrollPosition(id: position)
         .scrollIndicators(.hidden)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))

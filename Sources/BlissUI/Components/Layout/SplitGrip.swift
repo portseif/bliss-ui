@@ -3,8 +3,9 @@
 //  BlissUI
 //
 //  The divider `ResizableSplit` and `InspectorSplit` share, so the two feel
-//  identical: a strip straddling the panes' edge with a hairline that
-//  thickens under the pointer and turns accent while dragged, a drag measured
+//  identical: a strip straddling the panes' edge with a hairline, and a short
+//  rounded thumb in its middle that shows under the pointer and turns accent
+//  while dragged, a drag measured
 //  in the window (the strip moves with the edge it drags, so measured locally
 //  the motion fed back and jittered), a pointer style rather than a push/pop
 //  cursor (which could stay stuck if the panes change under it), and a Tab
@@ -36,8 +37,11 @@ enum SplitGripMetrics {
     static let largeStepMultiplier: CGFloat = 10
     /// How far one VoiceOver increment moves the edge.
     static let adjustableStep: CGFloat = Spacing.xl
-    /// The hairline while the pointer is over it.
-    static let hoverOpacity: Double = 0.25
+    /// The thumb while the pointer is over the grip.
+    static let hoverOpacity: Double = 0.35
+    /// The thumb: a short rounded bar centered on the hairline.
+    static let thumbWidth: CGFloat = 3
+    static let thumbHeight: CGFloat = Sizing.controlLarge
     /// A drag past a pane's minimum by this much collapses it.
     static let collapseDistance: CGFloat = Spacing.xxxl
 }
@@ -62,10 +66,8 @@ struct SplitGrip: View {
     @State private var isHovering = false
     @FocusState private var isFocused: Bool
 
-    private var hairlineColor: Color {
-        if isDragging { return Color.accent }
-        if isHovering { return Color.primary.opacity(SplitGripMetrics.hoverOpacity) }
-        return Color.menuBorder
+    private var thumbColor: Color {
+        isDragging ? Color.accent : Color.primary.opacity(SplitGripMetrics.hoverOpacity)
     }
 
     var body: some View {
@@ -75,10 +77,16 @@ struct SplitGrip: View {
             .overlay {
                 if showsHairline {
                     Rectangle()
-                        .fill(hairlineColor)
-                        .frame(width: isDragging || isHovering ? Spacing.hairline : 1)
-                        .animation(Animations.hover, value: isDragging || isHovering)
+                        .fill(Color.menuBorder)
+                        .frame(width: 1)
                 }
+            }
+            .overlay {
+                Capsule()
+                    .fill(thumbColor)
+                    .frame(width: SplitGripMetrics.thumbWidth, height: SplitGripMetrics.thumbHeight)
+                    .opacity(isDragging || isHovering || isFocused ? 1 : 0)
+                    .animation(Animations.hover, value: isDragging || isHovering || isFocused)
             }
             .contentShape(Rectangle())
             .pointerStyle(.columnResize)

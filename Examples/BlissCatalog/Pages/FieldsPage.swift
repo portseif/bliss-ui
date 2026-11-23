@@ -90,7 +90,7 @@ struct FieldsPage: View {
                             .frame(width: 260)
                     }
                     FieldsDemoRow("Warmth") {
-                        BlissSlider("Warmth", value: $warmth, color: Warning.warning500, minimumValueLabel: Text("Cool"), maximumValueLabel: Text("Warm"))
+                        BlissSlider("Warmth", value: $warmth, color: WarmthRamp.color(at: warmth), trackGradient: WarmthRamp.gradient, minimumValueLabel: Text("Cool"), maximumValueLabel: Text("Warm"))
                             .frame(width: 260)
                     }
                     FieldsDemoRow("Disabled") {
@@ -256,5 +256,21 @@ enum CatalogRichText {
         append("swift test", font: .monospacedSystemFont(ofSize: 12, weight: .regular), extra: [.backgroundColor: NSColor.labelColor.withAlphaComponent(0.08)])
         append(" before you push.", font: body)
         return AttributedString(text)
+    }
+}
+
+/// The warmth demo's ramp: a cool blue fading to a warm orange, and the color
+/// at a point along it for the thumb.
+enum WarmthRamp {
+    static let cool = NSColor.systemBlue
+    static let warm = NSColor.systemOrange
+
+    static var gradient: LinearGradient {
+        LinearGradient(colors: [Color(nsColor: cool), Color(nsColor: warm)], startPoint: .leading, endPoint: .trailing)
+    }
+
+    static func color(at fraction: Double) -> Color {
+        let blended = cool.usingColorSpace(.sRGB)?.blended(withFraction: min(max(fraction, 0), 1), of: warm.usingColorSpace(.sRGB) ?? warm)
+        return Color(nsColor: blended ?? cool)
     }
 }

@@ -55,7 +55,7 @@ extension Gallery {
                         .frame(width: 220)
                 }
                 GalleryFieldRow("Warmth") {
-                    BlissSlider("Warmth", value: .constant(0.4), color: Warning.warning500, minimumValueLabel: Text("Cool"), maximumValueLabel: Text("Warm"))
+                    BlissSlider("Warmth", value: .constant(0.4), color: WarmthRamp.color(at: 0.4), trackGradient: WarmthRamp.gradient, minimumValueLabel: Text("Cool"), maximumValueLabel: Text("Warm"))
                         .frame(width: 220)
                 }
             }

@@ -10,6 +10,7 @@ import BlissUI
     @Test func pillsShareTheBadgeSizes() {
         _ = StatusPill("Running", isActive: true, size: .regular, icon: "bolt.fill", bordered: false)
         _ = StatusDotPill(label: "Healthy", color: Success.success500, size: .large, icon: "heart.fill", isActive: false, bordered: true)
+        _ = StatusDotPill(label: "Waiting", color: Info.info500, isPulsing: true)
         _ = StatusDotPill(label: "Legacy", color: Info.info500, font: Typography.labelSmall, bordered: true)
         _ = ShortcutKey("esc", outlined: true)
         _ = ShortcutKey("⌘K", floating: true, compact: true, tint: .white)

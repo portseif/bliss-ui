@@ -30,6 +30,8 @@ enum CalendarMetrics {
     static let compactDayInset: CGFloat = Spacing.hairline / 2
     static let regularDayInset: CGFloat = Spacing.hairline
     static let cornerRadius: CGFloat = Sizing.radiusDefault
+    /// Half of today's 1pt ring, so it draws inside the day's outline.
+    static let todayRingInset: CGFloat = 0.5
     /// At most this many marker dots; the rest read as "+N".
     static let maximumDots = 3
 }
@@ -567,6 +569,29 @@ struct CalendarDayGrid: View {
     }
 }
 
+// MARK: - Day shape
+
+/// How a calendar draws its days: rounded squares, or circles.
+public nonisolated enum CalendarDayShape: Sendable {
+    /// A rounded square per day, a range a rounded strip.
+    case rounded
+    /// A circle per day, a range a capsule strip.
+    case circle
+}
+
+extension EnvironmentValues {
+    /// The day shape every calendar below reads; `.calendarDayShape(_:)` sets it.
+    @Entry public var calendarDayShape: CalendarDayShape = .rounded
+}
+
+extension View {
+    /// Draws the days of every calendar below — `MonthCalendar`,
+    /// `DateRangeCalendar` and the date pickers' popovers — in `shape`.
+    public func calendarDayShape(_ shape: CalendarDayShape) -> some View {
+        environment(\.calendarDayShape, shape)
+    }
+}
+
 // MARK: - Day Cell
 
 /// One day: its number (over up to three marker dots at the regular size), the
@@ -587,13 +612,21 @@ private struct CalendarDayCell: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.calendar) private var calendar
     @Environment(\.locale) private var locale
+    @Environment(\.calendarDayShape) private var shape
 
     private var inset: CGFloat { isCompact ? CalendarMetrics.compactDayInset : CalendarMetrics.regularDayInset }
     private var height: CGFloat { isCompact ? CalendarMetrics.compactCellHeight : CalendarMetrics.regularCellHeight }
-    private let cornerRadius = CalendarMetrics.cornerRadius
 
-    private var dayShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    /// A circle's radius is half the cell's height, so the range band's caps
+    /// round off to meet it.
+    private var cornerRadius: CGFloat {
+        shape == .circle ? height / 2 : CalendarMetrics.cornerRadius
+    }
+
+    /// The day's outline: a rounded square, or a circle as wide as the cell
+    /// is tall, centered in it.
+    private var dayShape: AnyShape {
+        shape == .circle ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     private var isAccentPicked: Bool { isPicked && tint == .accent }
@@ -637,11 +670,14 @@ private struct CalendarDayCell: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: height)
-        .background { dayShape.fill(dayFill) }
+        .background { dayShape.fill(dayFill).aspectRatio(shape == .circle ? 1 : nil, contentMode: .fit) }
         .overlay {
             // Today: a quiet accent ring, dropped once the day is picked.
             if isToday && !isPicked {
-                dayShape.strokeBorder(StatusWash.border(Color.accent, scheme), lineWidth: 1)
+                // Inset half the line, so the stroke sits inside the day.
+                dayShape.stroke(StatusWash.border(Color.accent, scheme), lineWidth: 1)
+                    .padding(CalendarMetrics.todayRingInset)
+                    .aspectRatio(shape == .circle ? 1 : nil, contentMode: .fit)
             }
         }
         .focusRing(isFocused: hasKeyboardFocus, cornerRadius: cornerRadius)

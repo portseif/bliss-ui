@@ -116,11 +116,11 @@ public enum Spacing {
     /// 2px – Vertical spacing between header and subheading
     public static let headingSpacing: CGFloat = hairline
 
-    /// 10px / 5px – A menu row's inset (`FilterMenuRow`, `QuickActionMenuItem`,
-    /// a picker's rows): a step tighter than a list row, with `Sizing.radiusDefault`
-    /// corners and `hairline` between rows.
+    /// 10px / 7px – A menu row's inset (`FilterMenuRow`, `QuickActionMenuItem`,
+    /// a picker's rows), with `Sizing.radiusDefault` corners and `hairline`
+    /// between rows.
     public static let menuRowPaddingH: CGFloat = 10
-    public static let menuRowPaddingV: CGFloat = 5
+    public static let menuRowPaddingV: CGFloat = 7
 
     /// 8px / 6px – A boxed single-line field's inset (`.inputBox` hosts and the
     /// `.compact` text field); the field is `Sizing.controlDefault` tall.
@@ -255,9 +255,9 @@ public enum Sizing {
     /// Full corner radius (capsule shape)
     public static let radiusFull: CGFloat = .infinity
 
-    /// A single-line text field's corners: a capsule on macOS 26, `radiusDefault`
-    /// before it. `.inputBox` defaults to it; buttons keep `radiusMedium`.
-    public static var fieldCornerRadius: CGFloat { isTahoeOrLater ? radiusFull : radiusDefault }
+    /// A single-line text field's corners: `radiusMedium`, the buttons' own, so
+    /// a field and the button beside it match. `.inputBox` defaults to it.
+    public static var fieldCornerRadius: CGFloat { radiusMedium }
 
     /// A multi-line or composite input's corners (text area, editor, composer,
     /// token field, code box, one-time code cells) — a capsule can't wrap a box.

@@ -3,8 +3,8 @@
 //  BlissUI
 //
 //  "Are you sure?" as an app sheet, in place of `.alert` and
-//  `.confirmationDialog`: the question and what it means, over the compact
-//  `ActionBar` — Cancel beside the action, Return confirms, Esc cancels.
+//  `.confirmationDialog`: the question and what it means beside the ✕, over
+//  Cancel and the action — Return confirms, Esc (the ✕) cancels.
 //
 
 import SwiftUI
@@ -17,8 +17,8 @@ import SwiftUI
 /// It closes itself through `\.appSheetDismiss` — on Cancel, Esc, or after
 /// running `onConfirm`.
 ///
-/// There's no ✕ in the header: Cancel owns Esc, and two Esc bindings race.
-/// `style` puts a status glyph beside the question, as an alert's icon does.
+/// The ✕ owns Esc and Cancel doesn't: two Esc bindings race. `style` puts a
+/// status glyph beside the question, as an alert's icon does.
 public struct ConfirmationSheet: View {
     private let title: LocalizedStringKey
     private let message: LocalizedStringKey?
@@ -65,52 +65,66 @@ public struct ConfirmationSheet: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // The sheet header's title and subtitle, inset `Spacing.lg` like
-            // `SheetHeader`, with the footer's own inset parting the buttons
-            // from the message.
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             HStack(alignment: .top, spacing: Spacing.md) {
                 if let style {
                     Image(systemName: style.defaultIcon)
-                        .font(Typography.headingLarge)
+                        .font(Typography.bodyLarge)
                         .foregroundStyle(style.mark)
                         .accessibilityLabel(style.accessibilityName)
                 }
-                VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
+                // `SheetHeader`'s title and subtitle.
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text(title)
-                        .font(Typography.headingLarge)
+                        .font(Typography.bodyLarge)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
                     if let message {
                         Text(message)
-                            .font(Typography.bodySmall)
+                            .font(Typography.caption)
                             .foregroundStyle(Color.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                SheetCloseButton(action: cancel)
+                    .offset(x: SheetCloseButton.cornerTuck, y: -SheetCloseButton.cornerTuck)
+                    .keyboardShortcut(.escape, modifiers: [])
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.lg)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            ActionBar(
-                cancelTitle: String(localized: cancelTitle),
-                confirmTitle: String(localized: confirmTitle),
-                isDestructive: isDestructive,
-                useKeyboardShortcuts: true,
-                showBackground: false,
-                onCancel: {
-                    onCancel?()
-                    dismiss()
-                },
-                onConfirm: {
-                    // Closed first, so an action that opens another sheet
-                    // stacks it over the page rather than over this card.
-                    dismiss()
-                    onConfirm()
-                }
-            )
+            HStack(spacing: Spacing.sm) {
+                Spacer()
+                Button(String(localized: cancelTitle), action: cancel)
+                    .buttonStyle(SecondaryButtonStyle())
+                confirmButton
+                    .keyboardShortcut(.defaultAction)
+            }
         }
+        .padding(Spacing.lg)
         .frame(width: width)
+    }
+
+    @ViewBuilder
+    private var confirmButton: some View {
+        if isDestructive {
+            Button(String(localized: confirmTitle), action: confirm)
+                .buttonStyle(DestructiveButtonStyle(prominent: true))
+        } else {
+            Button(String(localized: confirmTitle), action: confirm)
+                .buttonStyle(PrimaryButtonStyle())
+        }
+    }
+
+    private func cancel() {
+        onCancel?()
+        dismiss()
+    }
+
+    /// Closed first, so an action that opens another sheet stacks it over the
+    /// page rather than over this card.
+    private func confirm() {
+        dismiss()
+        onConfirm()
     }
 }
 

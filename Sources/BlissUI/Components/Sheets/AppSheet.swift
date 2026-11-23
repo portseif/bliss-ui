@@ -207,22 +207,16 @@ final class AppSheetPresenter {
 
 // MARK: - Host
 
-/// The window-root host that renders the sheet stack: a dim scrim plus a
-/// centered card with the app surface, `radiusLarge` corners, a hairline, and a
-/// shadow. Attach once via `.appSheetHost()`.
+/// The window-root host that renders the sheet stack: a dim scrim plus a card
+/// centered in the whole window, with the app surface, `radiusLarge` corners,
+/// a hairline, and a shadow. Attach once via `.appSheetHost()`.
 struct AppSheetContainer: View {
-    /// Shifts the card's horizontal centering right by this much (half of it,
-    /// really) — pass the sidebar width so sheets center over the CONTENT pane,
-    /// matching toasts. 0 = window-centered.
-    var leadingInset: CGFloat = 0
     @State private var presenter = AppSheetPresenter.shared
 
     var body: some View {
         GeometryReader { geo in
-            // The card clamps its own width (default or override) to this —
-            // measured against the CONTENT pane, not the full window, so an
-            // inset card never overflows the right edge.
-            let availableWidth = geo.size.width - leadingInset - AppSheetMetrics.windowMargin * 2
+            // The card clamps its own width (default or override) to this.
+            let availableWidth = geo.size.width - AppSheetMetrics.windowMargin * 2
             let maxH = geo.size.height - AppSheetMetrics.windowMargin * 2
             // Only the top sheet takes keys and VoiceOver: a lower one's Esc /
             // Return shortcuts would otherwise fire first (the earliest control
@@ -234,8 +228,7 @@ struct AppSheetContainer: View {
                         entry: entry,
                         availableWidth: availableWidth,
                         maxHeight: maxH,
-                        windowSize: geo.size,
-                        leadingInset: leadingInset
+                        windowSize: geo.size
                     )
                     .disabled(entry.id != topEntryID)
                     .accessibilityHidden(entry.id != topEntryID)
@@ -265,9 +258,6 @@ private struct AppSheetCard: View {
     let availableWidth: CGFloat
     let maxHeight: CGFloat
     let windowSize: CGSize
-    /// Centering shift — the card centers over the content pane (right of the
-    /// sidebar), not the whole window. See `AppSheetContainer.leadingInset`.
-    var leadingInset: CGFloat = 0
     @State private var appeared = false
     @State private var contentSize: CGSize = .zero
 
@@ -306,8 +296,7 @@ private struct AppSheetCard: View {
         guard let location = entry.openLocation, contentSize.width > 0, contentSize.height > 0 else {
             return .center
         }
-        // The leading padding shifts the card's center right by inset/2.
-        let cardLeft = (windowSize.width - contentSize.width + leadingInset) / 2
+        let cardLeft = (windowSize.width - contentSize.width) / 2
         let cardTop = (windowSize.height - contentSize.height) / 2
         return UnitPoint(
             x: (location.x - cardLeft) / contentSize.width,
@@ -391,9 +380,6 @@ private struct AppSheetCard: View {
                 .scaleEffect(isVisible || prefersReducedMotion ? 1 : (entry.isDismissing ? AppSheetMetrics.exitScale : AppSheetMetrics.entranceScale), anchor: scaleAnchor)
                 .accessibilityAddTraits(.isModal)
                 .opacity(isVisible ? 1 : 0)
-                // Center over the content pane (right of the sidebar), matching
-                // toasts — not the whole window.
-                .padding(.leading, leadingInset)
         }
         .animation(isVisible ? Animations.sheet : Animations.sheetClose, value: isVisible)
         .onAppear {
@@ -411,12 +397,17 @@ private struct AppSheetCard: View {
 
 extension View {
     /// Mounts the app-sheet host. Apply once, high in the window root so sheets
-    /// overlay everything. Also lightly blurs the content behind a presented
-    /// sheet (faded in/out with the same spring) to focus the modal.
-    /// `leadingInset` shifts the cards' centering to sit over the content pane
-    /// (pass the sidebar width).
-    public func appSheetHost(leadingInset: CGFloat = 0) -> some View {
-        modifier(AppSheetHostModifier(leadingInset: leadingInset))
+    /// overlay everything and center in the whole window. Also lightly blurs
+    /// the content behind a presented sheet (faded in/out with the same spring)
+    /// to focus the modal.
+    public func appSheetHost() -> some View {
+        modifier(AppSheetHostModifier())
+    }
+
+    /// Sheets center in the whole window now; the inset is ignored.
+    @available(*, deprecated, message: "Sheets center in the whole window; use appSheetHost().")
+    public func appSheetHost(leadingInset: CGFloat) -> some View {
+        appSheetHost()
     }
 }
 
@@ -510,7 +501,6 @@ private struct AppSheetHairline: View {
 }
 
 private struct AppSheetHostModifier: ViewModifier {
-    var leadingInset: CGFloat = 0
     @State private var presenter = AppSheetPresenter.shared
 
     /// True only while a sheet is actively presented — drops the moment its exit
@@ -529,7 +519,7 @@ private struct AppSheetHostModifier: ViewModifier {
             // as focus without the cost of a heavy full-window blur each frame.
             .blur(radius: hasActiveSheet ? Scrim.backdropBlur : 0)
             .animation(hasActiveSheet ? Animations.sheet : Animations.sheetClose, value: hasActiveSheet)
-            .overlay { AppSheetContainer(leadingInset: leadingInset) }
+            .overlay { AppSheetContainer() }
             // The scrim blocks clicks behind the sheet, but we WANT the dimmed
             // backdrop to drag the window (nicer than a dead modal). This makes
             // the window movable by its background while a sheet is up, so a

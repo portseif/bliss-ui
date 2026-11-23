@@ -169,7 +169,8 @@ public enum FlatSwitchLabelPlacement {
     case trailing
 }
 
-/// The switch's geometry per `controlSize`: the native switch's proportions.
+/// The switch's geometry per `controlSize`: a small, flat switch that sits on
+/// a text line rather than the native switch's proportions.
 private enum FlatSwitchMetrics {
     struct Track {
         let width: CGFloat
@@ -179,24 +180,18 @@ private enum FlatSwitchMetrics {
 
     static func track(for controlSize: ControlSize) -> Track {
         switch controlSize {
-        case .mini: return Track(width: 26, height: 15, thumb: 11)
-        case .small: return Track(width: 32, height: 18, thumb: 14)
-        default: return Track(width: 38, height: 22, thumb: 18)
+        case .mini: return Track(width: 20, height: 12, thumb: 8)
+        case .small: return Track(width: 22, height: 14, thumb: 10)
+        default: return Track(width: 26, height: 16, thumb: 12)
         }
     }
 
     /// The gap between the thumb and the track's edge.
     static let thumbInset: CGFloat = Spacing.hairline
 
-    /// The off track: a faint neutral wash.
-    static func offTrack(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)
-    }
-
-    /// The thumb's contact shadow — the one shadow a control keeps, because a
-    /// white disc on a white track needs it to read as a thumb.
-    static let thumbShadowOpacity: Double = 0.1
-    static let thumbShadowRadius: CGFloat = 1
+    /// The thumb while off: a quiet gray disc on the selection tint, with no
+    /// shadow — on and off read by the thumb's color as much as its side.
+    static let offThumbOpacity: Double = 0.45
 }
 
 /// BlissUI's switch, in place of the native `.switch` style: a Tab stop with
@@ -244,7 +239,26 @@ private struct FlatSwitchToggle: View {
         if configuration.isOn {
             return tint ?? Color.accent
         }
-        return FlatSwitchMetrics.offTrack(colorScheme)
+        return RowTint.selected(colorScheme)
+    }
+
+    /// On: the accent's contrast color (white on a status tint). Off: gray.
+    private var thumbColor: Color {
+        if configuration.isOn {
+            return tint == nil ? AccentHue.contrastForeground : .white
+        }
+        return Color.primary.opacity(FlatSwitchMetrics.offThumbOpacity)
+    }
+
+    /// The drawn label, which dims while the switch is off. A click on it
+    /// flips the switch, as a click on a native switch's title does.
+    private var label: some View {
+        configuration.label
+            .font(Typography.labelSmall)
+            .foregroundStyle(configuration.isOn ? Color.textPrimary : Color.textTertiary)
+            .animation(Animations.interactionReveal, value: configuration.isOn)
+            .contentShape(Rectangle())
+            .onTapGesture { flip() }
     }
 
     private func flip() {
@@ -253,15 +267,15 @@ private struct FlatSwitchToggle: View {
     }
 
     var body: some View {
-        HStack(spacing: Spacing.sm) {
+        HStack(spacing: Spacing.xs) {
             if showsLabel && labelPlacement == .leading {
-                configuration.label
+                label
             }
 
             track
 
             if showsLabel && labelPlacement == .trailing {
-                configuration.label
+                label
             }
         }
         // VoiceOver and Voice Control get a real switch with the label.
@@ -280,12 +294,7 @@ private struct FlatSwitchToggle: View {
             .frame(width: metrics.width, height: metrics.height)
             .overlay(alignment: configuration.isOn ? .trailing : .leading) {
                 Circle()
-                    .fill(.white)
-                    .shadow(
-                        color: .black.opacity(FlatSwitchMetrics.thumbShadowOpacity),
-                        radius: FlatSwitchMetrics.thumbShadowRadius,
-                        y: FlatSwitchMetrics.thumbShadowRadius
-                    )
+                    .fill(thumbColor)
                     .frame(width: metrics.thumb, height: metrics.thumb)
                     .padding(FlatSwitchMetrics.thumbInset)
             }

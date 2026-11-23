@@ -62,6 +62,75 @@ public struct CheckboxGlyph: View {
     }
 }
 
+// MARK: - Checkbox toggle style
+
+/// BlissUI's checkbox, for a `Toggle`: the glyph beside the label, one Tab
+/// stop with the shared focus ring, flipped by a click anywhere on the row or
+/// by Space. VoiceOver hears a real checkbox with its label.
+///
+/// ```swift
+/// Toggle("I agree", isOn: $agreed).toggleStyle(.flatCheckbox)
+/// ```
+public struct FlatCheckboxToggleStyle: ToggleStyle {
+    var tint: Color? = nil
+
+    /// - Parameter tint: The fill when on; the accent when nil.
+    public init(tint: Color? = nil) {
+        self.tint = tint
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        FlatCheckboxToggle(configuration: configuration, tint: tint)
+            .interactiveCursor()
+    }
+}
+
+private struct FlatCheckboxToggle: View {
+    let configuration: ToggleStyleConfiguration
+    let tint: Color?
+
+    @Environment(\.isEnabled) private var isEnabled
+    @FocusState private var isFocused: Bool
+
+    private func flip() {
+        guard isEnabled else { return }
+        configuration.isOn.toggle()
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            CheckboxGlyph(isOn: configuration.isOn, color: tint)
+            configuration.label
+                .opacity(isEnabled ? 1 : Animations.disabledOpacity)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { flip() }
+        .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusSmall)
+        .focusable()
+        .focused($isFocused)
+        .focusEffectDisabled()
+        // Space, like every button; key-down only, so a held key doesn't
+        // flip it back and forth.
+        .onKeyPress(.space, phases: .down) { _ in
+            flip()
+            return .handled
+        }
+        .accessibilityRepresentation {
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(.checkbox)
+        }
+    }
+}
+
+extension ToggleStyle where Self == FlatCheckboxToggleStyle {
+    public static var flatCheckbox: FlatCheckboxToggleStyle { FlatCheckboxToggleStyle() }
+
+    /// - Parameter tint: The fill when on; the accent when nil.
+    public static func flatCheckbox(tint: Color?) -> FlatCheckboxToggleStyle {
+        FlatCheckboxToggleStyle(tint: tint)
+    }
+}
+
 // MARK: - Previews
 
 #Preview("Checkbox", traits: .fixedLayout(width: 300, height: 80)) {

@@ -64,7 +64,7 @@ public struct Sparkline: View {
         showsLastPoint: Bool = true,
         baseline: Double? = nil,
         showsExtremes: Bool = false,
-        smooths: Bool = false,
+        smooths: Bool = true,
         accessibilityLabel: LocalizedStringKey? = nil,
         valueFormat: @escaping (Double) -> String = { $0.formatted() }
     ) {

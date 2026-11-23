@@ -437,14 +437,9 @@ public enum BadgeSize {
         }
     }
 
-        /// Count font (9/10/12 medium)
-    var countFont: Font {
-        switch self {
-            case .small: return Typography.labelXTiny
-            case .regular: return Typography.labelTiny
-            case .large: return Typography.caption
-        }
-    }
+        /// Count font: the pill's own bold face, so a count reads at the
+        /// same size as the badges beside it.
+    var countFont: Font { boldFont }
 
     var iconSpacing: CGFloat {
         switch self {
@@ -490,13 +485,9 @@ public enum BadgeSize {
         }
     }
     
-    var countMinSize: CGFloat {
-        switch self {
-            case .small: return Sizing.iconSmall
-            case .regular: return Sizing.iconDefault
-            case .large: return Sizing.iconMedium
-        }
-    }
+    /// A count badge is as tall as every other pill at its size (and at least
+    /// as wide, so one digit is a circle).
+    var countMinSize: CGFloat { minHeight }
 
     var stepSize: CGFloat {
         switch self {
@@ -555,9 +546,9 @@ extension Badge {
     }
 
         /// Tinted status pill — colored dot + label on a soft same-color tint
-        /// (Healthy / Completed / Needs setup …). The one shape for status chips;
-        /// `.small` sits in a table cell, `.large` heads a detail pane.
-    public static func status(_ title: LocalizedStringKey, color: Color, size: BadgeSize = .large) -> Badge {
+        /// (Healthy / Completed / Needs setup …). The one shape for status chips,
+        /// at every badge's default `.regular` size.
+    public static func status(_ title: LocalizedStringKey, color: Color, size: BadgeSize = .regular) -> Badge {
         Badge(title)
             .badgeStyle(.status(color))
             .badgeSize(size)

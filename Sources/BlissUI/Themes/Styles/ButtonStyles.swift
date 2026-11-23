@@ -4,93 +4,68 @@
 //
 //  Created by Chris Seifert on 12/6/25.
 //
-//  Linear-inspired button hierarchy in a subtle toolbar language (the
-//  canonical recipe is a toolbar's Filter/Display toggles):
-//  `Sizing.radiusMedium` corners, a `Color.menuBorder` hairline, clear fills
-//  at rest with `RowTint` hover/press fills, secondary→primary text on hover,
-//  and NO shadows anywhere. Every text style draws through one body
-//  (`TextButtonBody`) on one table of numbers (`ButtonMetrics`), so a compact
-//  button is `Sizing.controlDefault` (28pt) and a regular one
-//  `Sizing.controlMedium` (32pt) whichever style draws it.
-//  - Primary: neutral filled surface (no accent hue anywhere in the button system)
-//  - Outline: hairline border + primary label (prominent, no accent)
-//  - Secondary: hairline border, RowTint hover (Cancel / Back); `accent: true`
-//    is the same neutral fill as Primary for affirmative secondary actions
-//  - Ghost: borderless, RowTint hover (Skip / Learn more)
-//  - Destructive: muted danger tint unless prominent
+//  A tight, quiet button hierarchy: `Sizing.radiusMedium` corners, a 12pt
+//  label on 12pt side padding, a `Color.menuBorder` hairline on the outlined
+//  styles, `RowTint` hover/press fills, and NO shadows anywhere. Solid fills
+//  (Primary, prominent Destructive) soften a touch on hover; a disabled button
+//  dims as a whole. Every text style draws through one body (`TextButtonBody`)
+//  on one table of numbers (`ButtonMetrics`), so a compact button is
+//  `Sizing.controlDefault` (28pt) and a regular one `Sizing.controlMedium`
+//  (32pt) whichever style draws it.
+//  - Primary: the accent fill, its label in `AccentHue.contrastForeground`
+//  - Outline: a stronger hairline + primary label, for a prominent action
+//    that shouldn't carry the accent
+//  - Secondary: hairline border, RowTint hover, full-strength label (Cancel /
+//    Back); `accent: true` is Primary's fill, for affirmative secondary actions
+//  - Ghost: borderless, RowTint hover, secondary→primary label (Skip / Learn more)
+//  - Destructive: muted danger tint, or the solid deep red when prominent
 //
 
 import SwiftUI
 
 // MARK: - Shared Metrics
 
-/// The numbers every text button shares. A 13pt label is about 16pt tall, so
-/// 16 + 2 × 6 lands the compact tier on `Sizing.controlDefault` and 16 + 2 × 8
-/// the regular tier on `Sizing.controlMedium`; `minHeight` holds the tier when
-/// a label is shorter, and an icon-only button is a square of the tier's side.
+/// The numbers every text button shares. A 12pt label is about 15pt tall, so
+/// `minHeight` sets each tier: `Sizing.controlDefault` compact,
+/// `Sizing.controlMedium` regular. Both tiers inset the label
+/// `Spacing.buttonPaddingH` at the sides; an icon-only button is a square of
+/// the tier's side.
 enum ButtonMetrics {
     static func minHeight(compact: Bool) -> CGFloat {
         compact ? Sizing.controlDefault : Sizing.controlMedium
     }
 
     static func horizontalPadding(compact: Bool) -> CGFloat {
-        compact ? Spacing.buttonPaddingH : Spacing.lg + 2
+        Spacing.buttonPaddingH
     }
 
     static func verticalPadding(compact: Bool) -> CGFloat {
         compact ? Spacing.buttonPaddingV : Spacing.sm
     }
 
-    static var labelFont: Font { Typography.labelMedium }
+    static var labelFont: Font { Typography.labelSmall }
 
     static let cornerRadius: CGFloat = Sizing.radiusMedium
 
     static let hairlineWidth: CGFloat = 1
 
-    /// A disabled hairline fades to half.
-    static let disabledHairlineOpacity: Double = 0.5
-
-    /// The hairline on a Secondary button and on every button-like trigger
-    /// (a picker, a filter button): the one neutral line the library draws.
-    static func hairline(isEnabled: Bool) -> Color {
-        isEnabled ? Color.menuBorder : Color.menuBorder.opacity(disabledHairlineOpacity)
-    }
+    /// The hairline on a Secondary button: the one neutral line the library draws.
+    static var hairline: Color { Color.menuBorder }
 
     /// Outline's stronger line — it is the prominent, accent-free button.
-    static func outlineBorder(isEnabled: Bool) -> Color {
-        Color.primary.opacity(isEnabled ? 0.18 : 0.08)
-    }
+    static var outlineBorder: Color { Color.primary.opacity(0.18) }
 
-    /// The neutral filled surface (Primary, and Secondary's `accent`): light
-    /// gray on light, a stronger white wash on dark.
-    static func primaryRestFill(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.08)
-    }
-
-    /// Hover lifts the filled surface one small step.
-    static func primaryHoverFill(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.11)
-    }
-
-    /// Disabled drops to a third of the rest fill so the states never blur.
-    static func primaryDisabledFill(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color.white.opacity(0.04) : Color.black.opacity(0.03)
-    }
-
-    /// A disabled prominent destructive button keeps a grey slab where the red was.
-    static func prominentDisabledFill(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)
-    }
-
-    /// Hover on a solid red fill: a touch of white over it.
-    static let prominentHoverLift: Double = 0.08
+    /// A solid fill (the accent, the deep red) thins this much under the
+    /// pointer, so hover reads without a second color.
+    static let solidHoverOpacity: Double = 0.92
 
     /// The subtle destructive button pressed: a step past its hover wash.
     static func destructivePressFill(_ scheme: ColorScheme) -> Color {
         Danger.tint.opacity(scheme == .dark ? 0.22 : 0.1)
     }
 
-    /// Disabled label text, whatever the style.
+    /// Disabled label text on the toolbar icon and gradient buttons, which dim
+    /// their label rather than the whole control.
     static func disabledText(_ scheme: ColorScheme) -> Color {
         scheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.3)
     }
@@ -162,8 +137,9 @@ private struct TextButtonState {
     var isActive: Bool { isHovering || isPressed }
 }
 
-/// The five text looks, each answering fill / highlight / hairline / text for
-/// a state. Everything else about a text button is the same and lives in
+/// The five text looks, each answering fill / hairline / text for a state.
+/// Disabled isn't one of their answers: the body dims the whole button.
+/// Everything else about a text button is the same and lives in
 /// `TextButtonBody`.
 private enum TextButtonKind {
     case primary
@@ -173,12 +149,11 @@ private enum TextButtonKind {
     case destructive(prominent: Bool)
 
     func text(_ state: TextButtonState) -> Color {
-        guard state.isEnabled else { return ButtonMetrics.disabledText(state.scheme) }
         switch self {
-        case .primary, .outline:
+        case .primary, .secondary(accent: true):
+            return AccentHue.contrastForeground
+        case .outline, .secondary(accent: false):
             return Color.textPrimary
-        case .secondary(let accent):
-            return accent || state.isActive ? Color.primary : Color.secondary
         case .ghost:
             return state.isActive ? Color.primary : Color.secondary
         case .destructive(let prominent):
@@ -189,10 +164,10 @@ private enum TextButtonKind {
     }
 
     func fill(_ state: TextButtonState) -> Color {
+        let solidOpacity = state.isEnabled && state.isHovering ? ButtonMetrics.solidHoverOpacity : 1
         switch self {
         case .primary, .secondary(accent: true):
-            guard state.isEnabled else { return ButtonMetrics.primaryDisabledFill(state.scheme) }
-            return state.isHovering ? ButtonMetrics.primaryHoverFill(state.scheme) : ButtonMetrics.primaryRestFill(state.scheme)
+            return Color.accent.opacity(solidOpacity)
         case .outline, .secondary(accent: false), .ghost:
             guard state.isEnabled else { return .clear }
             if state.isPressed { return RowTint.selected(state.scheme) }
@@ -201,7 +176,7 @@ private enum TextButtonKind {
         case .destructive(prominent: true):
             // The deep red: white text sits on it, and the lifted mark red is
             // too light for that on dark.
-            return state.isEnabled ? Danger.tint : ButtonMetrics.prominentDisabledFill(state.scheme)
+            return Danger.tint.opacity(solidOpacity)
         case .destructive(prominent: false):
             guard state.isEnabled else { return .clear }
             if state.isPressed { return ButtonMetrics.destructivePressFill(state.scheme) }
@@ -210,25 +185,16 @@ private enum TextButtonKind {
         }
     }
 
-    /// A wash laid over the fill: the prominent red lightens on hover.
-    func highlight(_ state: TextButtonState) -> Color {
-        if case .destructive(prominent: true) = self, state.isEnabled, state.isActive {
-            return Color.white.opacity(ButtonMetrics.prominentHoverLift)
-        }
-        return .clear
-    }
-
     func hairline(_ state: TextButtonState) -> Color? {
         switch self {
         case .primary, .ghost, .secondary(accent: true), .destructive(prominent: true):
             return nil
         case .outline:
-            return ButtonMetrics.outlineBorder(isEnabled: state.isEnabled)
+            return ButtonMetrics.outlineBorder
         case .secondary(accent: false):
-            return ButtonMetrics.hairline(isEnabled: state.isEnabled)
+            return ButtonMetrics.hairline
         case .destructive(prominent: false):
-            let line = StatusWash.border(Danger.danger500, state.scheme)
-            return state.isEnabled ? line : line.opacity(ButtonMetrics.disabledHairlineOpacity)
+            return StatusWash.border(Danger.danger500, state.scheme)
         }
     }
 }
@@ -269,10 +235,6 @@ private struct TextButtonBody: View {
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(kind.fill(state))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(kind.highlight(state))
-                    }
             }
             .overlay {
                 if let hairline = kind.hairline(state) {
@@ -281,6 +243,7 @@ private struct TextButtonBody: View {
                 }
             }
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, padding: 0)
             .scaleEffect(state.isPressed && isEnabled ? Animations.pressScale : 1)
             // A Tab stop like every other style (Space presses it).
@@ -295,7 +258,7 @@ private struct TextButtonBody: View {
 
 // MARK: - Primary Button Style
 
-/// Primary button — the neutral filled surface, no accent hue
+/// Primary button — the accent fill, its label in `AccentHue.contrastForeground`
 /// Use for main actions: Submit, Save, Continue, Create
 public struct PrimaryButtonStyle: ButtonStyle {
     var compact: Bool = false
@@ -383,7 +346,7 @@ public struct OutlineButtonStyle: ButtonStyle {
 // MARK: - Secondary Button Style
 
 /// Secondary button — hairline border, clear fill at rest, `RowTint`
-/// hover/press, secondary→primary text on hover.
+/// hover/press, a full-strength label.
 /// Use for secondary actions: Cancel, Back, Edit
 public struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
@@ -391,9 +354,9 @@ public struct SecondaryButtonStyle: ButtonStyle {
 
     var compact: Bool = false
     var iconOnly: Bool = false
-    /// The same neutral filled surface as Primary — for affirmative secondary
-    /// actions (Check Now, Connect…) that should read as primary-colored. Plain
-    /// secondary buttons (Cancel, Back) leave this off and stay neutral grey.
+    /// Primary's accent fill — for affirmative secondary actions (Check Now,
+    /// Connect…) that should read as primary-colored. Plain secondary buttons
+    /// (Cancel, Back) leave this off and keep the hairline.
     var accent: Bool = false
     var fullWidth: Bool = false
     var cornerRadiusOverride: CGFloat? = nil
@@ -531,6 +494,7 @@ private struct GhostHuggingLabel: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(TextButtonKind.ghost.fill(state))
             }
+            .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, padding: 0)
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .scaleEffect(state.isPressed && isEnabled ? Animations.pressScale : 1)
@@ -648,9 +612,9 @@ private struct SmallPillButton: View {
         configuration.label
             .font(compact ? BadgeSize.regular.font : Typography.labelSmall)
             .foregroundStyle(color)
-            .padding(.horizontal, compact ? BadgeSize.regular.horizontalPadding : Spacing.sm)
-            .padding(.vertical, compact ? BadgeSize.regular.verticalPadding : Spacing.hairline)
-            .frame(minHeight: compact ? BadgeSize.regular.minHeight : Sizing.controlSmall)
+            .padding(.horizontal, compact ? BadgeSize.regular.horizontalPadding : Spacing.md)
+            .padding(.vertical, compact ? BadgeSize.regular.verticalPadding : Spacing.xxs)
+            .frame(minHeight: compact ? BadgeSize.regular.minHeight : Sizing.controlDefault)
             .background {
                 Capsule()
                     .fill(wash)

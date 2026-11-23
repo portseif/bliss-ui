@@ -3,11 +3,9 @@
 //  BlissUI
 //
 //  A file drop target: a dashed card that lights up in the accent while a drag
-//  hovers it, and (by default) doubles as a Browse button — click it, or press
-//  Space / Return with it focused, and an `NSOpenPanel` opens with the same
-//  file rules the drop enforces. One control, one Tab stop: the Browse call to
-//  action is drawn inside the card rather than nested as a second button, so
-//  Tab lands once and VoiceOver reads one button.
+//  hovers it, with (by default) a Browse button inside, the way an empty state
+//  carries its action: it opens an `NSOpenPanel` with the same file rules the
+//  drop enforces, and it's the card's one Tab stop.
 //
 
 import AppKit
@@ -38,7 +36,6 @@ public struct DropZone: View {
     private let onDrop: ([URL]) -> Void
 
     @State private var isTargeted = false
-    @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.formFieldIsInvalid) private var isInvalid
 
@@ -50,7 +47,7 @@ public struct DropZone: View {
     ///     of these; empty takes any file.
     ///   - allowsMultiple: Take every item dropped, or only the first.
     ///   - canChooseDirectories: Folders count too (dropped or browsed).
-    ///   - allowsBrowsing: Clicking the zone (or Space / Return) opens an
+    ///   - allowsBrowsing: A Browse button in the card opens an
     ///     `NSOpenPanel` with the same rules.
     ///   - compact: One line — glyph, title, hint and Browse across — at
     ///     `Sizing.controlLarge`, for a composer footer or an inspector.
@@ -82,27 +79,17 @@ public struct DropZone: View {
     }
 
     public var body: some View {
-        Group {
-            if allowsBrowsing {
-                Button(action: browse) { card }
-                    .buttonStyle(SelectableCardButtonStyle(cornerRadius: Sizing.radiusLarge))
-                    .disabled(isLoading)
-                    .accessibilityValue(isLoading ? Text("Loading", bundle: .module) : Text(verbatim: ""))
-            } else {
-                card
-                    .accessibilityElement(children: .combine)
-            }
-        }
-        .onHover { isHovering = $0 }
-        .dropDestination(for: URL.self) { urls, _ in
-            guard !isLoading else { return false }
-            let accepted = accept(urls)
-            guard !accepted.isEmpty else { return false }
-            onDrop(accepted)
-            return true
-        } isTargeted: { isTargeted = $0 && !isLoading }
-        .animation(Animations.hover, value: isTargeted)
-        .animation(Animations.hover, value: isHovering)
+        card
+            .accessibilityElement(children: .contain)
+            .accessibilityValue(isLoading ? Text("Loading", bundle: .module) : Text(verbatim: ""))
+            .dropDestination(for: URL.self) { urls, _ in
+                guard !isLoading else { return false }
+                let accepted = accept(urls)
+                guard !accepted.isEmpty else { return false }
+                onDrop(accepted)
+                return true
+            } isTargeted: { isTargeted = $0 && !isLoading }
+            .animation(Animations.hover, value: isTargeted)
     }
 
     // MARK: - Card
@@ -124,7 +111,7 @@ public struct DropZone: View {
                 }
                 Spacer(minLength: Spacing.sm)
                 if allowsBrowsing {
-                    browseLabel
+                    browseButton
                 }
             }
             .padding(.horizontal, Spacing.md)
@@ -149,7 +136,7 @@ public struct DropZone: View {
                 .multilineTextAlignment(.center)
 
                 if allowsBrowsing {
-                    browseLabel
+                    browseButton
                         .padding(.top, Spacing.xxs)
                 }
             }
@@ -175,13 +162,11 @@ public struct DropZone: View {
         }
     }
 
-    /// The call to action, drawn (not a nested button) so the zone stays one
-    /// control. Accent only on hover, like a link.
-    private var browseLabel: some View {
-        Text("Browse", bundle: .module)
-            .font(Typography.labelMedium)
-            .foregroundStyle(isHovering && !isLoading ? Color.accent : Color.secondary)
-            .underline(isHovering && !isLoading, pattern: .dot)
+    /// The keyboard and pointer way in, the button an empty state carries.
+    private var browseButton: some View {
+        Button(String(localized: "Browse", bundle: .module), action: browse)
+            .buttonStyle(SecondaryButtonStyle(compact: true))
+            .disabled(isLoading)
     }
 
     private var background: some View {

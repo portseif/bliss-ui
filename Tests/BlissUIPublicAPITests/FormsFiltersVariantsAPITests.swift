@@ -20,6 +20,9 @@ import BlissUI
             showsOutOfMonthDays: false
         )
         _ = MonthCalendar(selection: .constant(nil as Date?), isDateEnabled: { _ in false }, showsHeader: true)
+        _ = MonthCalendar(selection: .constant(day), style: .compact).calendarDayShape(.circle)
+        let shapes: [CalendarDayShape] = [.rounded, .circle]
+        #expect(shapes.count == 2)
         _ = MonthCalendar(selection: .constant(day), displayedMonth: .constant(day)) { _ in Text(verbatim: "Detail") }
     }
 

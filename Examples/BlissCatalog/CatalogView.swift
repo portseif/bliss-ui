@@ -27,6 +27,7 @@ enum CatalogPage: String, CaseIterable, Identifiable {
     case fields = "Number & Text Fields"
     case tokens = "Tokens & Autocomplete"
     case layout = "Layout & People"
+    case compare = "Presto vs Bliss"
 
     var id: String { rawValue }
 
@@ -48,6 +49,7 @@ enum CatalogPage: String, CaseIterable, Identifiable {
         case .fields: return "number"
         case .tokens: return "tag"
         case .layout: return "person.2"
+        case .compare: return "square.split.2x1"
         }
     }
 }
@@ -149,6 +151,7 @@ struct CatalogView: View {
         case .fields: FieldsPage()
         case .tokens: TokensPage()
         case .layout: LayoutPage()
+        case .compare: ComparePage()
         }
     }
 }

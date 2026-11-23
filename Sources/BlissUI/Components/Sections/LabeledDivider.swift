@@ -4,7 +4,8 @@
 //
 //  A hairline with a label set into it: "or" between two sign-in options, a
 //  date between groups of messages, a section word in a long form. The label
-//  sits in the middle by default, or near one end.
+//  sits in the middle by default, or at one end with the line running away
+//  from it.
 //
 
 import SwiftUI
@@ -54,22 +55,18 @@ public struct LabeledDivider<Label: View>: View {
 
     // MARK: Lines
 
-    /// A short fixed line keeps the label near an end; a flexible one pushes it
-    /// toward the middle.
+    /// A label at an end starts or finishes the line, with nothing past it; a
+    /// centered one has a line on each side.
     @ViewBuilder
     private var leadingLine: some View {
-        if alignment == .leading {
-            hairline.frame(width: Spacing.md)
-        } else {
+        if alignment != .leading {
             hairline
         }
     }
 
     @ViewBuilder
     private var trailingLine: some View {
-        if alignment == .trailing {
-            hairline.frame(width: Spacing.md)
-        } else {
+        if alignment != .trailing {
             hairline
         }
     }
