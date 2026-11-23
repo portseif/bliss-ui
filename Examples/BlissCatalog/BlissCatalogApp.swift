@@ -21,6 +21,8 @@ struct BlissCatalogApp: App {
         DispatchQueue.main.async { NSApplication.shared.activate() }
     }
 
+    @AppStorage(ControlShape.catalogStorageKey) private var controlShapeID = ControlShape.rounded.catalogID
+
     var body: some Scene {
         WindowGroup("BlissUI Catalog") {
             if let outputDirectory = Gallery.outputDirectory {
@@ -34,6 +36,8 @@ struct BlissCatalogApp: App {
                     .overlay { PrestoOverlayHost() }
                     .appSheetHost()
                     .globalToast()
+                    // The Themes page's control shape, for the whole window.
+                    .controlShape(ControlShape(catalogID: controlShapeID) ?? .rounded)
                     .blissTheme()
                     .blissWindowChrome()
                     .persistsWindowFrame(key: "blissCatalog.windowFrame")

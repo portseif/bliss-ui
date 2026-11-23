@@ -37,11 +37,31 @@ struct DemoBlock<Content: View>: View {
 // MARK: - Themes
 
 struct ThemesPage: View {
+    @AppStorage(ControlShape.catalogStorageKey) private var controlShapeID = ControlShape.rounded.catalogID
+
+    private var controlShape: Binding<ControlShape> {
+        Binding(
+            get: { ControlShape(catalogID: controlShapeID) ?? .rounded },
+            set: { controlShapeID = $0.catalogID }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("Every surface, accent and status color follows the theme. Pick one and the whole window re-themes.")
                 .font(Typography.bodySmall)
                 .foregroundStyle(.secondary)
+            DemoBlock(title: "Control shape") {
+                SegmentedPills(
+                    options: ControlShape.allCases,
+                    selection: controlShape,
+                    fillsWidth: false,
+                    title: { ControlShapesDemo.title($0) }
+                )
+                Text("Every button, field, picker and color control in the window takes these corners.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
             AppearanceSettings()
                 .environment(\.settingsFormPlain, true)
             DemoBlock(title: "Mode picker with labels") {
@@ -63,6 +83,25 @@ struct ThemesPage: View {
 }
 
 // MARK: - Control shapes
+
+extension ControlShape {
+    /// Where the catalog keeps the Themes page's control shape pick.
+    static let catalogStorageKey = "blissCatalog.controlShape"
+
+    /// The pick as it's stored.
+    var catalogID: String {
+        switch self {
+        case .square: "square"
+        case .rounded: "rounded"
+        case .round: "round"
+        }
+    }
+
+    init?(catalogID: String) {
+        guard let shape = Self.allCases.first(where: { $0.catalogID == catalogID }) else { return nil }
+        self = shape
+    }
+}
 
 /// One row per `ControlShape`: the same buttons, field, segmented control and
 /// color chip under `.controlShape(_:)`.
