@@ -32,9 +32,11 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 - **Carousel.** Every page fills the carousel at the tallest page's height, and swipes snap to each page's edge, so `pageSpacing` no longer leaves a sliver of the next page in view.
 - **Avatar stack.** `+N` is bare text centered in an avatar-wide slot, with no chip behind it.
 - **Reorderable list.** A drag redraws only the dragged row, and lifting a row no longer swaps its identity mid-drag.
+- **Color picker.** Under the default rounded control shape, `ColorPickerButton`'s presets are rounded squares and its `.hexChip` label has the field's corners (they were always circles and a capsule); `.controlShape(.round)` gives the old look.
 
 ### Added
 
+- `.controlShape(.square)` / `.rounded` / `.round`: one corner style for every control below. Text buttons, toolbar icon buttons, text and search fields, `.inputBox`, `FloatingMenuPicker`'s trigger, `ShortcutRecorder`, `SegmentedPills`, `ColorPickerButton` (its swatch, hex chip and presets) and `ThemeCard` read it. Square is sharp; rounded keeps each control's own corners; round is a capsule on a single-line control and `radiusXLarge` on a box that holds more than one line. A button's `cornerRadiusOverride` still wins. `.inputBox` takes `isMultiline: true` for a box's corners, and its `cornerRadius` is now optional (nil follows the shape).
 - `.toggleStyle(.flatCheckbox)` / `.flatCheckbox(tint:)`: a checkbox whose label toggles it too, one Tab stop. A `.flatSwitch`'s drawn label now flips the switch as well.
 - `StepIndicator(grows: true)`: the current dot stretches into a short line.
 - `.calendarDayShape(.circle)`: circle days (and capsule range bands) for `MonthCalendar`, `DateRangeCalendar` and the date pickers.

@@ -20,6 +20,9 @@ private struct BoxedFieldChrome<Content: View>: View {
     let verticalPadding: CGFloat
 
     @Environment(\.formFieldIsInvalid) private var isInvalid
+    @Environment(\.controlShape) private var controlShape
+
+    private var cornerRadius: CGFloat { controlShape.radius(rounded: Sizing.fieldCornerRadius) }
 
     private var hairline: Color {
         if isInvalid { return Danger.danger500 }
@@ -35,11 +38,11 @@ private struct BoxedFieldChrome<Content: View>: View {
             .padding(.vertical, verticalPadding)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: Sizing.fieldCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(Color.restingFill)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: Sizing.fieldCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .strokeBorder(hairline, lineWidth: 1)
             }
             .focusEffectDisabled()
@@ -108,7 +111,12 @@ private struct SearchFieldChrome<Content: View>: View {
     let content: Content
     let isFocused: Bool
     let minHeight: CGFloat
-    let cornerRadius: CGFloat
+    /// The corners when the control shape is rounded.
+    let roundedRadius: CGFloat
+
+    @Environment(\.controlShape) private var controlShape
+
+    private var cornerRadius: CGFloat { controlShape.radius(rounded: roundedRadius) }
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
@@ -122,14 +130,14 @@ private struct SearchFieldChrome<Content: View>: View {
         .padding(.horizontal, Spacing.fieldPaddingH)
         .frame(minHeight: minHeight)
         .background {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                 .fill(Color.restingFill)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                 .strokeBorder(isFocused ? Color.accent.opacity(TextFieldMetrics.focusedHairlineOpacity) : Color.menuBorder, lineWidth: 1)
         }
-        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius)))
         .focusEffectDisabled()
         .animation(Animations.hover, value: isFocused)
     }
@@ -148,7 +156,7 @@ public struct SearchTextFieldStyle: TextFieldStyle {
             content: configuration.focused($isFocused).textFieldStyle(.plain),
             isFocused: isFocused,
             minHeight: Sizing.controlMedium,
-            cornerRadius: Sizing.radiusLarge
+            roundedRadius: Sizing.radiusLarge
         )
     }
 }
@@ -173,7 +181,7 @@ public struct ToolbarSearchTextFieldStyle: TextFieldStyle {
             content: configuration.focused($isFocused).textFieldStyle(.plain),
             isFocused: isFocused,
             minHeight: Sizing.controlDefault,
-            cornerRadius: Sizing.fieldCornerRadius
+            roundedRadius: Sizing.fieldCornerRadius
         )
     }
 }
@@ -194,16 +202,18 @@ extension View {
     /// inside a `FormField` with an error. The field needs its own
     /// `.focused(_:)` binding to pass in as `isFocused`.
     ///
-    /// A single-line field keeps the default corners (`Sizing.fieldCornerRadius`,
-    /// a capsule on macOS 26); a box that holds more than one line passes
-    /// `Sizing.textBoxCornerRadius`. `fill: .none` drops the resting fill and
-    /// hairline for a borderless field inside a card.
+    /// The corners follow `controlShape`: a single-line field's
+    /// (`Sizing.fieldCornerRadius` when rounded), or, with `isMultiline`, a
+    /// box's (`Sizing.textBoxCornerRadius` when rounded, never a capsule). A
+    /// `cornerRadius` replaces either. `fill: .none` drops the resting fill
+    /// and hairline for a borderless field inside a card.
     public func inputBox(
         isFocused: Bool,
-        cornerRadius: CGFloat = Sizing.fieldCornerRadius,
+        cornerRadius: CGFloat? = nil,
+        isMultiline: Bool = false,
         fill: InputBoxFill = .resting
     ) -> some View {
-        modifier(InputBoxModifier(isFocused: isFocused, cornerRadius: cornerRadius, fill: fill))
+        modifier(InputBoxModifier(isFocused: isFocused, cornerRadiusOverride: cornerRadius, isMultiline: isMultiline, fill: fill))
     }
 }
 
@@ -217,10 +227,19 @@ public enum InputBoxFill {
 
 private struct InputBoxModifier: ViewModifier {
     let isFocused: Bool
-    let cornerRadius: CGFloat
+    let cornerRadiusOverride: CGFloat?
+    let isMultiline: Bool
     let fill: InputBoxFill
 
     @Environment(\.formFieldIsInvalid) private var isInvalid
+    @Environment(\.controlShape) private var controlShape
+
+    private var cornerRadius: CGFloat {
+        if let cornerRadiusOverride { return cornerRadiusOverride }
+        return isMultiline
+            ? controlShape.boxRadius(rounded: Sizing.textBoxCornerRadius)
+            : controlShape.radius(rounded: Sizing.fieldCornerRadius)
+    }
 
     private var restingFill: Color {
         fill == .resting ? Color.restingFill : .clear
@@ -234,12 +253,12 @@ private struct InputBoxModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(isFocused ? Color.controlBackground : restingFill)
                     .animation(Animations.hover, value: isFocused)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .strokeBorder(hairline, lineWidth: 1)
             }
             .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, showsOnPointerFocus: true)

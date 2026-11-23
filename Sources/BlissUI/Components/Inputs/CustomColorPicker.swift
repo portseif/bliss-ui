@@ -70,14 +70,14 @@ struct ColorPickerSwatch: View {
     let color: Color
     var compact = false
 
+    @Environment(\.controlShape) private var controlShape
+
     var body: some View {
-        RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: controlShape.swatchRadius, style: .matching(controlShape.swatchRadius))
+        shape
             .fill(color)
             .frame(width: ColorPickerMetrics.swatchWidth, height: compact ? Sizing.controlSmall : Sizing.controlDefault)
-            .overlay {
-                RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
-                    .strokeBorder(Color.menuBorder, lineWidth: 1)
-            }
+            .overlay { shape.strokeBorder(Color.menuBorder, lineWidth: 1) }
     }
 }
 
@@ -108,6 +108,7 @@ public struct ColorPickerButton: View {
     var compact = false
     var onColorApplied: () -> Void = {}
 
+    @Environment(\.controlShape) private var controlShape
     @State private var showingPopover = false
     @State private var tempRed: Double = 0
     @State private var tempGreen: Double = 0
@@ -194,7 +195,7 @@ public struct ColorPickerButton: View {
             }
         }
         // The hover wash and press every clickable card shares.
-        .buttonStyle(SelectableCardButtonStyle(cornerRadius: label == .hexChip ? Sizing.radiusFull : Sizing.radiusSmall))
+        .buttonStyle(SelectableCardButtonStyle(cornerRadius: label == .hexChip ? controlShape.radius(rounded: Sizing.fieldCornerRadius) : controlShape.swatchRadius))
         .accessibilityLabel(Text("Choose color", bundle: .module))
         .popover(isPresented: $showingPopover) {
             ColorPickerPopover(
@@ -233,12 +234,16 @@ private struct ColorHexChip: View {
     let hex: String
     var compact = false
 
+    @Environment(\.controlShape) private var controlShape
+
     var body: some View {
+        let chip = RoundedRectangle(cornerRadius: controlShape.radius(rounded: Sizing.fieldCornerRadius), style: .matching(controlShape.radius(rounded: Sizing.fieldCornerRadius)))
+        let dot = RoundedRectangle(cornerRadius: controlShape.dotRadius, style: .matching(controlShape.dotRadius))
         HStack(spacing: Spacing.xs) {
-            Circle()
+            dot
                 .fill(color)
                 .frame(width: Sizing.iconSmall, height: Sizing.iconSmall)
-                .overlay { Circle().strokeBorder(Color.menuBorder, lineWidth: 1) }
+                .overlay { dot.strokeBorder(Color.menuBorder, lineWidth: 1) }
             Text(verbatim: hex)
                 .font((compact ? Typography.labelSmall : Typography.labelMedium).monospacedDigit())
                 .foregroundStyle(Color.textPrimary)
@@ -246,9 +251,9 @@ private struct ColorHexChip: View {
         .padding(.leading, Spacing.sm)
         .padding(.trailing, Spacing.md)
         .frame(minHeight: compact ? Sizing.controlSmall : Sizing.controlDefault)
-        .background(Capsule().fill(Color.restingFill))
-        .overlay(Capsule().strokeBorder(Color.menuBorder, lineWidth: 1))
-        .contentShape(Capsule())
+        .background(chip.fill(Color.restingFill))
+        .overlay(chip.strokeBorder(Color.menuBorder, lineWidth: 1))
+        .contentShape(chip)
     }
 }
 
@@ -271,6 +276,7 @@ public struct ColorPickerPopover: View {
     var onCancel: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.controlShape) private var controlShape
 
     // HSL state derived from RGB.
     @State private var hue: Double = 0
@@ -320,11 +326,11 @@ public struct ColorPickerPopover: View {
         VStack(spacing: Spacing.md) {
             // Color preview with hex.
             VStack(spacing: Spacing.xs) {
-                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .matching(Sizing.radiusMedium))
                     .fill(previewColor)
                     .frame(height: ColorPickerMetrics.previewHeight)
                     .overlay {
-                        RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                        RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .matching(Sizing.radiusMedium))
                             .strokeBorder(Color.menuBorder, lineWidth: 1)
                     }
 
@@ -410,6 +416,11 @@ public struct ColorPickerPopover: View {
         }
     }
 
+    /// A preset's tile, in the control shape.
+    private var presetShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: controlShape.swatchRadius, style: .matching(controlShape.swatchRadius))
+    }
+
     /// Preset colors, led by the default (system or theme accent) when there is one.
     private var presets: some View {
         HStack(spacing: Spacing.xs) {
@@ -419,7 +430,7 @@ public struct ColorPickerPopover: View {
                     onUseDefault()
                 } label: {
                     ZStack {
-                        Circle()
+                        presetShape
                             .fill(Color(nsColor: defaultOption.color))
                             .frame(width: ColorPickerMetrics.presetSize, height: ColorPickerMetrics.presetSize)
 
@@ -428,11 +439,11 @@ public struct ColorPickerPopover: View {
                             .foregroundStyle(defaultOption.glyphColor)
                     }
                     .overlay {
-                        Circle()
+                        presetShape
                             .strokeBorder(Color.menuBorder, lineWidth: 1)
                     }
                 }
-                .buttonStyle(SelectableCardButtonStyle(cornerRadius: Sizing.radiusFull))
+                .buttonStyle(SelectableCardButtonStyle(cornerRadius: controlShape.swatchRadius))
                 .tooltip(configuration: .iconHint, position: .above) {
                     Text(defaultOption.label).font(Typography.labelSmall)
                 }
@@ -446,15 +457,15 @@ public struct ColorPickerPopover: View {
                     blue = preset.blue
                     updateHSLFromRGB()
                 } label: {
-                    Circle()
+                    presetShape
                         .fill(Color(red: preset.red, green: preset.green, blue: preset.blue))
                         .frame(width: ColorPickerMetrics.presetSize, height: ColorPickerMetrics.presetSize)
                         .overlay {
-                            Circle()
+                            presetShape
                                 .strokeBorder(Color.menuBorder, lineWidth: 1)
                         }
                 }
-                .buttonStyle(SelectableCardButtonStyle(cornerRadius: Sizing.radiusFull))
+                .buttonStyle(SelectableCardButtonStyle(cornerRadius: controlShape.swatchRadius))
                 .accessibilityLabel(Text(verbatim: preset.name))
             }
         }
@@ -649,4 +660,12 @@ private struct ColorPickerPreview: View {
         onApply: {}, onUseDefault: {}, onCancel: {}
     )
     .padding(Spacing.lg)
+}
+
+extension ControlShape {
+    /// A color swatch's corners: the picker's swatch, its presets.
+    var swatchRadius: CGFloat { radius(rounded: Sizing.radiusSmall) }
+
+    /// The small dot in a hex chip: a hair rounder than square when rounded.
+    var dotRadius: CGFloat { radius(rounded: Sizing.radiusSmall / 2) }
 }

@@ -206,7 +206,7 @@ public struct TokenField<Token: Hashable>: View {
         .contentShape(Rectangle())
         // A click on the box between chips types into the field.
         .onTapGesture { isFieldFocused = true }
-        .inputBox(isFocused: isFieldFocused, cornerRadius: Sizing.textBoxCornerRadius)
+        .inputBox(isFocused: isFieldFocused, isMultiline: true)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { boxWidth = $0 }
         .background(alignment: .bottom) { suggestionAnchor }
         .onChange(of: draft) { oldText, newText in handleDraftChange(from: oldText, to: newText) }

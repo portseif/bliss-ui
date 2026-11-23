@@ -62,6 +62,44 @@ struct ThemesPage: View {
     }
 }
 
+// MARK: - Control shapes
+
+/// One row per `ControlShape`: the same buttons, field, segmented control and
+/// color chip under `.controlShape(_:)`.
+struct ControlShapesDemo: View {
+    @State private var name = ""
+    @State private var layout = "List"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            ForEach(ControlShape.allCases, id: \.self) { shape in
+                HStack(spacing: Spacing.sm) {
+                    Text(verbatim: Self.title(shape))
+                        .font(Typography.labelSmall)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 56, alignment: .leading)
+                    Button("Save") {}.buttonStyle(PrimaryButtonStyle())
+                    Button("Cancel") {}.buttonStyle(SecondaryButtonStyle())
+                    TextField("", text: $name, prompt: Text(verbatim: "Name"))
+                        .textFieldStyle(.largePadded)
+                        .frame(width: 120)
+                    SegmentedPills(options: ["List", "Grid"], selection: $layout, style: .compact, title: { $0 }, icon: { $0 == "List" ? "list.bullet" : "square.grid.2x2" })
+                    ColorPickerButton(red: .constant(0.04), green: .constant(0.52), blue: .constant(1), label: .hexChip)
+                }
+                .controlShape(shape)
+            }
+        }
+    }
+
+    static func title(_ shape: ControlShape) -> String {
+        switch shape {
+        case .square: "Square"
+        case .rounded: "Rounded"
+        case .round: "Round"
+        }
+    }
+}
+
 // MARK: - Buttons
 
 struct ButtonsPage: View {
@@ -69,6 +107,9 @@ struct ButtonsPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
+            DemoBlock(title: "Control shape") {
+                ControlShapesDemo()
+            }
             DemoBlock(title: "Text buttons") {
                 HStack(spacing: Spacing.sm) {
                     Button("Primary") {}.buttonStyle(PrimaryButtonStyle())

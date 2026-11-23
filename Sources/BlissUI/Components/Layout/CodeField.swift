@@ -159,7 +159,7 @@ public struct CodeField<Trailing: View>: View {
         .padding(.horizontal, Self.horizontalPadding)
         .padding(.vertical, verticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius)
+        .inputBox(isFocused: isFocused, isMultiline: true)
     }
 
     // MARK: Editor
@@ -221,7 +221,7 @@ public struct CodeField<Trailing: View>: View {
                 .padding(.top, verticalPadding - 1)
                 .padding(.trailing, Spacing.sm)
         }
-        .inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius)
+        .inputBox(isFocused: isFocused, isMultiline: true)
     }
 
     /// Room on the trailing side for the Copy button and the trailing

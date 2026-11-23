@@ -30,6 +30,11 @@ import BlissUI
         #expect(sizes.count == 3)
     }
 
+    @Test func controlShapeIsReachable() {
+        #expect(ControlShape.allCases == [.square, .rounded, .round])
+        _ = Color.clear.controlShape(.rounded)
+    }
+
     @Test func toggleStylesAreReachable() {
         _ = Toggle("On", isOn: .constant(true)).toggleStyle(.flatSwitch)
         _ = Toggle("On", isOn: .constant(true)).toggleStyle(.flatSwitch(showsLabel: true))
@@ -56,6 +61,9 @@ import BlissUI
             .bottomBorder(color: .gray, height: 2)
             .inputBox(isFocused: false)
             .inputBox(isFocused: true, cornerRadius: Sizing.radiusLarge)
+            .inputBox(isFocused: true, isMultiline: true, fill: .none)
+            .controlShape(.square)
+            .controlShape(.round)
             .emptyState(isEmpty: true, icon: "tray", title: "Nothing here", description: "Add an item to get started")
             .clearFocusOnBackgroundTap()
 

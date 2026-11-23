@@ -33,7 +33,7 @@ extension Gallery {
             }
         },
         GalleryEntry("avatar-stack", width: 420, height: 150) {
-            VStack(alignment: .leading, spacing: Spacing.md) {
+            VStack(spacing: Spacing.md) {
                 AvatarStack(names: GallerySamples.people, size: .small)
                 AvatarStack(names: GallerySamples.people)
                 AvatarStack(names: ["Design", "Platform", "Growth"], size: .large, shape: .rounded)

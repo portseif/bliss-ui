@@ -105,6 +105,10 @@ public struct SegmentedPills<Option: Hashable>: View {
 
     private var stretches: Bool { fillsWidth ?? (style == .regular) }
 
+    @Environment(\.controlShape) private var controlShape
+
+    private var trackRadius: CGFloat { controlShape.radius(rounded: SegmentedPillsMetrics.trackRadius(style)) }
+
     public var body: some View {
         HStack(spacing: SegmentedPillsMetrics.segmentSpacing) {
             ForEach(options, id: \.self) { option in
@@ -127,18 +131,18 @@ public struct SegmentedPills<Option: Hashable>: View {
         .background {
             switch style {
             case .regular:
-                RoundedRectangle(cornerRadius: SegmentedPillsMetrics.trackRadius(style), style: .continuous)
+                RoundedRectangle(cornerRadius: trackRadius, style: .matching(trackRadius))
                     .fill(Color.restingFill)
             case .compact:
-                RoundedRectangle(cornerRadius: SegmentedPillsMetrics.trackRadius(style), style: .continuous)
+                RoundedRectangle(cornerRadius: trackRadius, style: .matching(trackRadius))
                     .fill(Color.restingFill)
                     .overlay {
-                        RoundedRectangle(cornerRadius: SegmentedPillsMetrics.trackRadius(style), style: .continuous)
+                        RoundedRectangle(cornerRadius: trackRadius, style: .matching(trackRadius))
                             .strokeBorder(Color.menuBorder, lineWidth: 1)
                     }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: SegmentedPillsMetrics.trackRadius(style), style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: trackRadius, style: .matching(trackRadius)))
         .opacity(isEnabled ? 1 : Animations.disabledOpacity)
         .disabled(!isEnabled)
     }
@@ -157,10 +161,11 @@ private struct SegmentedPillsSegment: View {
 
     @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.controlShape) private var controlShape
 
     private var isRegular: Bool { style == .regular }
 
-    private var cornerRadius: CGFloat { SegmentedPillsMetrics.segmentRadius(style) }
+    private var cornerRadius: CGFloat { controlShape.radius(rounded: SegmentedPillsMetrics.segmentRadius(style)) }
 
     /// The label at the control's size: the button label for the regular
     /// control, a step down for the compact one.
@@ -191,7 +196,7 @@ private struct SegmentedPillsSegment: View {
             .padding(.horizontal, isRegular ? Spacing.md : Spacing.sm)
             .frame(maxWidth: stretches ? .infinity : nil, maxHeight: .infinity)
             .background { background }
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius)))
         }
         .buttonStyle(FocusablePlainButtonStyle(cornerRadius: cornerRadius))
         .disabled(!isEnabled)
@@ -208,7 +213,7 @@ private struct SegmentedPillsSegment: View {
             // draws it): a raised wash of the text color on the regular track,
             // the selection fill inside the compact hairline.
             if isRegular {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(Color.primary.opacity(SegmentedPillsMetrics.regularSelectedOpacity))
                     .shadow(
                         color: .black.opacity(SegmentedPillsMetrics.regularSelectedShadowOpacity),
@@ -217,12 +222,12 @@ private struct SegmentedPillsSegment: View {
                     )
                     .matchedGeometryEffect(id: "selectedSegment", in: namespace)
             } else {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(RowTint.selected(colorScheme))
                     .matchedGeometryEffect(id: "selectedSegment", in: namespace)
             }
         } else if isHovering && isEnabled {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                 .fill(RowTint.hover(colorScheme))
         }
     }

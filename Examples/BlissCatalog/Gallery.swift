@@ -57,6 +57,9 @@ enum Gallery {
                 Button("Delete") {}.buttonStyle(DestructiveButtonStyle())
             }
         },
+        GalleryEntry("control-shapes", width: 620, height: 168) {
+            ControlShapesDemo()
+        },
         GalleryEntry("compact-buttons", height: 68) {
             HStack(spacing: Spacing.sm) {
                 Button("Cancel") {}.buttonStyle(SecondaryButtonStyle(compact: true))

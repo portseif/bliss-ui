@@ -134,7 +134,7 @@ public struct MessageComposer<Toolbar: View>: View {
         .padding(.horizontal, Spacing.xxs)
         .padding(.top, Spacing.xxs)
         .padding(.bottom, Spacing.xs)
-        .inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius)
+        .inputBox(isFocused: isFocused, isMultiline: true)
         .accessibilityElement(children: .contain)
     }
 

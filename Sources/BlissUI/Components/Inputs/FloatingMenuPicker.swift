@@ -299,10 +299,13 @@ private struct FloatingMenuPickerButton: View {
     let colorScheme: ColorScheme
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlShape) private var controlShape
     @FocusState private var isFocused: Bool
     @State private var isHovering = false
 
     private var isHighlighted: Bool { configuration.isPressed || isActive }
+
+    private var cornerRadius: CGFloat { controlShape.radius(rounded: Sizing.radiusMedium) }
 
     /// The one neutral hairline, when the trigger shows one.
     private var borderColor: Color {
@@ -330,16 +333,16 @@ private struct FloatingMenuPickerButton: View {
             .padding(.vertical, compact ? Spacing.xxs : Spacing.buttonPaddingV)
             .frame(minHeight: compact ? Sizing.controlSmall : Sizing.controlDefault)
             .background(
-                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(backgroundColor)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .strokeBorder(borderColor, lineWidth: 1)
             )
-            .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusMedium)
+            .focusRing(isFocused: isFocused, cornerRadius: cornerRadius)
             .scaleEffect(configuration.isPressed ? Animations.pressScale : 1)
-            .contentShape(RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius)))
             .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .focusable()
             .focused($isFocused)
@@ -494,7 +497,7 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                     .padding(.horizontal, Spacing.menuRowPaddingH)
                     .padding(.vertical, Spacing.menuRowPaddingV)
                     .background(
-                        RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .continuous)
+                        RoundedRectangle(cornerRadius: Sizing.radiusDefault, style: .matching(Sizing.radiusDefault))
                             .fill(isFocused ? RowTint.hover(colorScheme) : Color.clear)
                     )
                     .focusRing(isFocused: isFocused, cornerRadius: Sizing.radiusDefault)

@@ -116,7 +116,7 @@ public struct OneTimeCodeField: View {
             }
         }
         .frame(width: metrics.boxWidth, height: metrics.boxHeight)
-        .inputBox(isFocused: isActive, cornerRadius: Sizing.textBoxCornerRadius)
+        .inputBox(isFocused: isActive, isMultiline: true)
     }
 
     /// Keeps only the characters the code takes, at most `length` of them, and

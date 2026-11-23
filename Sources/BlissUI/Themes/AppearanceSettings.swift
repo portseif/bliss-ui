@@ -747,6 +747,7 @@ public struct ThemeCard: View {
 
     @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.controlShape) private var controlShape
 
     /// - Parameter showsName: The theme's name under the swatch; off for a
     ///   compact grid of swatches with tooltips of their own.
@@ -757,9 +758,12 @@ public struct ThemeCard: View {
         self.onSelect = onSelect
     }
 
-    private var cornerRadius: CGFloat { Sizing.radiusMedium }
-    /// The ring sits a gap outside the tile, like the mode previews'.
-    private var ringRadius: CGFloat { cornerRadius + Spacing.insetSpacing }
+    /// The tile holds a swatch and a name, so a round control shape gives it
+    /// a box's corners rather than a capsule.
+    private var cornerRadius: CGFloat { controlShape.boxRadius(rounded: Sizing.radiusMedium) }
+    /// The ring sits a gap outside the tile, like the mode previews'; square
+    /// tiles get a square ring.
+    private var ringRadius: CGFloat { cornerRadius == 0 ? 0 : cornerRadius + Spacing.insetSpacing }
 
     public var body: some View {
         VStack(spacing: Spacing.xs) {
@@ -802,9 +806,9 @@ public struct ThemeCard: View {
             }
         }
         .frame(height: Sizing.controlLarge)
-        .clipShape(RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: controlShape.swatchRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+            RoundedRectangle(cornerRadius: controlShape.swatchRadius, style: .continuous)
                 .strokeBorder(Color.menuBorder, lineWidth: 1)
         }
     }

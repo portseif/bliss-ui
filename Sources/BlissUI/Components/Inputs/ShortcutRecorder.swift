@@ -460,9 +460,10 @@ private struct ShortcutRecorderChrome: View {
     @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlShape) private var controlShape
 
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: Sizing.fieldCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: controlShape.radius(rounded: Sizing.fieldCornerRadius), style: .matching(controlShape.radius(rounded: Sizing.fieldCornerRadius)))
     }
 
     /// Hover and press over the box's own fill; nothing while recording.

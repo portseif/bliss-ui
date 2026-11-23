@@ -228,7 +228,7 @@ private struct TextAreaBox: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if isOn {
-            content.inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius, fill: isBordered ? .resting : .none)
+            content.inputBox(isFocused: isFocused, isMultiline: true, fill: isBordered ? .resting : .none)
         } else {
             content
         }

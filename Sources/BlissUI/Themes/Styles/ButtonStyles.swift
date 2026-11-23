@@ -233,16 +233,16 @@ private struct TextButtonBody: View {
             .frame(width: iconOnly ? side : nil, height: iconOnly ? side : nil)
             .frame(minHeight: iconOnly ? nil : side)
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(kind.fill(state))
             }
             .overlay {
                 if let hairline = kind.hairline(state) {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                         .strokeBorder(hairline, lineWidth: ButtonMetrics.hairlineWidth)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius)))
             .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, padding: 0)
             .scaleEffect(state.isPressed && isEnabled ? Animations.pressScale : 1)
@@ -268,12 +268,13 @@ public struct PrimaryButtonStyle: ButtonStyle {
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.buttonIsLoading) private var isLoading
+    @Environment(\.controlShape) private var controlShape
 
     /// - Parameters:
     ///   - compact: The dense size, for toolbars and tight rows.
     ///   - iconOnly: A square button sized for a lone glyph.
     ///   - fullWidth: Spans its container — a sheet's or an onboarding card's call to action.
-    ///   - cornerRadiusOverride: Replaces the default `Sizing.radiusMedium` corners.
+    ///   - cornerRadiusOverride: Replaces the corners `controlShape` gives.
     public init(compact: Bool = false, iconOnly: Bool = false, fullWidth: Bool = false, cornerRadiusOverride: CGFloat? = nil) {
         self.compact = compact
         self.iconOnly = iconOnly
@@ -292,7 +293,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
                 compact: compact,
                 iconOnly: iconOnly,
                 fullWidth: fullWidth,
-                cornerRadius: cornerRadiusOverride ?? ButtonMetrics.cornerRadius
+                cornerRadius: cornerRadiusOverride ?? controlShape.radius(rounded: ButtonMetrics.cornerRadius)
             )
         }
         .interactiveCursor()
@@ -313,12 +314,13 @@ public struct OutlineButtonStyle: ButtonStyle {
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.buttonIsLoading) private var isLoading
+    @Environment(\.controlShape) private var controlShape
 
     /// - Parameters:
     ///   - compact: The dense size, for toolbars and tight rows.
     ///   - iconOnly: A square button sized for a lone glyph.
     ///   - fullWidth: Spans its container.
-    ///   - cornerRadiusOverride: Replaces the default `Sizing.radiusMedium` corners.
+    ///   - cornerRadiusOverride: Replaces the corners `controlShape` gives.
     public init(compact: Bool = false, iconOnly: Bool = false, fullWidth: Bool = false, cornerRadiusOverride: CGFloat? = nil) {
         self.compact = compact
         self.iconOnly = iconOnly
@@ -336,7 +338,7 @@ public struct OutlineButtonStyle: ButtonStyle {
                 compact: compact,
                 iconOnly: iconOnly,
                 fullWidth: fullWidth,
-                cornerRadius: cornerRadiusOverride ?? ButtonMetrics.cornerRadius
+                cornerRadius: cornerRadiusOverride ?? controlShape.radius(rounded: ButtonMetrics.cornerRadius)
             )
         }
         .interactiveCursor()
@@ -351,6 +353,7 @@ public struct OutlineButtonStyle: ButtonStyle {
 public struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.buttonIsLoading) private var isLoading
+    @Environment(\.controlShape) private var controlShape
 
     var compact: Bool = false
     var iconOnly: Bool = false
@@ -367,7 +370,7 @@ public struct SecondaryButtonStyle: ButtonStyle {
     ///   - accent: The filled variant for affirmative secondary actions (Check
     ///     Now, Connect…); plain secondary buttons (Cancel, Back) leave it off.
     ///   - fullWidth: Spans its container.
-    ///   - cornerRadiusOverride: Replaces the default `Sizing.radiusMedium` corners.
+    ///   - cornerRadiusOverride: Replaces the corners `controlShape` gives.
     public init(
         compact: Bool = false,
         iconOnly: Bool = false,
@@ -392,7 +395,7 @@ public struct SecondaryButtonStyle: ButtonStyle {
                 compact: compact,
                 iconOnly: iconOnly,
                 fullWidth: fullWidth,
-                cornerRadius: cornerRadiusOverride ?? ButtonMetrics.cornerRadius
+                cornerRadius: cornerRadiusOverride ?? controlShape.radius(rounded: ButtonMetrics.cornerRadius)
             )
         }
         .interactiveCursor()
@@ -415,6 +418,7 @@ public struct GhostButtonStyle: ButtonStyle {
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.buttonIsLoading) private var isLoading
+    @Environment(\.controlShape) private var controlShape
 
     /// - Parameters:
     ///   - compact: The dense size, for toolbars and tight rows.
@@ -422,7 +426,7 @@ public struct GhostButtonStyle: ButtonStyle {
     ///     that shouldn't carry a hairline.
     ///   - hugsLabel: Keep the label where plain text would sit and let the
     ///     hover fill bleed past it — for a heading that's also a link.
-    ///   - cornerRadiusOverride: Replaces the default `Sizing.radiusMedium` corners.
+    ///   - cornerRadiusOverride: Replaces the corners `controlShape` gives.
     public init(compact: Bool = false, iconOnly: Bool = false, hugsLabel: Bool = false, cornerRadiusOverride: CGFloat? = nil) {
         self.compact = compact
         self.iconOnly = iconOnly
@@ -436,7 +440,7 @@ public struct GhostButtonStyle: ButtonStyle {
                 GhostHuggingLabel(
                     configuration: configuration,
                     isEnabled: isEnabled,
-                    cornerRadius: cornerRadiusOverride ?? ButtonMetrics.cornerRadius
+                    cornerRadius: cornerRadiusOverride ?? controlShape.radius(rounded: ButtonMetrics.cornerRadius)
                 )
             } else {
                 TextButtonBody(
@@ -447,7 +451,7 @@ public struct GhostButtonStyle: ButtonStyle {
                     compact: compact,
                     iconOnly: iconOnly,
                     fullWidth: false,
-                    cornerRadius: cornerRadiusOverride ?? ButtonMetrics.cornerRadius
+                    cornerRadius: cornerRadiusOverride ?? controlShape.radius(rounded: ButtonMetrics.cornerRadius)
                 )
             }
         }
@@ -491,12 +495,12 @@ private struct GhostHuggingLabel: View {
             .foregroundStyle(TextButtonKind.ghost.text(state))
             .padding(Self.labelBleed)
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(TextButtonKind.ghost.fill(state))
             }
             .opacity(isEnabled ? 1 : Animations.disabledOpacity)
             .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, padding: 0)
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius)))
             .scaleEffect(state.isPressed && isEnabled ? Animations.pressScale : 1)
             .focusable()
             .focused($isFocused)
@@ -520,6 +524,7 @@ private struct GhostHuggingLabel: View {
 public struct DestructiveButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.buttonIsLoading) private var isLoading
+    @Environment(\.controlShape) private var controlShape
 
     var compact: Bool = false
     var iconOnly: Bool = false
@@ -531,7 +536,7 @@ public struct DestructiveButtonStyle: ButtonStyle {
     ///   - compact: The dense size, for toolbars and tight rows.
     ///   - iconOnly: A square button sized for a lone glyph (a trash can).
     ///   - prominent: The bold red fill, for confirmation dialogs.
-    ///   - cornerRadiusOverride: Replaces the default `Sizing.radiusMedium` corners.
+    ///   - cornerRadiusOverride: Replaces the corners `controlShape` gives.
     public init(compact: Bool = false, iconOnly: Bool = false, prominent: Bool = false, cornerRadiusOverride: CGFloat? = nil) {
         self.compact = compact
         self.iconOnly = iconOnly
@@ -549,7 +554,7 @@ public struct DestructiveButtonStyle: ButtonStyle {
                 compact: compact,
                 iconOnly: iconOnly,
                 fullWidth: false,
-                cornerRadius: cornerRadiusOverride ?? ButtonMetrics.cornerRadius
+                cornerRadius: cornerRadiusOverride ?? controlShape.radius(rounded: ButtonMetrics.cornerRadius)
             )
         }
         .interactiveCursor()
@@ -709,7 +714,9 @@ private struct ToolbarIconButton: View {
     @FocusState private var isFocused: Bool
     @State private var isHovering = false
 
-    private var cornerRadius: CGFloat { ButtonMetrics.cornerRadius }
+    @Environment(\.controlShape) private var controlShape
+
+    private var cornerRadius: CGFloat { controlShape.radius(rounded: ButtonMetrics.cornerRadius) }
 
     private var isHighlighted: Bool {
         isEnabled && (isHovering || isActive || configuration.isPressed)
@@ -756,10 +763,10 @@ private struct ToolbarIconButton: View {
             .foregroundStyle(iconColor)
             .frame(width: side, height: side)
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(backgroundColor)
             )
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius)))
             .focusRing(isFocused: isFocused, cornerRadius: cornerRadius, padding: 0)
             .scaleEffect(configuration.isPressed && isEnabled ? Animations.iconPressScale : 1)
             .focusable()
@@ -877,13 +884,13 @@ private struct SelectableCard: View {
     var body: some View {
         configuration.label
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(wash)
                     .allowsHitTesting(false)
             }
             .overlay {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                         .strokeBorder(Color.accent, lineWidth: ButtonMetrics.hairlineWidth)
                         .allowsHitTesting(false)
                 }
@@ -946,7 +953,7 @@ private struct InlineIconButton: View {
     var body: some View {
         configuration.label
             .background {
-                RoundedRectangle(cornerRadius: chipRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: chipRadius, style: .matching(chipRadius))
                     .fill(hoverBackground)
             }
             .focusRing(isFocused: isFocused, cornerRadius: chipRadius, padding: 0)
@@ -1066,7 +1073,9 @@ private struct AnimatedGradientBorderButton: View {
         }
     }
 
-    private var cornerRadius: CGFloat { ButtonMetrics.cornerRadius }
+    @Environment(\.controlShape) private var controlShape
+
+    private var cornerRadius: CGFloat { controlShape.radius(rounded: ButtonMetrics.cornerRadius) }
 
     /// Whether button should show active/hover state (hovering OR menu is open OR focused)
     private var isActive: Bool {
@@ -1102,11 +1111,11 @@ private struct AnimatedGradientBorderButton: View {
             .frame(width: iconOnly ? minHeight : nil, height: iconOnly ? minHeight : nil)
             .frame(minHeight: iconOnly ? nil : minHeight)
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .fill(backgroundColor)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .matching(cornerRadius))
                     .strokeBorder(
                         AngularGradient(
                             colors: gradientColors,

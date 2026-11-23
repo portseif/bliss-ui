@@ -145,7 +145,7 @@ public struct RichTextEditor: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .inputBox(isFocused: isFocused, cornerRadius: Sizing.textBoxCornerRadius)
+        .inputBox(isFocused: isFocused, isMultiline: true)
         .onHover { isHovering = $0 }
         .onDisappear { scrollEndTask?.cancel() }
         .onAppear { controller.onLinkShortcut = presentLinkPopover }

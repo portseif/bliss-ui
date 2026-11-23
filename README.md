@@ -160,6 +160,10 @@ Not pictured, because they're separate panels rather than part of the window: `.
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/text-link-dark.webp"><img src="docs/images/components/text-link-light.webp" alt="Text link" width="420"></picture><br><b>Text link</b><br><code>TextLink</code><br><sub>A URL over a faint underline that turns solid on hover.</sub></td>
     <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/loading-buttons-dark.webp"><img src="docs/images/components/loading-buttons-light.webp" alt="Loading buttons" width="420"></picture><br><b>Loading buttons</b><br><code>.buttonLoading(_:)</code> on any text button style<br><sub>A spinner takes the label's place at the same size; the button can't be pressed but keeps its enabled look.</sub></td>
   </tr>
+  <tr>
+    <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/components/control-shapes-dark.webp"><img src="docs/images/components/control-shapes-light.webp" alt="Control shapes" width="420"></picture><br><b>Control shapes</b><br><code>.controlShape(.square)</code> · <code>.rounded</code> · <code>.round</code><br><sub>One corner style for every button, field, picker and color control below.</sub></td>
+    <td width="50%" valign="top"></td>
+  </tr>
 </table>
 
 </details>

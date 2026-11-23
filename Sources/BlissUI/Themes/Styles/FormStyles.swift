@@ -69,10 +69,10 @@ struct FocusRingModifier: ViewModifier {
                         // `padding`) and the band hugs it from outside, each with
                         // a concentric radius so both curves track the corners.
                         let ringRadius = max(1, (cornerRadius ?? Sizing.radiusDefault) - padding)
-                        RoundedRectangle(cornerRadius: ringRadius, style: .continuous)
+                        RoundedRectangle(cornerRadius: ringRadius, style: .matching(ringRadius))
                             .strokeBorder(ringColor, lineWidth: lineWidth)
                             .padding(padding)
-                        RoundedRectangle(cornerRadius: ringRadius + bandWidth, style: .continuous)
+                        RoundedRectangle(cornerRadius: ringRadius + bandWidth, style: .matching(ringRadius + bandWidth))
                             .strokeBorder(ringColor.opacity(bandOpacity), lineWidth: bandWidth)
                             .padding(padding - bandWidth)
                     }
@@ -289,7 +289,7 @@ private struct FlatSwitchToggle: View {
 
     private var track: some View {
         let metrics = FlatSwitchMetrics.track(for: controlSize)
-        return RoundedRectangle(cornerRadius: metrics.height / 2, style: .continuous)
+        return RoundedRectangle(cornerRadius: metrics.height / 2, style: .matching(metrics.height / 2))
             .fill(trackColor)
             .frame(width: metrics.width, height: metrics.height)
             .overlay(alignment: configuration.isOn ? .trailing : .leading) {
@@ -482,19 +482,19 @@ public struct SettingsForm<Content: View>: View {
         // Sample boxes at the control tiers.
         HStack(spacing: Spacing.lg) {
             // Small radius
-            RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .continuous)
+            RoundedRectangle(cornerRadius: Sizing.radiusSmall, style: .matching(Sizing.radiusSmall))
                 .fill(StatusWash.fill(Color.accent, .light))
                 .frame(width: Spacing.xxxxl, height: Sizing.controlMedium)
                 .focusRing(isFocused: true, cornerRadius: Sizing.radiusSmall, showsOnPointerFocus: true)
 
             // Medium radius (default)
-            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .matching(Sizing.radiusMedium))
                 .fill(StatusWash.fill(Color.accent, .light))
                 .frame(width: Spacing.xxxxl + Spacing.lg, height: Sizing.controlLarge)
                 .focusRing(isFocused: true, cornerRadius: Sizing.radiusMedium, showsOnPointerFocus: true)
 
             // Large radius
-            RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .continuous)
+            RoundedRectangle(cornerRadius: Sizing.radiusLarge, style: .matching(Sizing.radiusLarge))
                 .fill(StatusWash.fill(Color.accent, .light))
                 .frame(width: Spacing.xxxxxl, height: Sizing.titleBarHeight)
                 .focusRing(isFocused: true, cornerRadius: Sizing.radiusLarge, showsOnPointerFocus: true)
@@ -508,7 +508,7 @@ public struct SettingsForm<Content: View>: View {
                 .focusRingCapsule(isFocused: true, showsOnPointerFocus: true)
 
             // Custom color (destructive)
-            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .continuous)
+            RoundedRectangle(cornerRadius: Sizing.radiusMedium, style: .matching(Sizing.radiusMedium))
                 .fill(StatusWash.fill(Danger.danger500, .light))
                 .frame(width: Spacing.xxxxl + Spacing.lg, height: Sizing.controlLarge)
                 .focusRing(isFocused: true, cornerRadius: Sizing.radiusMedium, color: Danger.danger500, showsOnPointerFocus: true)
