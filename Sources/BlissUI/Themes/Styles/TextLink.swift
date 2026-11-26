@@ -96,7 +96,7 @@ public struct TextLink: View {
                             .offset(y: TextLinkMetrics.ruleOffset)
                     }
                 if let hoverSymbol {
-                    Image(systemName: hoverSymbol)
+                    BlissSymbol(hoverSymbol)
                         .font(Typography.captionTiny)
                         .opacity(hovering ? 1 : 0)
                         .accessibilityHidden(true)

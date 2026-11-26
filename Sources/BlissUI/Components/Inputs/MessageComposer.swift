@@ -35,7 +35,7 @@ public struct ComposerAttachment: Identifiable, Hashable, Sendable {
 ///
 /// ```swift
 /// MessageComposer("Message", text: $draft, prompt: Text("Message the team…"), attachments: $attachments, onSend: send, onAttach: pickFile) {
-///     Button {} label: { Image(systemName: "face.smiling") }
+///     Button {} label: { BlissSymbol("face.smiling") }
 ///         .buttonStyle(ToolbarIconButtonStyle())
 ///         .accessibilityLabel(Text("Emoji"))
 /// }
@@ -159,7 +159,7 @@ public struct MessageComposer<Toolbar: View>: View {
 
     private var attachButton: some View {
         Button { onAttach?() } label: {
-            Image(systemName: "paperclip")
+            BlissSymbol("paperclip")
                 .font(Typography.labelMedium)
         }
         .buttonStyle(ToolbarIconButtonStyle())
@@ -170,7 +170,7 @@ public struct MessageComposer<Toolbar: View>: View {
 
     private var sendButton: some View {
         Button(action: send) {
-            Image(systemName: "arrow.up")
+            BlissSymbol("arrow.up")
                 .font(Typography.labelMedium)
         }
         .buttonStyle(SecondaryButtonStyle(compact: true, iconOnly: true, accent: true))
@@ -239,7 +239,7 @@ extension MessageComposer where Toolbar == EmptyView {
     @Previewable @State var reply = ""
     VStack(spacing: Spacing.lg) {
         MessageComposer("Message", text: $draft, prompt: Text("Message the team…"), attachments: $attachments, onSend: {}, onAttach: {}) {
-            Button {} label: { Image(systemName: "face.smiling") }
+            Button {} label: { BlissSymbol("face.smiling") }
                 .buttonStyle(ToolbarIconButtonStyle())
                 .accessibilityLabel(Text("Emoji"))
         }

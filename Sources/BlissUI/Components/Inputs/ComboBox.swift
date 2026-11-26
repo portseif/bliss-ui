@@ -143,7 +143,7 @@ public struct ComboBox<Option: Hashable>: View {
     public var body: some View {
         HStack(spacing: Spacing.sm) {
             if let systemImage {
-                Image(systemName: systemImage)
+                BlissSymbol(systemImage)
                     .font(Typography.labelMedium)
                     .foregroundStyle(isFieldFocused ? Color.accent : Color.textTertiary)
                     .accessibilityHidden(true)
@@ -162,7 +162,7 @@ public struct ComboBox<Option: Hashable>: View {
                 // Mounted even while hidden, so the layout never jumps; disabled
                 // while hidden, or Tab would land on it unseen.
                 Button(action: clear) {
-                    Image(systemName: "xmark.circle.fill")
+                    BlissSymbol("xmark.circle.fill")
                         .font(Typography.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)
@@ -213,7 +213,7 @@ public struct ComboBox<Option: Hashable>: View {
             isFieldFocused = true
             openList()
         } label: {
-            Image(systemName: "chevron.up.chevron.down")
+            BlissSymbol("chevron.up.chevron.down")
                 .font(Typography.labelXSmall)
                 .foregroundStyle(.tertiary)
                 .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)

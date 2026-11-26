@@ -102,7 +102,7 @@ public struct BrowseInput: View {
 
     public var body: some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: icon)
+            BlissSymbol(icon)
                 .font(Typography.labelMedium)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
@@ -118,7 +118,7 @@ public struct BrowseInput: View {
                 // Mounted even while hidden, so the layout never jumps; disabled
                 // while hidden, or Tab would land on it unseen.
                 Button(action: onClear) {
-                    Image(systemName: "xmark.circle.fill")
+                    BlissSymbol("xmark.circle.fill")
                         .font(Typography.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)

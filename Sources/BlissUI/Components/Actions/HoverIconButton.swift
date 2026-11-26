@@ -90,7 +90,7 @@ public struct HoverIconButton: View {
 
     public var body: some View {
         let button = Button(action: action) {
-            Image(systemName: systemImage)
+            BlissSymbol(systemImage)
                 // A glyph swap animates when its state change does (a
                 // show / hide toggle draws its slash this way).
                 .contentTransition(.symbolEffect(.replace))

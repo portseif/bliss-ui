@@ -198,7 +198,7 @@ public struct SidebarToggleButton: View {
         Button {
             withAnimation(Animations.pane) { isCollapsed.toggle() }
         } label: {
-            Image(systemName: "sidebar.left")
+            BlissSymbol("sidebar.left")
         }
         .buttonStyle(ToolbarIconButtonStyle())
         // macOS's standard Toggle Sidebar shortcut.
@@ -305,7 +305,7 @@ private struct SidebarSectionChevron: View {
         Button {
             withAnimation(Animations.disclosure) { isExpanded.toggle() }
         } label: {
-            Image(systemName: "chevron.right")
+            BlissSymbol("chevron.right")
                 .font(Typography.labelTinySemibold)
                 .foregroundStyle(.secondary)
                 .rotationEffect(.degrees(isExpanded ? 90 : 0))
@@ -701,7 +701,7 @@ private struct SidebarRowIcon: View {
                 .resizable()
                 .scaledToFit()
         case .named(let name):
-            Image(systemName: name)
+            BlissSymbol(name)
         case .image(let image):
             image
                 .renderingMode(.template)

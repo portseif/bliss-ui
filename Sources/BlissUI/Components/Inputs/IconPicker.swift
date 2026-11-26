@@ -150,7 +150,7 @@ public struct IconGlyph: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(color)
         } else {
-            Image(systemName: name)
+            BlissSymbol(name)
                 .font(FontResolver.font(.ui, size: size, weight: .regular))
                 .foregroundStyle(color)
         }
@@ -445,7 +445,7 @@ private struct IconPickerCell: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
                 } else {
-                    Image(systemName: iconItem.name)
+                    BlissSymbol(iconItem.name)
                         .font(Typography.bodyMedium)
                 }
             }

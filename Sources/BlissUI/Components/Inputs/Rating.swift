@@ -149,7 +149,7 @@ public struct Rating: View {
 
     private func symbol(at index: Int) -> some View {
         let isFilled = index <= shownValue
-        return Image(systemName: isFilled ? "\(systemImage).fill" : systemImage)
+        return BlissSymbol(isFilled ? "\(systemImage).fill" : systemImage)
             .font(size.font)
             .foregroundStyle(isFilled ? fillColor : Color.primary.opacity(RatingMetrics.emptyOpacity))
             .frame(width: size.cellSize, height: size.cellSize)

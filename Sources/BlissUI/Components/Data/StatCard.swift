@@ -137,7 +137,7 @@ public struct StatCard: View {
             VStack(alignment: .leading, spacing: compact ? Spacing.xs : Spacing.sm) {
                 HStack(spacing: Spacing.xs) {
                     if let systemImage {
-                        Image(systemName: systemImage)
+                        BlissSymbol(systemImage)
                             .font(Typography.labelSmall)
                             .foregroundStyle(.secondary)
                             .accessibilityHidden(true)

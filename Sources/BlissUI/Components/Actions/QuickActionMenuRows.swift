@@ -85,7 +85,7 @@ public struct QuickActionFlyoutRow<Items: View>: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: MenuRowMetrics.customIconSize, height: MenuRowMetrics.customIconSize)
                 } else {
-                    Image(systemName: icon)
+                    BlissSymbol(icon)
                         .font(Typography.caption)
                 }
             }
@@ -98,7 +98,7 @@ public struct QuickActionFlyoutRow<Items: View>: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
+            BlissSymbol("chevron.right")
                 .font(Typography.captionSmallSemibold)
                 .foregroundStyle(Color.secondary)
         }
@@ -294,7 +294,7 @@ public struct QuickActionMenuItem: View {
                     .frame(width: MenuRowMetrics.customIconSize, height: MenuRowMetrics.customIconSize)
                     .foregroundStyle(iconColor)
             } else {
-                Image(systemName: iconName)
+                BlissSymbol(iconName)
                     .font(Typography.labelXSmall)
                     .foregroundStyle(iconColor)
             }
@@ -343,7 +343,7 @@ public struct QuickActionMenuItem: View {
                 // A toggle item's check trails the row, with a slot kept
                 // while it's off so the shortcuts above and below line up.
                 if let isChecked {
-                    Image(systemName: "checkmark")
+                    BlissSymbol("checkmark")
                         .font(Typography.labelXSmall)
                         .fontWeight(.semibold)
                         .foregroundStyle(iconColor)

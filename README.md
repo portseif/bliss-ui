@@ -138,6 +138,19 @@ BlissTheme.register(BlissTheme(
 
 Give a palette `status:` colors and BlissUI derives the rest: a mark that clears 4.5:1 (or the theme's `minimumStatusContrast`) on every surface, and a deeper fill that white text reads on.
 
+## Icons
+
+Every glyph BlissUI draws is an SF Symbol unless you say otherwise. To draw them with your own icon set, set `BlissIcons.replacement` once at launch; return nil to keep a symbol:
+
+```swift
+BlissIcons.replacement = { symbolName in
+    guard let iconName = myIconNames[symbolName] else { return nil }
+    return AnyView(MyIcon(iconName))
+}
+```
+
+The replacement fills the frame the symbol would have taken (the symbol is still laid out, hidden, at its font and image scale), takes the surrounding `foregroundStyle`, and VoiceOver still reads the symbol's description. It covers the symbols components draw themselves and the names you pass as `systemImage:`, which can be your own icons' names too: a name that isn't an SF Symbol takes the frame of `square`.
+
 ## Component index
 
 All 106 components, light or dark to match your GitHub theme. Run `swift run BlissCatalog` to try them, and `scripts/screenshots.sh` regenerates these images.

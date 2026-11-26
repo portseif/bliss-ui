@@ -37,7 +37,7 @@ public enum CodeFieldLayout: Hashable, Sendable {
 ///     .onSubmit { run(command) }
 /// CodeField(text: $workflow, highlighter: .yaml, layout: .editor(height: 200), showsLineNumbers: true)
 /// CodeField(text: $command, highlighter: .shell) {
-///     Button { run(command) } label: { Image(systemName: "play.fill") }
+///     Button { run(command) } label: { BlissSymbol("play.fill") }
 ///         .buttonStyle(InlineIconButtonStyle(chipRadius: Sizing.radiusSmall))
 /// }
 /// CodeField(code: snippet, highlighter: .shell)   // read-only, selectable
@@ -453,7 +453,7 @@ private struct CodeFieldPreviewHost: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             CodeField(text: $command, highlighter: .shell, prompt: "composer create-project…") {
-                Button {} label: { Image(systemName: "play.fill") }
+                Button {} label: { BlissSymbol("play.fill") }
                     .buttonStyle(InlineIconButtonStyle(chipRadius: Sizing.radiusSmall))
                     .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)
             }

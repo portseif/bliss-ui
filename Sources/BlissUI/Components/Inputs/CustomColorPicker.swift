@@ -434,7 +434,7 @@ public struct ColorPickerPopover: View {
                             .fill(Color(nsColor: defaultOption.color))
                             .frame(width: ColorPickerMetrics.presetSize, height: ColorPickerMetrics.presetSize)
 
-                        Image(systemName: defaultOption.symbol)
+                        BlissSymbol(defaultOption.symbol)
                             .font(Typography.labelXTinyBold)
                             .foregroundStyle(defaultOption.glyphColor)
                     }

@@ -196,7 +196,7 @@ public struct AppearanceSettings: View {
                 } label: {
                     HStack(spacing: Spacing.xs) {
                         Text("Advanced", bundle: .module)
-                        Image(systemName: "chevron.right")
+                        BlissSymbol("chevron.right")
                             .font(Typography.labelTinySemibold)
                             .rotationEffect(.degrees(showsAdvanced ? 90 : 0))
                     }
@@ -386,7 +386,7 @@ public struct AppearanceSettings: View {
 
     private func themeFileButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemImage)
+            BlissSymbol(systemImage)
         }
         .buttonStyle(ToolbarIconButtonStyle())
         .tooltip(.verbatim(title), position: .below)

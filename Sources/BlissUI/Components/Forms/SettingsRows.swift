@@ -228,7 +228,7 @@ public struct SettingsActionRow: View {
                     if isLoading {
                         ThinkingSpinner(size: Sizing.iconTiny, lineWidth: SettingsRowMetrics.spinnerLineWidth)
                     } else {
-                        Image(systemName: systemImage)
+                        BlissSymbol(systemImage)
                             .font(Typography.captionSmallSemibold)
                             .foregroundStyle(isHovering ? .secondary : .tertiary)
                     }
@@ -282,7 +282,7 @@ struct SettingsRowText: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: SettingsRowMetrics.spacing) {
             if let systemImage {
-                Image(systemName: systemImage)
+                BlissSymbol(systemImage)
                     .font(Typography.labelMedium)
                     .foregroundStyle(.secondary)
                     .frame(width: SettingsRowMetrics.iconSlot)

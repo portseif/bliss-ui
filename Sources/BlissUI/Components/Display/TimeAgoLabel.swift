@@ -67,7 +67,7 @@ public struct TimeAgoLabel: View {
     public var body: some View {
         HStack(spacing: Spacing.insetSpacing) {
             if showsIcon {
-                Image(systemName: "clock")
+                BlissSymbol("clock")
             }
             Text(text)
         }

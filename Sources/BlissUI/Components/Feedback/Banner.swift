@@ -105,7 +105,7 @@ public struct Banner<Actions: View>: View {
             // when the message wraps below it.
             HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                 if showsIcon {
-                    Image(systemName: icon ?? style.defaultIcon)
+                    BlissSymbol(icon ?? style.defaultIcon)
                         .font(compact ? Typography.captionSmall : Typography.bodySmall)
                         .foregroundStyle(style.mark)
                         // One width for every symbol, so titles line up down a

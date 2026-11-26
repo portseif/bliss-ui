@@ -138,7 +138,7 @@ public struct CopyButton: View {
 
     public var body: some View {
         Button(action: copy) {
-            Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+            BlissSymbol(showCopied ? "checkmark" : "doc.on.doc")
                 .font(Typography.labelXSmall)
                 .foregroundStyle(glyphColor)
                 .frame(width: Sizing.inlineIconButton, height: Sizing.inlineIconButton)

@@ -120,7 +120,7 @@ private struct SearchFieldChrome<Content: View>: View {
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "magnifyingglass")
+            BlissSymbol("magnifyingglass")
                 .font(Typography.labelSmall)
                 .foregroundStyle(Color.textTertiary)
                 .accessibilityHidden(true)

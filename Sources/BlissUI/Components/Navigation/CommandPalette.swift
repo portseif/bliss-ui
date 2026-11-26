@@ -184,7 +184,7 @@ public struct CommandPalette: View {
 
     private var field: some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "magnifyingglass")
+            BlissSymbol("magnifyingglass")
                 .font(fieldFont)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)

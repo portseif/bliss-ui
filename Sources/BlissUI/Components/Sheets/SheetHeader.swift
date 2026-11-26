@@ -157,7 +157,7 @@ public struct SheetHeader: View {
     /// The icon in its tinted rounded box: the status wash in the icon's color.
     private func iconBox(_ icon: String) -> some View {
         let color = iconColor ?? Color.accent
-        return Image(systemName: icon)
+        return BlissSymbol(icon)
             .font(compact ? Typography.labelMedium : Typography.headingSmall)
             .foregroundStyle(color)
             .frame(width: compact ? Sizing.controlDefault : Sizing.controlMedium, height: compact ? Sizing.controlDefault : Sizing.controlMedium)
@@ -202,7 +202,7 @@ public struct SheetCloseButton: View {
 
     public var body: some View {
         Button(action: action) {
-            Image(systemName: "xmark")
+            BlissSymbol("xmark")
                 .font(Typography.captionSemibold)
                 .foregroundStyle(isHovered ? Color.primary : Color.secondary)
                 .frame(width: Sizing.controlMedium, height: Sizing.controlMedium)

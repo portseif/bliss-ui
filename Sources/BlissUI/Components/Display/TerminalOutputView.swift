@@ -148,7 +148,7 @@ public struct TerminalOutputView<HeaderAccessory: View>: View {
     private var headerView: some View {
         HStack(spacing: Spacing.sm) {
             // Terminal icon
-            Image(systemName: "terminal")
+            BlissSymbol("terminal")
                 .font(Typography.labelXSmall)
                 .foregroundStyle(.secondary)
 

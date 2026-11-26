@@ -19,7 +19,7 @@ public struct RevealToggleIcon: View {
     }
 
     public var body: some View {
-        Image(systemName: isRevealed ? "eye.slash" : "eye")
+        BlissSymbol(isRevealed ? "eye.slash" : "eye")
             .contentTransition(.symbolEffect(.replace))
     }
 }

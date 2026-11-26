@@ -97,7 +97,7 @@ public struct WizardRadioRow<Trailing: View>: View {
         Button(action: action) {
             HStack(spacing: Spacing.md) {
                 if let icon {
-                    Image(systemName: icon)
+                    BlissSymbol(icon)
                         .font(Typography.bodyLarge)
                         .foregroundStyle(isSelected ? Color.accent : Color.secondary)
                         .frame(width: WizardRowMetrics.iconSlot, height: WizardRowMetrics.iconSlot)
@@ -299,7 +299,7 @@ public struct WizardStepRow<Trailing: View>: View {
             Circle()
                 .fill(Color.accent)
                 .overlay {
-                    Image(systemName: "checkmark")
+                    BlissSymbol("checkmark")
                         .font(compact ? Typography.labelXTinyBold : Typography.labelXSmallBold)
                         .foregroundStyle(AccentHue.contrastForeground)
                 }
@@ -309,7 +309,7 @@ public struct WizardStepRow<Trailing: View>: View {
             Circle()
                 .fill(Danger.tint)
                 .overlay {
-                    Image(systemName: "xmark")
+                    BlissSymbol("xmark")
                         .font(compact ? Typography.labelXTinyBold : Typography.labelXSmallBold)
                         .foregroundStyle(.white)
                 }

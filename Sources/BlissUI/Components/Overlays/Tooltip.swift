@@ -937,7 +937,7 @@ private struct TooltipActionButton: View {
             }
         } label: {
             HStack(spacing: Spacing.xxs) {
-                Image(systemName: confirmed ? "checkmark" : action.icon)
+                BlissSymbol(confirmed ? "checkmark" : action.icon)
                 Text(confirmed ? (action.confirmation ?? action.label) : action.label)
             }
             .font(Typography.labelSmall)
@@ -1143,7 +1143,7 @@ private struct PinnedTooltipAnchorView<TooltipContent: View>: NSViewRepresentabl
             .buttonStyle(SecondaryButtonStyle(compact: true))
             .tooltip("This is a tooltip")
 
-        Button {} label: { Image(systemName: "gear") }
+        Button {} label: { BlissSymbol("gear") }
             .buttonStyle(ToolbarIconButtonStyle())
             .tooltip("Settings", shortcut: "⌘,")
 

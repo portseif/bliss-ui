@@ -279,7 +279,7 @@ public struct DisplayRadioRow: View {
 /// FilterMenuRow(.verbatim(field.title), isFocused: focusedIndex == index) {
 ///     pick(field)
 /// } leading: {
-///     Image(systemName: field.icon)
+///     BlissSymbol(field.icon)
 /// }
 /// .onHover { if $0 { focusedIndex = index } }
 /// ```
@@ -430,7 +430,7 @@ public struct FilterMenuSearchHeader: View {
         VStack(alignment: .leading, spacing: Spacing.hairline) {
             HStack(spacing: Spacing.xs) {
                 if showsIcon {
-                    Image(systemName: "magnifyingglass")
+                    BlissSymbol("magnifyingglass")
                         .font(Typography.captionSmall)
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
@@ -482,7 +482,7 @@ private struct FilterMenuRowsPreview: View {
         VStack(alignment: .leading, spacing: Spacing.hairline) {
             FilterMenuSearchHeader(query: "", placeholder: "Filter…")
             FilterMenuRow("Status", isFocused: true) {} leading: {
-                Image(systemName: "circle.dashed")
+                BlissSymbol("circle.dashed")
                     .font(Typography.caption)
                     .foregroundStyle(.secondary)
                     .frame(width: Sizing.iconDefault)

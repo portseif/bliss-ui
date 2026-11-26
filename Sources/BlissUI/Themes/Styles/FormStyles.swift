@@ -453,7 +453,7 @@ public struct SettingsForm<Content: View>: View {
         } header: {
             HStack(spacing: Spacing.xs) {
                 Text("File Browser")
-                Image(systemName: "info.circle")
+                BlissSymbol("info.circle")
                     .font(Typography.caption)
                     .foregroundStyle(.secondary)
             }

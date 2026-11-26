@@ -198,7 +198,7 @@ public struct NumberField<Value>: View {
             // Shift-click steps ten, like Shift-↑.
             step(by: SteppedRange.steps(direction: direction, isLarge: NSEvent.modifierFlags.contains(.shift)))
         } label: {
-            Image(systemName: systemImage)
+            BlissSymbol(systemImage)
                 .font(font)
                 .foregroundStyle(canStep && isEnabled ? .secondary : .quaternary)
                 .frame(width: size, height: size)

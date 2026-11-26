@@ -277,7 +277,7 @@ private struct RichTextToolbar<LinkPopover: View>: View {
 
     private func toolButton(_ systemImage: String, label: Text, isActive: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemImage)
+            BlissSymbol(systemImage)
         }
         .buttonStyle(ToolbarIconButtonStyle(isActive: isActive, compact: true))
         .tooltip(position: .above) { label }
@@ -298,7 +298,7 @@ private struct RichTextToolbar<LinkPopover: View>: View {
         Button {
             isHeadingMenuPresented.toggle()
         } label: {
-            Image(systemName: "textformat")
+            BlissSymbol("textformat")
         }
         .buttonStyle(ToolbarIconButtonStyle(isActive: formatting.heading.isHeading || isHeadingMenuPresented, compact: true))
         .tooltip(position: .above) { Text("Text style", bundle: .module) }
@@ -341,7 +341,7 @@ private struct RichTextHeadingMenu: View {
                 FilterMenuRow(.verbatim(Self.title(for: heading)), isFocused: focusedIndex == index, isSelected: isCurrent) {
                     onPick(index)
                 } leading: {
-                    Image(systemName: "checkmark")
+                    BlissSymbol("checkmark")
                         .font(Typography.labelSmall)
                         .foregroundStyle(.secondary)
                         .frame(width: Sizing.iconDefault)

@@ -19,7 +19,7 @@ import SwiftUI
 /// ```swift
 /// VStack(spacing: 0) {
 ///     WindowTitleBar {
-///         Button { isSidebarCollapsed.toggle() } label: { Image(systemName: "sidebar.left") }
+///         Button { isSidebarCollapsed.toggle() } label: { BlissSymbol("sidebar.left") }
 ///             .buttonStyle(ToolbarIconButtonStyle())
 ///     } center: {
 ///         Text("Inbox")
@@ -245,13 +245,13 @@ extension WindowTitleBar where Leading == EmptyView, Center == WindowTitleBarTit
 #Preview("Window title bar", traits: .fixedLayout(width: 640, height: 120)) {
     VStack(spacing: Spacing.lg) {
         WindowTitleBar(showsDivider: true) {
-            Button {} label: { Image(systemName: "sidebar.left") }
+            Button {} label: { BlissSymbol("sidebar.left") }
                 .buttonStyle(ToolbarIconButtonStyle())
                 .accessibilityLabel(Text("Toggle Sidebar"))
         } center: {
             Text("Inbox")
         } trailing: {
-            Button {} label: { Image(systemName: "magnifyingglass") }
+            Button {} label: { BlissSymbol("magnifyingglass") }
                 .buttonStyle(ToolbarIconButtonStyle())
                 .accessibilityLabel(Text("Search"))
             Button("New") {}

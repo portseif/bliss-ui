@@ -147,7 +147,7 @@ public struct FilterBar: View {
             showingFieldMenu.toggle()
         } label: {
             HStack(spacing: Spacing.xxs) {
-                Image(systemName: "line.3.horizontal.decrease")
+                BlissSymbol("line.3.horizontal.decrease")
                     .font(Typography.captionSmall)
                 if conditions.isEmpty || alwaysShowsAddTitle {
                     Text(verbatim: title)
@@ -305,7 +305,7 @@ private struct MatchModeChip: View {
         } label: {
             HStack(spacing: Spacing.xxs) {
                 title
-                Image(systemName: "chevron.up.chevron.down")
+                BlissSymbol("chevron.up.chevron.down")
                     .font(Typography.labelXTiny)
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
@@ -382,7 +382,7 @@ private struct FilterConditionChip: View {
     private var fieldSegment: some View {
         HStack(spacing: Spacing.xxs) {
             if condition.isLocked {
-                Image(systemName: "lock.fill")
+                BlissSymbol("lock.fill")
                     .font(Typography.labelXTiny)
                     .foregroundStyle(.tertiary)
                     .accessibilityLabel(Text("Locked", bundle: .module))
@@ -520,7 +520,7 @@ private struct FilterConditionChip: View {
     private var removeButton: some View {
         let title = String(localized: "Remove filter", bundle: .module)
         return Button(action: onRemove) {
-            Image(systemName: "xmark")
+            BlissSymbol("xmark")
                 .font(Typography.labelXTiny)
                 .foregroundStyle(.secondary)
                 // A square a hairline inside the chip's height.
@@ -691,7 +691,7 @@ private struct FilterValueMenu: View {
             FilterMenuRow(.verbatim(query), isFocused: focusedIndex == 0) {
                 onPickText(query)
             } leading: {
-                Image(systemName: "text.magnifyingglass")
+                BlissSymbol("text.magnifyingglass")
                     .font(Typography.caption)
                     .foregroundStyle(.secondary)
                     .frame(width: Sizing.iconDefault)
@@ -717,7 +717,7 @@ private struct FilterMenuCheckmark: View {
     let isShown: Bool
 
     var body: some View {
-        Image(systemName: "checkmark")
+        BlissSymbol("checkmark")
             .font(Typography.labelSmall)
             .foregroundStyle(.secondary)
             .opacity(isShown ? 1 : 0)

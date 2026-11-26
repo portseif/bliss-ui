@@ -200,7 +200,7 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
                                     .fill(color)
                                     .frame(width: Sizing.iconTiny, height: Sizing.iconTiny)
                             } else {
-                                Image(systemName: iconProvider(option))
+                                BlissSymbol(iconProvider(option))
                                     .font(compact ? Typography.labelSmall : Typography.labelMedium)
                             }
                         }
@@ -213,7 +213,7 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
                             Text(selection)
                         }
                     }
-                    Image(systemName: "chevron.up.chevron.down")
+                    BlissSymbol("chevron.up.chevron.down")
                         .font(Typography.labelXSmall)
                         .foregroundStyle(.tertiary)
                 }
@@ -267,14 +267,23 @@ public struct FloatingMenuPicker<T: Hashable, IconContent: View>: View {
 
 // MARK: - Floating Menu Picker Button Style
 
-struct FloatingMenuPickerButtonStyle: ButtonStyle {
+/// The picker trigger, for a custom picker that opens its own `.floatingMenu` (a list of checkboxes, say) and
+/// should look like the `FloatingMenuPicker`s beside it. `isActive` holds the pressed look while the menu is open.
+public struct FloatingMenuPickerButtonStyle: ButtonStyle {
     let isActive: Bool
     var horizontalPadding: CGFloat = Spacing.buttonPaddingH
     var compact: Bool = false
     var showsBorder: Bool = true
     @Environment(\.colorScheme) private var colorScheme
 
-    func makeBody(configuration: Configuration) -> some View {
+    public init(isActive: Bool, horizontalPadding: CGFloat = Spacing.buttonPaddingH, compact: Bool = false, showsBorder: Bool = true) {
+        self.isActive = isActive
+        self.horizontalPadding = horizontalPadding
+        self.compact = compact
+        self.showsBorder = showsBorder
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
         Group {
             FloatingMenuPickerButton(
                 configuration: configuration,
@@ -406,7 +415,7 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
     private var filterHeader: some View {
         VStack(alignment: .leading, spacing: Spacing.hairline) {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: "magnifyingglass")
+                BlissSymbol("magnifyingglass")
                     .font(Typography.captionSmall)
                     .foregroundStyle(.secondary)
                 Text(filterQuery)
@@ -474,7 +483,7 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                                     .fill(color)
                                     .frame(width: Sizing.controlTiny, height: Sizing.controlTiny)
                             } else {
-                                Image(systemName: iconProvider(option))
+                                BlissSymbol(iconProvider(option))
                                     .font(Typography.caption)
                                     .frame(width: Sizing.iconDefault)
                                     .foregroundStyle(MenuRowTone.icon)
@@ -488,7 +497,7 @@ struct FloatingMenuPickerContent<T, IconContent: View>: View {
                         Spacer()
 
                         if isSelected {
-                            Image(systemName: "checkmark")
+                            BlissSymbol("checkmark")
                                 .font(Typography.labelSmall)
                                 .foregroundStyle(MenuRowTone.checkmark)
                         }

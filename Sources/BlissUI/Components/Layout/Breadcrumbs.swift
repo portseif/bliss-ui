@@ -132,7 +132,7 @@ public struct Breadcrumbs<Item>: View {
     private var chevron: some View {
         switch separator {
         case .chevron:
-            Image(systemName: "chevron.forward")
+            BlissSymbol("chevron.forward")
                 .font(Typography.captionTiny)
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
@@ -148,7 +148,7 @@ public struct Breadcrumbs<Item>: View {
         let item = items[index]
         return HStack(spacing: Spacing.xs) {
             if let symbol = systemImage?(item) {
-                Image(systemName: symbol)
+                BlissSymbol(symbol)
             }
             Text(verbatim: title(item))
         }
@@ -213,7 +213,7 @@ public struct Breadcrumbs<Item>: View {
     }
 
     private var overflowLabel: some View {
-        Image(systemName: "ellipsis")
+        BlissSymbol("ellipsis")
             .font(font)
             // The glyph sits low; a line's height keeps it on the text's center.
             .frame(minHeight: Sizing.iconDefault)

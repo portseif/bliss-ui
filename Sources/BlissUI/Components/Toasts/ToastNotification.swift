@@ -29,7 +29,7 @@ private struct ToastStatusGlyph: View {
 
     var body: some View {
         if let symbol = Self.symbol(for: toast) {
-            Image(systemName: symbol)
+            BlissSymbol(symbol)
                 .font(Typography.labelMedium)
                 .foregroundStyle(toast.style.iconColor.legibleOnDark(colorScheme))
                 .accessibilityHidden(true)
@@ -81,7 +81,7 @@ private struct ToastDismissButton: View {
                 Circle()
                     .fill(RowTint.hover(colorScheme))
                     .opacity(isHovering ? 1 : 0)
-                Image(systemName: "xmark")
+                BlissSymbol("xmark")
                     .font(Typography.labelXTinySemibold)
                     .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
             }
@@ -349,7 +349,7 @@ public struct ToastNotification: View {
                         showingCancelConfirm = true
                     } label: {
                         HStack(spacing: Spacing.xs) {
-                            Image(systemName: "stop.fill")
+                            BlissSymbol("stop.fill")
                             Text("Stop", bundle: .module)
                         }
                     }
@@ -386,7 +386,7 @@ public struct ToastNotification: View {
         case .done:
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 HStack(spacing: Spacing.sm) {
-                    Image(systemName: "checkmark.circle.fill")
+                    BlissSymbol("checkmark.circle.fill")
                         .font(Typography.captionSmall)
                         .foregroundStyle(Success.success500)
                     Text(item.name)
@@ -409,7 +409,7 @@ public struct ToastNotification: View {
             }
         case .failed:
             HStack(spacing: Spacing.sm) {
-                Image(systemName: "xmark.circle.fill")
+                BlissSymbol("xmark.circle.fill")
                     .font(Typography.captionSmall)
                     .foregroundStyle(Danger.danger500)
                 Text(item.text.map { "\(item.name) — \($0)" } ?? item.name)
@@ -577,7 +577,7 @@ public struct ToastNotification: View {
                     HStack(spacing: Spacing.md) {
                         Button { copyError() } label: {
                             HStack(spacing: Spacing.xxs) {
-                                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                                BlissSymbol(copied ? "checkmark" : "doc.on.doc")
                                     .font(Typography.labelTiny)
                                 Text(copied ? "Copied" : (toast.failures.isEmpty ? "Copy error" : "Copy log"), bundle: .module)
                                     .font(Typography.labelMedium)
@@ -680,7 +680,7 @@ public struct ToastNotification: View {
     private func actionLabel(_ action: ToastAction) -> some View {
         HStack(spacing: Spacing.xxs) {
             if let icon = action.icon {
-                Image(systemName: icon)
+                BlissSymbol(icon)
                     .font(Typography.labelTiny)
             }
             Text(action.label)
@@ -731,7 +731,7 @@ struct ToastFailureRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.insetSpacing) {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: "doc")
+                BlissSymbol("doc")
                     .font(Typography.labelSmall)
                     .foregroundStyle(.secondary)
                 Text(failure.path)

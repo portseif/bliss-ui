@@ -121,7 +121,7 @@ private struct SettingsTableOfContentsRow: View {
                         .frame(maxHeight: .infinity)
                 }
                 if let systemImage {
-                    Image(systemName: systemImage)
+                    BlissSymbol(systemImage)
                         .font(Typography.labelMedium)
                         .foregroundStyle(titleColor)
                         .frame(width: Sizing.iconDefault)

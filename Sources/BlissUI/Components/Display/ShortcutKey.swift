@@ -121,7 +121,7 @@ public struct ShortcutKey: View {
             Text(verbatim: "to save").font(Typography.captionTiny).foregroundStyle(.tertiary)
         }
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "magnifyingglass")
+            BlissSymbol("magnifyingglass")
                 .font(Typography.labelMedium)
             Text(verbatim: "Search…")
                 .font(Typography.labelMedium)

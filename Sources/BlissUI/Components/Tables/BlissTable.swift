@@ -525,7 +525,7 @@ public struct BlissTableHeader<Row>: View {
                     Text(LocalizedStringKey(column.title))
                         .lineLimit(1)
                     if let sortOrder, sortOrder.columnID == column.id {
-                        Image(systemName: sortOrder.ascending ? "chevron.up" : "chevron.down")
+                        BlissSymbol(sortOrder.ascending ? "chevron.up" : "chevron.down")
                             .font(Typography.captionTiny)
                     }
                 }

@@ -68,7 +68,7 @@ public struct ConfirmationSheet: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             HStack(alignment: .top, spacing: Spacing.md) {
                 if let style {
-                    Image(systemName: style.defaultIcon)
+                    BlissSymbol(style.defaultIcon)
                         .font(Typography.bodyLarge)
                         .foregroundStyle(style.mark)
                         .accessibilityLabel(style.accessibilityName)

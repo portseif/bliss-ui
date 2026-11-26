@@ -44,7 +44,7 @@ private struct InfoGlyph: View {
     let size: InfoButtonSize
 
     var body: some View {
-        Image(systemName: systemImage)
+        BlissSymbol(systemImage)
             .font(size.font)
             .foregroundStyle(.secondary)
             .frame(minWidth: size.hitSize, minHeight: size.hitSize)

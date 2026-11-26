@@ -121,7 +121,7 @@ private struct TextBadgeContent: View {
 
                 // Icon
             if let icon = icon {
-                Image(systemName: icon)
+                BlissSymbol(icon)
                     .font(size.iconFont)
                     .foregroundStyle(style.iconColor(for: colorScheme))
             }
@@ -659,7 +659,7 @@ private struct StepBadge: View {
     VStack(alignment: .leading, spacing: 16) {
             // Feature row with Pro badge
         HStack {
-            Image(systemName: "icloud")
+            BlissSymbol("icloud")
                 .foregroundStyle(.secondary)
             Text("Cloud Sync")
             Spacer()

@@ -161,6 +161,11 @@ public enum BlissAppearance {
         ThemeAccentOverrides.set(color, for: theme)
     }
 
+    /// The accent picked for one theme, or nil while it uses its own.
+    public static func accent(for theme: BlissTheme) -> ThemeRGB? {
+        ThemeAccentOverrides.color(for: theme)
+    }
+
     /// Follow macOS's Reduce Motion, or force it for this app.
     public static var reduceMotion: ReduceMotionOption {
         get {

@@ -112,7 +112,7 @@ public struct ProgressOverlay: View {
         VStack(spacing: Spacing.lg) {
             // Header
             HStack(spacing: Spacing.md) {
-                Image(systemName: systemImage)
+                BlissSymbol(systemImage)
                     .font(Typography.displayMediumMedium)
                     .foregroundStyle(Color.accent)
 
@@ -133,7 +133,7 @@ public struct ProgressOverlay: View {
                     VStack(alignment: .trailing, spacing: Spacing.headingSpacing) {
                         ForEach(counters) { counter in
                             HStack(spacing: Spacing.xxs) {
-                                Image(systemName: counter.systemImage)
+                                BlissSymbol(counter.systemImage)
                                     .font(Typography.captionTiny)
                                 Text("\(counter.value)")
                                     .font(Typography.labelXSmall)
@@ -167,7 +167,7 @@ public struct ProgressOverlay: View {
                 VStack(spacing: Spacing.sm) {
                     if let activeItemsTitle {
                         HStack {
-                            Image(systemName: activeItemsSystemImage)
+                            BlissSymbol(activeItemsSystemImage)
                                 .font(Typography.captionTiny)
                                 .foregroundStyle(Warning.warning500)
                             Text(activeItemsTitle)

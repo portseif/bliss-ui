@@ -589,11 +589,11 @@ struct TokenChip: View {
     var body: some View {
         HStack(spacing: Spacing.hairline) {
             if isInvalid {
-                Image(systemName: "exclamationmark.circle")
+                BlissSymbol("exclamationmark.circle")
                     .font(iconFont)
                     .foregroundStyle(style.iconColor(for: colorScheme))
             } else if let systemImage {
-                Image(systemName: systemImage)
+                BlissSymbol(systemImage)
                     .font(iconFont)
                     .foregroundStyle(style.iconColor(for: colorScheme))
                     .padding(.trailing, Spacing.hairline)
@@ -629,7 +629,7 @@ struct TokenChip: View {
 
     private var removeButton: some View {
         Button(action: onRemove) {
-            Image(systemName: "xmark")
+            BlissSymbol("xmark")
                 .font(Typography.labelXTinySemibold)
                 .foregroundStyle(style.iconColor(for: colorScheme))
                 .frame(width: removeSize, height: removeSize)

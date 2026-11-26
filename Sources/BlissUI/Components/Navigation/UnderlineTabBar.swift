@@ -251,7 +251,7 @@ public struct UnderlineTabBar<Value: Hashable>: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: Sizing.iconTiny, height: Sizing.iconTiny)
         } else {
-            Image(systemName: icon)
+            BlissSymbol(icon)
                 .font(Typography.labelSmall)
         }
     }

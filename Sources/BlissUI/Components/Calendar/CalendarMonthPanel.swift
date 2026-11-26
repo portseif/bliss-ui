@@ -364,7 +364,7 @@ struct CalendarMonthHeader: View {
         // backward / forward, not left / right: they mirror in right-to-left
         // layouts, where the previous month sits on the right.
         Button(action: action) {
-            Image(systemName: symbol)
+            BlissSymbol(symbol)
                 .font(isCompact ? Typography.labelSmall : Typography.labelMedium)
         }
         .buttonStyle(ToolbarIconButtonStyle(compact: isCompact))

@@ -113,7 +113,7 @@ public struct DisclosureSection<Label: View, Content: View, Trailing: View>: Vie
     }
 
     private var chevron: some View {
-        Image(systemName: "chevron.right")
+        BlissSymbol("chevron.right")
             .font(Typography.labelTinySemibold)
             .foregroundStyle(.secondary)
             .rotationEffect(.degrees(isExpanded.wrappedValue ? 90 : 0))

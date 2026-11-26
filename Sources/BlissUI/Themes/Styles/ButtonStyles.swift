@@ -1197,7 +1197,7 @@ private struct AnimatedGradientBorderButton: View {
                 Button("Disabled") { }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(true)
-                Button { } label: { Image(systemName: "plus") }
+                Button { } label: { BlissSymbol("plus") }
                     .buttonStyle(PrimaryButtonStyle(iconOnly: true))
             }
         }
@@ -1217,7 +1217,7 @@ private struct AnimatedGradientBorderButton: View {
                 .buttonStyle(SecondaryButtonStyle())
                 Button {
                 } label: {
-                    Image(systemName: "folder")
+                    BlissSymbol("folder")
                 }
                 .buttonStyle(SecondaryButtonStyle(iconOnly: true))
             }

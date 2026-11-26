@@ -195,7 +195,7 @@ struct SuggestionListContent<Item: Hashable>: View {
         } label: {
             HStack(spacing: Spacing.sm) {
                 if let icon {
-                    Image(systemName: icon(item))
+                    BlissSymbol(icon(item))
                         .font(Typography.caption)
                         .foregroundStyle(MenuRowTone.icon)
                         .frame(width: Sizing.iconDefault)
@@ -207,7 +207,7 @@ struct SuggestionListContent<Item: Hashable>: View {
                     .truncationMode(.tail)
                 Spacer(minLength: Spacing.sm)
                 if isCurrent {
-                    Image(systemName: "checkmark")
+                    BlissSymbol("checkmark")
                         .font(Typography.labelSmall)
                         .foregroundStyle(MenuRowTone.checkmark)
                 }

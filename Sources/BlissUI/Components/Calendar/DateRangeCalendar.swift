@@ -424,7 +424,7 @@ private struct DateRangePresetRow: View {
                     .foregroundStyle(isEnabled ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
                     .lineLimit(1)
                 Spacer(minLength: Spacing.sm)
-                Image(systemName: "checkmark")
+                BlissSymbol("checkmark")
                     .font(Typography.labelSmall)
                     .foregroundStyle(Color.accent)
                     .opacity(isSelected ? 1 : 0)

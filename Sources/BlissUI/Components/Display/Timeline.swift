@@ -257,7 +257,7 @@ public struct TimelineItem<Content: View>: View {
                 .fill(color)
                 .frame(width: markHeight, height: markHeight)
         case .icon(let name, let color):
-            Image(systemName: name)
+            BlissSymbol(name)
                 .font(Typography.captionSmall)
                 .foregroundStyle(color)
                 .frame(width: markHeight, height: markHeight)

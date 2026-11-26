@@ -49,7 +49,7 @@ public struct CheckboxGlyph: View {
         ZStack {
             if isOn || isMixed {
                 shape.fill(fill)
-                Image(systemName: isMixed ? "minus" : "checkmark")
+                BlissSymbol(isMixed ? "minus" : "checkmark")
                     .font(size < Self.compactThreshold ? Typography.labelMicroBold : Typography.labelMiniBold)
                     .foregroundStyle(glyphColor)
             } else {

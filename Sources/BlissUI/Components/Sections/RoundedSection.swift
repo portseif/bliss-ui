@@ -290,7 +290,7 @@ private struct DividedVStackLayout: _VariadicView_UnaryViewRoot {
     } header: {
         HStack(spacing: Spacing.xs) {
             Text("File Browser")
-            Image(systemName: "info.circle")
+            BlissSymbol("info.circle")
                 .font(Typography.caption)
                 .foregroundStyle(.secondary)
         }
@@ -315,7 +315,7 @@ private struct DividedVStackLayout: _VariadicView_UnaryViewRoot {
     RoundedSection("Tools", divided: true) {
         ForEach(["Xcode", "Homebrew", "Git"], id: \.self) { tool in
             HStack {
-                Image(systemName: "hammer")
+                BlissSymbol("hammer")
                 VStack(alignment: .leading) {
                     Text(verbatim: tool)
                     Text("Developer tool")
@@ -323,7 +323,7 @@ private struct DividedVStackLayout: _VariadicView_UnaryViewRoot {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "checkmark.circle.fill")
+                BlissSymbol("checkmark.circle.fill")
                     .foregroundStyle(Success.success500)
             }
         }

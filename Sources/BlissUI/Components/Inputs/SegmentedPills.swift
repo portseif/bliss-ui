@@ -184,7 +184,7 @@ private struct SegmentedPillsSegment: View {
         Button(action: action) {
             HStack(spacing: Spacing.xs) {
                 if let icon {
-                    Image(systemName: icon)
+                    BlissSymbol(icon)
                         .font(font)
                 }
                 if showsTitle {

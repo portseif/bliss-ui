@@ -74,7 +74,7 @@ public struct EmptyState<Actions: View>: View {
 
     public var body: some View {
         VStack(spacing: compact ? Spacing.sm : Spacing.lg) {
-            Image(systemName: icon)
+            BlissSymbol(icon)
                 .font(compact ? Typography.headingLarge : Typography.displayLargeLight)
                 .foregroundStyle(iconColor.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.tertiary))
 

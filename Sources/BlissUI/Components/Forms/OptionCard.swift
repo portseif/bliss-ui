@@ -235,7 +235,7 @@ public struct OptionCard<Artwork: View>: View {
             artwork()
                 .accessibilityHidden(true)
         } else if let icon {
-            Image(systemName: icon)
+            BlissSymbol(icon)
                 .font(font)
                 .foregroundStyle(isSelected ? Color.accent : Color.secondary)
                 .frame(width: axis == .horizontal ? slot : nil, height: axis == .vertical ? slot : nil)

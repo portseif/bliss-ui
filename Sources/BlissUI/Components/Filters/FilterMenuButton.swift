@@ -128,7 +128,7 @@ public struct FilterMenuButton: View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return Button(action: action) {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: systemImage)
+                BlissSymbol(systemImage)
                     .font(Typography.captionSmall)
                     .accessibilityHidden(true)
                 if showsTitle {
@@ -147,7 +147,7 @@ public struct FilterMenuButton: View {
                         .accessibilityHidden(true)
                 }
                 if showsChevron {
-                    Image(systemName: "chevron.down")
+                    BlissSymbol("chevron.down")
                         .font(Typography.captionTiny)
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)

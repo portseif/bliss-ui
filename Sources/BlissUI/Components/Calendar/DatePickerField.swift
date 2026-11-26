@@ -188,13 +188,13 @@ struct DateFieldLabel: View {
 
     var body: some View {
         HStack(spacing: Spacing.inlineSpacing) {
-            Image(systemName: "calendar")
+            BlissSymbol("calendar")
                 .font(Typography.labelMedium)
                 .accessibilityHidden(true)
             text
                 .lineLimit(1)
                 .foregroundStyle(isPlaceholder ? AnyShapeStyle(Color.textTertiary) : AnyShapeStyle(.primary))
-            Image(systemName: "chevron.up.chevron.down")
+            BlissSymbol("chevron.up.chevron.down")
                 .font(Typography.bodySmallSemibold)
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)

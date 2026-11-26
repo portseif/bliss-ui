@@ -155,7 +155,7 @@ public struct FormField<Content: View, Accessory: View>: View {
             Group {
                 if let error {
                     HStack(alignment: .firstTextBaseline, spacing: Spacing.xxs) {
-                        Image(systemName: "exclamationmark.circle.fill")
+                        BlissSymbol("exclamationmark.circle.fill")
                         Text(error)
                             .fixedSize(horizontal: false, vertical: true)
                     }

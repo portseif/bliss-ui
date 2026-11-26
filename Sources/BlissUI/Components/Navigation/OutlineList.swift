@@ -307,7 +307,7 @@ private struct OutlineRowView<Content: View>: View {
     private var chevron: some View {
         if hasChildren {
             Button(action: onToggle) {
-                Image(systemName: "chevron.right")
+                BlissSymbol("chevron.right")
                     .font(compact ? Typography.labelTinySemibold : Typography.captionSmallSemibold)
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
@@ -373,7 +373,7 @@ private struct OutlinePreviewNode: Identifiable {
         Label {
             Text(verbatim: node.name).font(Typography.bodySmall)
         } icon: {
-            Image(systemName: node.icon).foregroundStyle(.secondary)
+            BlissSymbol(node.icon).foregroundStyle(.secondary)
         }
     }
     .padding(Spacing.md)

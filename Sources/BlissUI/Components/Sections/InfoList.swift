@@ -26,7 +26,7 @@ public struct InfoRow: View, Identifiable {
 
         case .status(let text, let icon, let style, let detail):
             HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-                Image(systemName: icon)
+                BlissSymbol(icon)
                     .font(Typography.caption)
                     .foregroundStyle(style.color)
                 VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
@@ -45,7 +45,7 @@ public struct InfoRow: View, Identifiable {
             HStack {
                 Spacer()
                 HStack(spacing: Spacing.xxs) {
-                    Image(systemName: "arrow.triangle.branch")
+                    BlissSymbol("arrow.triangle.branch")
                         .font(Typography.captionTiny)
                     Text(branch)
                         .font(Typography.codeTiny)
@@ -174,7 +174,7 @@ public enum StatusStyle {
                 InfoRow.custom {
                     LabeledContent("Custom") {
                         HStack(spacing: Spacing.xxs) {
-                            Image(systemName: "arrow.triangle.branch")
+                            BlissSymbol("arrow.triangle.branch")
                                 .font(Typography.caption)
                             Text("feature/new-ui")
                                 .font(Typography.codeSmall)

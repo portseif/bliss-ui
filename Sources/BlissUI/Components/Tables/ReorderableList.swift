@@ -123,7 +123,7 @@ public struct ReorderableList<Item: Identifiable, Row: View>: View {
     private func grip(for item: Item, at index: Int) -> some View {
         let isDragging = draggingID == item.id
         let isMovable = isMovable(item)
-        return Image(systemName: "line.3.horizontal")
+        return BlissSymbol("line.3.horizontal")
             .font(Typography.caption)
             .foregroundStyle(.secondary)
             .frame(width: Sizing.iconDefault, height: Sizing.iconDefault)
@@ -316,7 +316,7 @@ private struct ReorderPreviewStep: Identifiable {
         Label {
             Text(verbatim: step.title).font(Typography.bodySmall)
         } icon: {
-            Image(systemName: step.icon)
+            BlissSymbol(step.icon)
                 .foregroundStyle(.secondary)
                 .frame(width: Sizing.iconDefault)
         }

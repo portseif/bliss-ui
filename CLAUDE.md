@@ -76,6 +76,10 @@ Four built-ins: **System** (no palettes — built-in tokens, macOS accent, byte-
 - With a theme active the accent is still a picker: the theme's accent is its default, and a pick is kept per theme (`id=#RRGGBB` pairs in one string so one `@AppStorage` observes all of them).
 - **No status mark may equal the theme's accent** — `statusTint` / `legibleOnDark` recognize marks by color. That's why Color Blind Safe's info is Okabe blue, not its sky-blue accent.
 
+### Icons (`BlissIcons.swift`)
+
+Every glyph goes through `BlissSymbol(name)`, never `Image(systemName:)` — including a symbol an app passes as `systemImage:`. `BlissSymbol` asks `BlissIcons.replacement` (an app's own icon set) first and draws the replacement over the SF Symbol, laid out but hidden, so the frame and baseline stay the symbol's. Only a preview's sample data, or a slot that must be an `Image` or `Text` (a slider's `Text` labels), keeps `Image(systemName:)`.
+
 ### Colors (`Colors.swift`)
 
 - Surfaces: `Color.windowBackground`, `controlBackground`, `contentAreaBackground`, `appShell`, `menuBorder`, `restingFill` (the faint fill a box rests on before focus or hover lifts it to `controlBackground`).

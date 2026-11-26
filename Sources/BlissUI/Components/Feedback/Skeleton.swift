@@ -282,7 +282,7 @@ private struct SkeletonClipShape: Shape {
     @Previewable @State var isLoading = true
     VStack(alignment: .leading, spacing: Spacing.md) {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "person.crop.circle.fill")
+            BlissSymbol("person.crop.circle.fill")
                 .font(Typography.displaySmall)
             VStack(alignment: .leading, spacing: Spacing.headingSpacing) {
                 Text("Ada Lovelace").font(Typography.bodySmallSemibold)

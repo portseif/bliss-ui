@@ -234,10 +234,10 @@ public struct Avatar: View {
                     AvatarPalette.fill(for: name).color
                 }
                 if let symbol {
-                    Image(systemName: symbol)
+                    BlissSymbol(symbol)
                         .font(size.glyphFont)
                 } else if initials.isEmpty {
-                    Image(systemName: "person.fill")
+                    BlissSymbol("person.fill")
                         .font(size.glyphFont)
                 } else {
                     Text(verbatim: initials)

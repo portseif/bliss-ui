@@ -155,7 +155,7 @@ public struct DropZone: View {
             ThinkingSpinner(size: compact ? Sizing.iconDefault : Sizing.iconMedium)
                 .accessibilityHidden(true)
         } else {
-            Image(systemName: systemImage)
+            BlissSymbol(systemImage)
                 .font(font)
                 .foregroundStyle(isTargeted ? Color.accent : Color.secondary)
                 .accessibilityHidden(true)

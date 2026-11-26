@@ -219,7 +219,7 @@ public struct Pagination: View {
 
     private func arrowButton(systemImage: String, label: Text, isEnabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemImage)
+            BlissSymbol(systemImage)
                 .font(Typography.labelMedium)
         }
         .buttonStyle(SecondaryButtonStyle(compact: true, iconOnly: true))

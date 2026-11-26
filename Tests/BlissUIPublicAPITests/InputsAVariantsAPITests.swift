@@ -49,6 +49,8 @@ import BlissUI
     @Test func floatingMenuPickerVariantsAreReachable() {
         _ = FloatingMenuPicker("Sort", selection: .constant(""), options: ["Name"], optionTitle: { $0 }, compact: true, showsBorder: false, placeholder: "Sort by", iconOnly: true)
         _ = FloatingMenuPicker("View", selection: .constant("Grid"), options: ["Grid"], optionTitle: { $0 }, optionIconView: { _, size in Image(systemName: "square.grid.2x2").frame(width: size) }, compact: true, showsBorder: false, placeholder: "View", iconOnly: true)
+        _ = Button("All sites") {}.buttonStyle(FloatingMenuPickerButtonStyle(isActive: false))
+        _ = Button("All sites") {}.buttonStyle(FloatingMenuPickerButtonStyle(isActive: true, compact: true, showsBorder: false))
     }
 
     @Test func iconPickerVariantsAreReachable() {

@@ -10,7 +10,17 @@ import BlissUI
         #expect(BlissTheme.system.isSystem)
         #expect(BlissTheme.highContrast.minimumStatusContrast == 7)
         _ = ThemeRGB(0xFF0000).color
+        _ = BlissAppearance.accent(for: .lowGlare)
         _ = Text("Hi").blissTheme()
+    }
+
+    @Test func iconReplacementIsReachable() {
+        BlissIcons.replacement = { symbolName in
+            symbolName == "checkmark" ? AnyView(Circle()) : nil
+        }
+        #expect(BlissIcons.replacement?("checkmark") != nil)
+        #expect(BlissIcons.replacement?("xmark") == nil)
+        BlissIcons.replacement = nil
     }
 
     @Test func tokensAreReachable() {

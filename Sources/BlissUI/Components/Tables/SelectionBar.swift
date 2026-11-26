@@ -149,10 +149,10 @@ public struct SelectionBarButton: View {
     public var body: some View {
         Button(action: action) {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: systemImage)
+                BlissSymbol(systemImage)
                 Text(title)
                 if showsChevron {
-                    Image(systemName: "chevron.down")
+                    BlissSymbol("chevron.down")
                         .font(Typography.captionTiny)
                         .foregroundStyle(.tertiary)
                 }
@@ -172,7 +172,7 @@ private struct SelectionBarClearButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "xmark")
+            BlissSymbol("xmark")
                 .font(Typography.labelTinySemibold)
                 .foregroundStyle(isHovering ? Color.textPrimary : Color.textSecondary)
                 .frame(width: Sizing.controlSmall, height: Sizing.controlSmall)

@@ -183,7 +183,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Page: View>: 
 
     private func arrow(systemImage: String, label: Text, isEnabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemImage)
+            BlissSymbol(systemImage)
         }
         .buttonStyle(ToolbarIconButtonStyle())
         // A surface under the glyph, so it reads over whatever the page shows.
@@ -327,7 +327,7 @@ private struct CarouselPreviewPage: Identifiable {
     ]
     Carousel(pages, selection: $pageID) { page in
         VStack(spacing: Spacing.sm) {
-            Image(systemName: page.systemImage)
+            BlissSymbol(page.systemImage)
                 .font(Typography.displaySmall)
                 .foregroundStyle(.secondary)
             Text(verbatim: page.title)

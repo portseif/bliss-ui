@@ -558,7 +558,7 @@ private struct KanbanPreviewTask: Identifiable {
         }
     } columnFooter: { _ in
         Button {} label: {
-            Label { Text("Add card") } icon: { Image(systemName: "plus") }
+            Label { Text("Add card") } icon: { BlissSymbol("plus") }
         }
         .buttonStyle(GhostButtonStyle(compact: true))
     }

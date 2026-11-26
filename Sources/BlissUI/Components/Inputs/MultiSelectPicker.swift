@@ -131,7 +131,7 @@ public struct MultiSelectPicker<Option: Hashable>: View {
             } label: {
                 HStack(spacing: Spacing.inlineSpacing) {
                     triggerContent
-                    Image(systemName: "chevron.up.chevron.down")
+                    BlissSymbol("chevron.up.chevron.down")
                         .font(Typography.bodySmallSemibold)
                         .foregroundStyle(.tertiary)
                 }
@@ -306,7 +306,7 @@ struct MultiSelectMenuContent<Option: Hashable>: View {
         } leading: {
             CheckboxGlyph(isOn: isOn)
             if let optionIcon {
-                Image(systemName: optionIcon(option))
+                BlissSymbol(optionIcon(option))
                     .font(Typography.labelSmall)
                     .foregroundStyle(.secondary)
                     .frame(width: Sizing.iconDefault)
@@ -319,7 +319,7 @@ struct MultiSelectMenuContent<Option: Hashable>: View {
         FilterMenuRow(.verbatim(String(localized: "Clear", bundle: .module)), isFocused: focusedIndex == index) {
             selection.removeAll()
         } leading: {
-            Image(systemName: "xmark.circle")
+            BlissSymbol("xmark.circle")
                 .font(Typography.labelSmall)
                 .foregroundStyle(.secondary)
                 .frame(width: Sizing.iconDefault)

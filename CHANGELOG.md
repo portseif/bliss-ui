@@ -36,6 +36,9 @@ All notable changes to BlissUI. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- `BlissIcons.replacement`: draw BlissUI's glyphs with another icon set. Every symbol a component draws, and every `systemImage:` an app passes, asks it first; a replacement fills the frame the SF Symbol would have taken, so layouts and baselines don't move, and VoiceOver still reads the symbol's description. A `systemImage:` can be the app's own icon name, laid out in the frame of `square`.
+- `BlissAppearance.accent(for:)`: the accent picked for a theme, the getter beside `setAccent(_:for:)`.
+- `FloatingMenuPickerButtonStyle` is public, for a custom picker that opens its own `.floatingMenu` and should look like the `FloatingMenuPicker`s beside it.
 - `.controlShape(.square)` / `.rounded` / `.round`: one corner style for every control below. Text buttons, toolbar icon buttons, text and search fields, `.inputBox`, `FloatingMenuPicker`'s trigger, `ShortcutRecorder`, `SegmentedPills`, `ColorPickerButton` (its swatch, hex chip and presets) and `ThemeCard` read it. Square is sharp; rounded keeps each control's own corners; round is a capsule on a single-line control and `radiusXLarge` on a box that holds more than one line. A button's `cornerRadiusOverride` still wins. `.inputBox` takes `isMultiline: true` for a box's corners, and its `cornerRadius` is now optional (nil follows the shape).
 - `.toggleStyle(.flatCheckbox)` / `.flatCheckbox(tint:)`: a checkbox whose label toggles it too, one Tab stop. A `.flatSwitch`'s drawn label now flips the switch as well.
 - `StepIndicator(grows: true)`: the current dot stretches into a short line.

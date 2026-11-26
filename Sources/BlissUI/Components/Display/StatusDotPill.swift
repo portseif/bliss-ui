@@ -76,7 +76,7 @@ public struct StatusDotPill: View {
         let foreground = isActive ? color.legibleOnDark(colorScheme) : Color.textSecondary
         HStack(spacing: size.iconSpacing) {
             if let icon {
-                Image(systemName: icon)
+                BlissSymbol(icon)
                     .font(size.iconFont)
                     .foregroundStyle(foreground)
             } else {
