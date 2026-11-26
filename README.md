@@ -33,7 +33,7 @@ Add the package in Xcode (**File → Add Package Dependencies…**) or in `Packa
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/portseif/bliss-ui.git", from: "2.4.1"),
+    .package(url: "https://github.com/portseif/bliss-ui.git", from: "2.5.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [.product(name: "BlissUI", package: "bliss-ui")]),
